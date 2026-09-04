@@ -1,6 +1,10 @@
 "use client";
 
+
 import { useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import Link from "next/link";
+import { AlertTriangle, ArrowRight } from "lucide-react";
 import SeletorRefeicao, { TipoRefeicao } from "@/app/components/SeletorRefeicao";
 import CardapioCard from "@/app/components/CardapioCard";
 import {
@@ -103,6 +107,7 @@ export default function ConsumoDiarioPage() {
   const [dataRegistro, setDataRegistro] = useState(
     new Date().toISOString().split("T")[0]
   );
+  const { bannerAlertasVisivel, dispensarBannerAlertas } = useAuth();
   const [tipoRefeicao, setTipoRefeicao] = useState<TipoRefeicao>("Almoço");
   const [itens, setItens] = useState<ItemFicha[]>(BASE_ITENS);
   const [observacao, setObservacao] = useState("");
@@ -156,6 +161,26 @@ export default function ConsumoDiarioPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8 pb-44">
       {/* 1. TOPO: TÍTULO, DATA E SELETOR */}
+      {/* BANNER DE AVISO (Só some quando clicam para ver os alertas) */}
+      {bannerAlertasVisivel && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 bg-amber-50/70 border border-amber-200/90 rounded-xl text-amber-900 transition-all">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <p className="text-xs sm:text-sm font-medium text-amber-950 truncate">
+              <strong>Lembrete:</strong> Há insumos com validade próxima ou estoque baixo em atenção.
+            </p>
+          </div>
+
+          <Link
+            href="/alertas"
+            onClick={dispensarBannerAlertas}
+            className="flex items-center gap-1 text-xs font-bold text-amber-800 hover:text-amber-950 underline underline-offset-2 shrink-0 self-start sm:self-auto cursor-pointer"
+          >
+            <span>Ver avisos</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-4 sm:pb-6 border-b border-slate-200">
         <div>
           <span className="text-[11px] sm:text-xs font-bold tracking-widest text-emerald-700 uppercase bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">

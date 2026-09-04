@@ -84,24 +84,34 @@ export default function Sidebar() {
             {links.map((link) => {
               const Icon = link.icon;
               const isActive = pathname === link.href;
+              const isAlertas = link.href === "/alertas" || link.href === "/notificacoes";
 
               return (
                 <Link
                   key={link.href}
                   href={link.href}
                   onClick={() => setMenuMobileAberto(false)}
-                  className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors ${
+                  className={`flex items-center justify-between px-3 py-3 rounded-xl text-sm font-medium transition-colors ${
                     isActive
                       ? "bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200/60"
                       : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`}
                 >
-                  <Icon
-                    className={`w-4 h-4 shrink-0 ${
-                      isActive ? "text-emerald-600" : "text-slate-400"
-                    }`}
-                  />
-                  <span>{link.label}</span>
+                  <div className="flex items-center gap-3">
+                    <Icon
+                      className={`w-4 h-4 shrink-0 ${
+                        isActive ? "text-emerald-600" : "text-slate-400"
+                      }`}
+                    />
+                    <span>{link.label}</span>
+                  </div>
+
+                  {/* Badge numérico de alerta */}
+                  {isAlertas && (
+                    <span className="px-2 py-0.5 text-[11px] font-black rounded-full bg-rose-600 text-white shadow-xs">
+                      6
+                    </span>
+                  )}
                 </Link>
               );
             })}
