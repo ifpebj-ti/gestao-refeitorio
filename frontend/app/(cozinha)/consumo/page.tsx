@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import CardapioCard from "@/app/components/CardapioCard";
 import SeletorRefeicao, { TipoRefeicao } from "@/app/components/SeletorRefeicao";
 import {
   Calendar,
@@ -187,45 +188,7 @@ export default function ConsumoDiarioPage() {
         </div>
       </div>
 
-      {/* 2. CARD DO CARDÁPIO PLANEJADO POR HÍTALO */}
-      <div className="bg-gradient-to-r from-emerald-50 via-white to-emerald-50/40 border-2 border-emerald-200/90 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm tracking-wide uppercase">
-              <Sparkles className="w-4 h-4 text-emerald-600" />
-              <span>Cardápio Previsto para este {tipoRefeicao} (Nutrição)</span>
-            </div>
-            <h2 className="text-xl md:text-2xl font-black text-slate-800 leading-tight">
-              {cardapioAtual.pratoPrincipal}
-            </h2>
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-xs font-semibold text-slate-500">Acompanhamentos:</span>
-              {cardapioAtual.acompanhamentos.map((acomp, idx) => (
-                <span
-                  key={idx}
-                  className="bg-white border border-emerald-200 text-slate-700 text-xs px-3 py-1 rounded-lg font-medium shadow-2xs"
-                >
-                  {acomp}
-                </span>
-              ))}
-              {cardapioAtual.sobremesa && (
-                <span className="bg-emerald-100/70 text-emerald-900 border border-emerald-300 text-xs px-3 py-1 rounded-lg font-semibold">
-                  Sobremesa: {cardapioAtual.sobremesa}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="hidden sm:flex flex-col items-end text-right shrink-0">
-            <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
-              Planejamento Semanal
-            </span>
-            <span className="text-xs font-bold text-slate-700 mt-0.5">
-              Nutricionista Hítalo
-            </span>
-          </div>
-        </div>
-      </div>
+      <CardapioCard refeicao={tipoRefeicao} dados={cardapioAtual} />
 
       {/* Alerta de Sucesso */}
       {feedbackSucesso && (
