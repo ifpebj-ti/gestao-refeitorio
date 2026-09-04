@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 
 export type PerfilUsuario = "COZINHA" | "NUTRICIONISTA";
 
@@ -17,16 +18,43 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Rotas restritas e exclusivas de cada perfil
+const ROTAS_EXCLUSIVAS_NUTRI = ["/estoque", "/cardapio", "/relatorios"];
+const ROTAS_EXCLUSIVAS_COZINHA = ["/recebimento"];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [perfil, setPerfil] = useState<PerfilUsuario>("COZINHA");
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const [bannerAlertasVisivel, setBannerAlertasVisivel] = useState(true);
 
-  // Quantidade total de alertas ativos (3 vencendo + 3 estoque baixo)
   const totalAlertasPendentes = 6;
 
+  // Guarda de rota em tempo real (bloqueia URL digitada ou transições diretas)
+  useEffect(() => {
+    if (!pathname) return;
+
+    if (perfil === "COZINHA" && ROTAS_EXCLUSIVAS_NUTRI.some((r) => pathname.startsWith(r))) {
+      router.replace("/consumo");
+    } else if (perfil === "NUTRICIONISTA" && ROTAS_EXCLUSIVAS_COZINHA.some((r) => pathname.startsWith(r))) {
+      router.replace("/estoque");
+    }
+  }, [perfil, pathname, router]);
+
   const alternarPerfil = () => {
-    setPerfil((prev) => (prev === "COZINHA" ? "NUTRICIONISTA" : "COZINHA"));
+    setPerfil((prev) => {
+      const novoPerfil = prev === "COZINHA" ? "NUTRICIONISTA" : "COZINHA";
+
+      if (novoPerfil === "COZINHA" && ROTAS_EXCLUSIVAS_NUTRI.some((r) => pathname.startsWith(r))) {
+        router.replace("/consumo");
+      } else if (novoPerfil === "NUTRICIONISTA" && ROTAS_EXCLUSIVAS_COZINHA.some((r) => pathname.startsWith(r))) {
+        router.replace("/estoque");
+      }
+
+      return novoPerfil;
+    });
   };
 
   const toggleMenuMobile = () => {

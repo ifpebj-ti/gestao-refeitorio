@@ -242,7 +242,7 @@ export default function ConsumoDiarioPage() {
   ] as const;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8 pb-44">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-36">
       {/* 1. TOPO: TÍTULO, STATUS DINÂMICO E SELETOR */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-4 sm:pb-6 border-b border-slate-200">
         <div>
@@ -501,59 +501,49 @@ export default function ConsumoDiarioPage() {
 
         <div className="h-16 w-full" aria-hidden="true" />
 
-        {/* 5. BARRA FLUTUANTE DE ENCERRAMENTO */}
-        <div className="fixed bottom-3 left-3 right-3 lg:left-72 lg:right-8 bg-white/95 backdrop-blur-md border-2 border-slate-200 p-3 sm:p-4 rounded-2xl shadow-xl z-20 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+        {/* BARRA FLUTUANTE ENXUTA E ALINHADA */}
+        <div className="fixed bottom-4 left-0 right-0 lg:pl-64 px-4 sm:px-6 pointer-events-none z-30">
+          <div className="max-w-6xl mx-auto bg-white/95 backdrop-blur-md border border-slate-200 py-2.5 px-4 sm:px-5 rounded-2xl shadow-lg pointer-events-auto flex items-center justify-between gap-4">
+            {/* Lado Esquerdo: Contador Compacto */}
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm sm:text-base shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0">
                 {totalLancados}
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm font-bold text-slate-800 leading-tight">
+              </span>
+              <div className="leading-tight">
+                <span className="text-xs font-bold text-slate-800">
                   {totalLancados === 1 ? "1 insumo" : `${totalLancados} insumos`}
-                </p>
-                <p className="text-[10px] sm:text-xs text-slate-500">
-                  {isNutricionista ? `Registrados no ${tipoRefeicao}` : `Para o ${tipoRefeicao}`}
-                </p>
+                </span>
+                <span className="text-[11px] text-slate-400 hidden sm:inline ml-1.5">
+                  • {isNutricionista ? `Registrados no ${tipoRefeicao}` : `Para o ${tipoRefeicao}`}
+                </span>
               </div>
             </div>
 
-            {!isNutricionista && (
-              <button
-                type="button"
-                onClick={() =>
-                  setItens((prev) => prev.map((item) => ({ ...item, quantidadeUsada: 0 })))
-                }
-                className="sm:hidden text-xs font-bold text-slate-400 hover:text-slate-700 underline"
-              >
-                Limpar
-              </button>
-            )}
-          </div>
+            {/* Lado Direito: Limpar e Ação Principal */}
+            <div className="flex items-center gap-2">
+              {!isNutricionista && totalLancados > 0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setItens((prev) => prev.map((item) => ({ ...item, quantidadeUsada: 0 })))
+                  }
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                >
+                  Limpar
+                </button>
+              )}
 
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            {!isNutricionista && (
               <button
-                type="button"
-                onClick={() =>
-                  setItens((prev) => prev.map((item) => ({ ...item, quantidadeUsada: 0 })))
-                }
-                className="hidden sm:inline-block px-4 py-3 text-xs sm:text-sm font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                type="submit"
+                disabled={isNutricionista ? !modoEdicaoNutri : totalLancados === 0}
+                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-40 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer disabled:cursor-not-allowed"
               >
-                Limpar
+                <Send className="w-3.5 h-3.5" />
+                <span>
+                  {isNutricionista ? "Salvar Ajustes" : "Registrar Consumo"}
+                </span>
               </button>
-            )}
-
-            <button
-              type="submit"
-              disabled={isNutricionista ? !modoEdicaoNutri : totalLancados === 0}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 sm:py-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-40 text-white rounded-xl text-sm sm:text-base font-extrabold shadow-md transition-all cursor-pointer disabled:cursor-not-allowed"
-            >
-              <Send className="w-4 h-4" />
-              <span>
-                {isNutricionista ? "Salvar Retificações" : "Registrar Consumo"}
-              </span>
-            </button>
+            </div>
           </div>
         </div>
       </form>
