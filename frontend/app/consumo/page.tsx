@@ -1,12 +1,10 @@
 "use client";
 
-
-import { useState } from "react";
-import { useAuth } from "../context/AuthContext";
-import Link from "next/link";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
 import SeletorRefeicao, { TipoRefeicao } from "@/app/components/SeletorRefeicao";
 import CardapioCard from "@/app/components/CardapioCard";
+import { useAuth } from "../context/AuthContext";
+import Link from "next/link";
 import {
   Calendar,
   Plus,
@@ -14,13 +12,24 @@ import {
   CheckCircle2,
   Send,
   Info,
+  AlertTriangle,
+  ArrowRight,
+  ShieldCheck,
+  Edit3,
+  Lock,
+  Clock,
 } from "lucide-react";
 
 interface ItemFicha {
   id: string;
   nome: string;
   unidade: string;
-  categoria: "Grãos & Cereais" | "Proteínas & Frios" | "Hortifrúti" | "Laticínios" | "Especificações & Condimentos";
+  categoria:
+    | "Grãos & Cereais"
+    | "Proteínas & Frios"
+    | "Hortifrúti"
+    | "Laticínios"
+    | "Especificações & Condimentos";
   quantidadeUsada: number;
 }
 
@@ -91,7 +100,7 @@ const BASE_ITENS: ItemFicha[] = [
   { id: "e22", nome: "Pimenta do Reino", unidade: "g", categoria: "Especificações & Condimentos", quantidadeUsada: 0 },
   { id: "e23", nome: "Sal", unidade: "Kg", categoria: "Especificações & Condimentos", quantidadeUsada: 0 },
   { id: "e24", nome: "Vinagre", unidade: "Lt", categoria: "Especificações & Condimentos", quantidadeUsada: 0 },
-  { id: "e25", nome: "Azeitona em Conserva", unidade: "Balde/Kg", categoria: "Especificações & Condimentos", quantidadeUsada: 0 },
+  { id: "e25", nome: "Azeitona em Conserva", unidade: "Kg", categoria: "Especificações & Condimentos", quantidadeUsada: 0 },
 ];
 
 const CARDAPIO_MOCK: Record<TipoRefeicao, string> = {
@@ -103,19 +112,88 @@ const CARDAPIO_MOCK: Record<TipoRefeicao, string> = {
     "Sopa nutritiva de carne desfiada com macarrão e legumes, torradas temperadas, café e leite.",
 };
 
+// Horários e status dinâmicos por turno
+const HORARIOS_ENCERRAMENTO_MOCK: Record<TipoRefeicao, { hora: string; status: boolean }> = {
+  "Café da Manhã": { hora: "08:45", status: true },
+  "Almoço": { hora: "13:30", status: true },
+  "Jantar": { hora: "19:15", status: false },
+};
+
 export default function ConsumoDiarioPage() {
+  const { perfil, bannerAlertasVisivel, dispensarBannerAlertas } = useAuth();
+  const isNutricionista = perfil === "NUTRICIONISTA";
+
   const [dataRegistro, setDataRegistro] = useState(
     new Date().toISOString().split("T")[0]
   );
-  const { bannerAlertasVisivel, dispensarBannerAlertas } = useAuth();
   const [tipoRefeicao, setTipoRefeicao] = useState<TipoRefeicao>("Almoço");
   const [itens, setItens] = useState<ItemFicha[]>(BASE_ITENS);
   const [observacao, setObservacao] = useState("");
   const [feedbackSucesso, setFeedbackSucesso] = useState(false);
 
+  // Estados de controle para o modo do nutricionista
+  const [turnoEncerradoPelaCozinha, setTurnoEncerradoPelaCozinha] = useState(false);
+  const [modoEdicaoNutri, setModoEdicaoNutri] = useState(false);
+
+  // Altera os dados e horários de forma contextual ao mudar de refeição ou perfil
+  useEffect(() => {
+    const turnoInfo = HORARIOS_ENCERRAMENTO_MOCK[tipoRefeicao];
+
+    if (isNutricionista && turnoInfo.status) {
+      setTurnoEncerradoPelaCozinha(true);
+      setModoEdicaoNutri(false);
+
+      if (tipoRefeicao === "Almoço") {
+        setObservacao(
+          "Sobra estimada de aproximadamente 2,5 kg de arroz na bancada de distribuição. Sem intercorrências no cozimento."
+        );
+        setItens((prev) =>
+          prev.map((item) => {
+            if (item.id === "p2") return { ...item, quantidadeUsada: 45 };
+            if (item.id === "g1") return { ...item, quantidadeUsada: 30 };
+            if (item.id === "g3") return { ...item, quantidadeUsada: 18 };
+            if (item.id === "g4") return { ...item, quantidadeUsada: 15 };
+            if (item.id === "p8") return { ...item, quantidadeUsada: 120 };
+            if (item.id === "h12") return { ...item, quantidadeUsada: 8 };
+            if (item.id === "h6") return { ...item, quantidadeUsada: 6 };
+            if (item.id === "h13") return { ...item, quantidadeUsada: 10 };
+            if (item.id === "e23") return { ...item, quantidadeUsada: 2 };
+            if (item.id === "e20") return { ...item, quantidadeUsada: 4 };
+            return { ...item, quantidadeUsada: 0 };
+          })
+        );
+      } else if (tipoRefeicao === "Café da Manhã") {
+        setObservacao("Consumo regular. Ovos mexidos repostos 1x durante o pico da manhã.");
+        setItens((prev) =>
+          prev.map((item) => {
+            if (item.id === "g6") return { ...item, quantidadeUsada: 20 };
+            if (item.id === "p8") return { ...item, quantidadeUsada: 80 };
+            if (item.id === "l1") return { ...item, quantidadeUsada: 25 };
+            if (item.id === "e8") return { ...item, quantidadeUsada: 4 };
+            if (item.id === "e2") return { ...item, quantidadeUsada: 6 };
+            return { ...item, quantidadeUsada: 0 };
+          })
+        );
+      }
+    } else if (isNutricionista && !turnoInfo.status) {
+      // Jantar ainda não finalizado pela cozinha
+      setTurnoEncerradoPelaCozinha(false);
+      setModoEdicaoNutri(false);
+      setObservacao("");
+      setItens((prev) => prev.map((item) => ({ ...item, quantidadeUsada: 0 })));
+    } else {
+      // Perfil Cozinha
+      setTurnoEncerradoPelaCozinha(false);
+      setModoEdicaoNutri(true);
+      setItens((prev) => prev.map((item) => ({ ...item, quantidadeUsada: 0 })));
+      setObservacao("");
+    }
+  }, [isNutricionista, tipoRefeicao]);
+
   const cardapioAtual = CARDAPIO_MOCK[tipoRefeicao];
 
   const alterarQuantidade = (id: string, delta: number) => {
+    if (isNutricionista && !modoEdicaoNutri) return;
     setItens((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
@@ -126,6 +204,7 @@ export default function ConsumoDiarioPage() {
   };
 
   const definirQuantidadeDireta = (id: string, valor: string) => {
+    if (isNutricionista && !modoEdicaoNutri) return;
     const parsed = parseFloat(valor);
     setItens((prev) =>
       prev.map((item) => {
@@ -143,8 +222,12 @@ export default function ConsumoDiarioPage() {
     setFeedbackSucesso(true);
     setTimeout(() => {
       setFeedbackSucesso(false);
-      setItens((prev) => prev.map((item) => ({ ...item, quantidadeUsada: 0 })));
-      setObservacao("");
+      if (!isNutricionista) {
+        setItens((prev) => prev.map((item) => ({ ...item, quantidadeUsada: 0 })));
+        setObservacao("");
+      } else {
+        setModoEdicaoNutri(false);
+      }
     }, 3000);
   };
 
@@ -160,41 +243,41 @@ export default function ConsumoDiarioPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-6 sm:space-y-8 pb-44">
-      {/* 1. TOPO: TÍTULO, DATA E SELETOR */}
-      {/* BANNER DE AVISO (Só some quando clicam para ver os alertas) */}
-      {bannerAlertasVisivel && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 bg-amber-50/70 border border-amber-200/90 rounded-xl text-amber-900 transition-all">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-            <p className="text-xs sm:text-sm font-medium text-amber-950 truncate">
-              <strong>Lembrete:</strong> Há insumos com validade próxima ou estoque baixo em atenção.
-            </p>
-          </div>
-
-          <Link
-            href="/alertas"
-            onClick={dispensarBannerAlertas}
-            className="flex items-center gap-1 text-xs font-bold text-amber-800 hover:text-amber-950 underline underline-offset-2 shrink-0 self-start sm:self-auto cursor-pointer"
-          >
-            <span>Ver avisos</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-      )}
+      {/* 1. TOPO: TÍTULO, STATUS DINÂMICO E SELETOR */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-4 sm:pb-6 border-b border-slate-200">
         <div>
-          <span className="text-[11px] sm:text-xs font-bold tracking-widest text-emerald-700 uppercase bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-            Folha de Consumo e Baixa Diária
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] sm:text-xs font-bold tracking-widest text-emerald-700 uppercase bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+              {isNutricionista ? "Auditoria e Conferência" : "Folha de Consumo e Baixa Diária"}
+            </span>
+
+            {/* Status dinâmico por refeição */}
+            {isNutricionista && turnoEncerradoPelaCozinha && (
+              <span className="text-[11px] sm:text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>
+                  Finalizado pela Cozinha às {HORARIOS_ENCERRAMENTO_MOCK[tipoRefeicao].hora}
+                </span>
+              </span>
+            )}
+            {isNutricionista && !turnoEncerradoPelaCozinha && (
+              <span className="text-[11px] sm:text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <span>Aguardando Encerramento da Cozinha</span>
+              </span>
+            )}
+          </div>
+
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">
-            Registro de Insumos da Cozinha
+            {isNutricionista ? "Conferência de Consumo Diário" : "Registro de Insumos da Cozinha"}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Lance as quantidades utilizadas no preparo para baixa direta e balanço diário.
+            {isNutricionista
+              ? "Valide os insumos lançados pela equipe da cozinha ou retifique as quantidades consumidas."
+              : "Lance as quantidades utilizadas no preparo para baixa direta e balanço diário."}
           </p>
         </div>
 
-        {/* Filtros em coluna no mobile e linha no tablet/desktop */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="flex items-center justify-between sm:justify-start gap-3 bg-white px-4 py-3 border border-slate-300 rounded-xl shadow-xs">
             <div className="flex items-center gap-2">
@@ -213,23 +296,87 @@ export default function ConsumoDiarioPage() {
         </div>
       </div>
 
+      {/* BANNER DE AVISO DISCRETO (SÓ PARA A COZINHA) */}
+      {!isNutricionista && bannerAlertasVisivel && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 bg-amber-50/70 border border-amber-200/90 rounded-xl text-amber-900 transition-all">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <p className="text-xs sm:text-sm font-medium text-amber-950 truncate">
+              <strong>Lembrete:</strong> Há insumos com validade próxima ou estoque baixo em atenção.
+            </p>
+          </div>
+
+          <Link
+            href="/alertas"
+            onClick={dispensarBannerAlertas}
+            className="flex items-center gap-1 text-xs font-bold text-amber-800 hover:text-amber-950 underline underline-offset-2 shrink-0 self-start sm:self-auto cursor-pointer"
+          >
+            <span>Ver avisos</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
+
+      {/* BARRA DE CONTROLE DE AUDITORIA DO NUTRICIONISTA */}
+      {isNutricionista && turnoEncerradoPelaCozinha && (
+        <div className="bg-white border border-slate-200 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                modoEdicaoNutri ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+              }`}
+            >
+              {modoEdicaoNutri ? <Edit3 className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+            </div>
+            <div>
+              <p className="text-sm font-extrabold text-slate-900">
+                {modoEdicaoNutri ? "Modo de Ajuste Técnico Ativo" : "Lançamento da Cozinha em Modo Leitura"}
+              </p>
+              <p className="text-xs text-slate-500">
+                {modoEdicaoNutri
+                  ? "Você pode alterar valores e salvar as retificações no inventário."
+                  : "Os dados abaixo refletem a folha enviada pela cozinha. Clique ao lado para editar se houver divergência."}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setModoEdicaoNutri(!modoEdicaoNutri)}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer self-start sm:self-auto ${
+              modoEdicaoNutri
+                ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+            }`}
+          >
+            {modoEdicaoNutri ? "Bloquear Edição" : "Habilitar Correção"}
+          </button>
+        </div>
+      )}
+
       {/* 2. CARD DO CARDÁPIO */}
-<CardapioCard refeicao={tipoRefeicao} descricao={cardapioAtual} />
+      <CardapioCard refeicao={tipoRefeicao} descricao={cardapioAtual} />
 
       {/* Alerta de Sucesso */}
       {feedbackSucesso && (
         <div className="p-4 sm:p-5 bg-emerald-600 text-white rounded-2xl flex items-center gap-3 sm:gap-4 shadow-lg animate-in fade-in slide-in-from-top-3 duration-300">
           <CheckCircle2 className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 text-emerald-100" />
           <div>
-            <p className="font-bold text-sm sm:text-base">Consumo salvo com sucesso!</p>
+            <p className="font-bold text-sm sm:text-base">
+              {isNutricionista
+                ? "Conferência e retificações salvas com sucesso!"
+                : "Consumo salvo com sucesso!"}
+            </p>
             <p className="text-xs text-emerald-100">
-              As baixas deste {tipoRefeicao} foram registradas.
+              {isNutricionista
+                ? "Os ajustes no saldo de estoque foram consolidados."
+                : `As baixas deste ${tipoRefeicao} foram registradas.`}
             </p>
           </div>
         </div>
       )}
 
-      {/* 3. FORMULÁRIO COM SEÇÕES RESPONSIVAS */}
+      {/* 3. FORMULÁRIO COM SEÇÕES */}
       <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
         <div className="space-y-4 sm:space-y-6">
           {categorias.map((catNome) => {
@@ -253,6 +400,7 @@ export default function ConsumoDiarioPage() {
                 <div className="divide-y divide-slate-100">
                   {itensDaCategoria.map((item) => {
                     const emUso = item.quantidadeUsada > 0;
+                    const desabilitado = isNutricionista && !modoEdicaoNutri;
 
                     return (
                       <div
@@ -261,7 +409,6 @@ export default function ConsumoDiarioPage() {
                           emUso ? "bg-emerald-50/40" : "hover:bg-slate-50/60"
                         }`}
                       >
-                        {/* Nome do Item e Unidade (Inline no mobile) */}
                         <div className="flex items-center justify-between sm:justify-start gap-3 min-w-0">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div
@@ -271,9 +418,7 @@ export default function ConsumoDiarioPage() {
                             />
                             <span
                               className={`text-sm sm:text-base truncate ${
-                                emUso
-                                  ? "font-bold text-slate-900"
-                                  : "font-medium text-slate-700"
+                                emUso ? "font-bold text-slate-900" : "font-medium text-slate-700"
                               }`}
                             >
                               {item.nome}
@@ -285,13 +430,18 @@ export default function ConsumoDiarioPage() {
                           </span>
                         </div>
 
-                        {/* Controles de Quantidade adaptados para toque rápido */}
                         <div className="flex items-center justify-end">
-                          <div className="flex items-center border-2 border-slate-300 rounded-xl bg-white shadow-2xs overflow-hidden focus-within:border-emerald-600 w-full sm:w-auto justify-between sm:justify-start">
+                          <div
+                            className={`flex items-center border-2 rounded-xl bg-white shadow-2xs overflow-hidden w-full sm:w-auto justify-between sm:justify-start ${
+                              desabilitado
+                                ? "border-slate-200 bg-slate-50 opacity-80"
+                                : "border-slate-300 focus-within:border-emerald-600"
+                            }`}
+                          >
                             <button
                               type="button"
                               onClick={() => alterarQuantidade(item.id, -0.5)}
-                              disabled={item.quantidadeUsada <= 0}
+                              disabled={desabilitado || item.quantidadeUsada <= 0}
                               className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 active:bg-slate-200 disabled:opacity-30 transition-colors cursor-pointer"
                             >
                               <Minus className="w-4 h-4" />
@@ -301,18 +451,20 @@ export default function ConsumoDiarioPage() {
                               type="number"
                               min="0"
                               step="0.1"
+                              disabled={desabilitado}
                               value={item.quantidadeUsada || ""}
                               placeholder="0"
                               onChange={(e) =>
                                 definirQuantidadeDireta(item.id, e.target.value)
                               }
-                              className="w-20 sm:w-24 text-center font-black text-slate-900 text-base sm:text-lg py-2 bg-transparent focus:outline-none"
+                              className="w-20 sm:w-24 text-center font-black text-slate-900 text-base sm:text-lg py-2 bg-transparent focus:outline-none disabled:text-slate-600"
                             />
 
                             <button
                               type="button"
                               onClick={() => alterarQuantidade(item.id, 0.5)}
-                              className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer"
+                              disabled={desabilitado}
+                              className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 active:bg-slate-200 disabled:opacity-30 transition-colors cursor-pointer"
                             >
                               <Plus className="w-4 h-4" />
                             </button>
@@ -327,25 +479,29 @@ export default function ConsumoDiarioPage() {
           })}
         </div>
 
-        {/* 4. CAMPO DE OBSERVAÇÕES */}
+        {/* 4. OBSERVAÇÕES E SOBRAS */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-xs space-y-2.5">
           <label className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
             <Info className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Observações da Refeição (Sobras ou Ocorrências)</span>
+            <span>
+              {isNutricionista
+                ? "Observações da Cozinha / Sobras Declaradas"
+                : "Observações da Refeição (Sobras ou Ocorrências)"}
+            </span>
           </label>
           <textarea
             rows={2}
             value={observacao}
+            disabled={isNutricionista && !modoEdicaoNutri}
             onChange={(e) => setObservacao(e.target.value)}
             placeholder="Ex.: Sobra de 3kg de arroz; ajustada quantidade de sal..."
-            className="w-full border-2 border-slate-200 rounded-xl p-3 sm:p-4 text-sm sm:text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 transition-colors"
+            className="w-full border-2 border-slate-200 rounded-xl p-3 sm:p-4 text-sm sm:text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 transition-colors disabled:bg-slate-50 disabled:text-slate-600"
           />
         </div>
 
-        {/* Espaçador de segurança para a barra fixa não cobrir o campo */}
         <div className="h-16 w-full" aria-hidden="true" />
 
-        {/* 5. BARRA FIXA FLUTUANTE ADAPTÁVEL */}
+        {/* 5. BARRA FLUTUANTE DE ENCERRAMENTO */}
         <div className="fixed bottom-3 left-3 right-3 lg:left-72 lg:right-8 bg-white/95 backdrop-blur-md border-2 border-slate-200 p-3 sm:p-4 rounded-2xl shadow-xl z-20 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
             <div className="flex items-center gap-2.5">
@@ -357,41 +513,46 @@ export default function ConsumoDiarioPage() {
                   {totalLancados === 1 ? "1 insumo" : `${totalLancados} insumos`}
                 </p>
                 <p className="text-[10px] sm:text-xs text-slate-500">
-                  Para o {tipoRefeicao}
+                  {isNutricionista ? `Registrados no ${tipoRefeicao}` : `Para o ${tipoRefeicao}`}
                 </p>
               </div>
             </div>
 
-            {/* Botão limpar no mobile */}
-            <button
-              type="button"
-              onClick={() =>
-                setItens((prev) => prev.map((item) => ({ ...item, quantidadeUsada: 0 })))
-              }
-              className="sm:hidden text-xs font-bold text-slate-400 hover:text-slate-700 underline"
-            >
-              Limpar
-            </button>
+            {!isNutricionista && (
+              <button
+                type="button"
+                onClick={() =>
+                  setItens((prev) => prev.map((item) => ({ ...item, quantidadeUsada: 0 })))
+                }
+                className="sm:hidden text-xs font-bold text-slate-400 hover:text-slate-700 underline"
+              >
+                Limpar
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={() =>
-                setItens((prev) => prev.map((item) => ({ ...item, quantidadeUsada: 0 })))
-              }
-              className="hidden sm:inline-block px-4 py-3 text-xs sm:text-sm font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-            >
-              Limpar
-            </button>
+            {!isNutricionista && (
+              <button
+                type="button"
+                onClick={() =>
+                  setItens((prev) => prev.map((item) => ({ ...item, quantidadeUsada: 0 })))
+                }
+                className="hidden sm:inline-block px-4 py-3 text-xs sm:text-sm font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Limpar
+              </button>
+            )}
 
             <button
               type="submit"
-              disabled={totalLancados === 0}
+              disabled={isNutricionista ? !modoEdicaoNutri : totalLancados === 0}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 sm:py-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-40 text-white rounded-xl text-sm sm:text-base font-extrabold shadow-md transition-all cursor-pointer disabled:cursor-not-allowed"
             >
               <Send className="w-4 h-4" />
-              <span>Registrar Consumo</span>
+              <span>
+                {isNutricionista ? "Salvar Retificações" : "Registrar Consumo"}
+              </span>
             </button>
           </div>
         </div>
