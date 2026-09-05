@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -27,7 +28,7 @@ export default function Sidebar() {
   // Links da Cozinha (operacionais)
   const linksCozinha = [
     { href: "/consumo", label: "Consumo Diário", icon: Utensils },
-    { href: "/recebimento", label: "Recebimento", icon: PackagePlus },
+    { href: "/recebimento", label: "Entradas", icon: PackagePlus },
     { href: "/alertas", label: "Central de Alertas", icon: Bell },
   ];
 
@@ -36,8 +37,8 @@ export default function Sidebar() {
     { href: "/consumo", label: "Consumo Diário", icon: Utensils },
     { href: "/estoque", label: "Entradas & Estoque", icon: Boxes },
     { href: "/cardapio", label: "Cardápio Semanal", icon: CalendarDays },
-    { href: "/relatorios", label: "Relatórios & Gráficos", icon: BarChart3 },
-    { href: "/alertas", label: "Notificações & Lembretes", icon: Bell },
+    { href: "/relatorios", label: "Relatórios & Indicadores", icon: BarChart3 },
+    { href: "/alertas", label: "Central de Alertas", icon: Bell },
   ];
 
   const linksAtuais = perfil === "COZINHA" ? linksCozinha : linksNutri;
@@ -58,20 +59,23 @@ export default function Sidebar() {
         }`}
       >
         <div className="p-4 space-y-6">
-          {/* Logo e botão fechar mobile */}
+          {/* Apenas a Logo e botão fechar mobile */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div>
-              <span className="text-[11px] font-bold tracking-wider text-emerald-800 uppercase bg-emerald-50 px-2 py-0.5 rounded-md">
-                IFPE Belo Jardim
-              </span>
-              <h2 className="text-base font-extrabold text-slate-900 mt-1">
-                Refeitório Escolar
-              </h2>
+            <div className="relative w-36 h-12">
+              <Image
+                src="/ifpe_bjpng.png"
+                alt="Logo IFPE"
+                fill
+                className="object-contain object-left"
+                priority
+              />
             </div>
+
             <button
               type="button"
               onClick={() => setMenuMobileAberto(false)}
               className="lg:hidden p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              title="Fechar menu"
             >
               <X className="w-5 h-5" />
             </button>

@@ -25,11 +25,11 @@ interface ItemFicha {
   nome: string;
   unidade: string;
   categoria:
-    | "Grãos & Cereais"
-    | "Proteínas & Frios"
-    | "Hortifrúti"
-    | "Laticínios"
-    | "Especificações & Condimentos";
+  | "Grãos & Cereais"
+  | "Proteínas & Frios"
+  | "Hortifrúti"
+  | "Laticínios"
+  | "Especificações & Condimentos";
   quantidadeUsada: number;
 }
 
@@ -242,59 +242,24 @@ export default function ConsumoDiarioPage() {
   ] as const;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-36">
-      {/* 1. TOPO: TÍTULO, STATUS DINÂMICO E SELETOR */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-4 sm:pb-6 border-b border-slate-200">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-28">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] sm:text-xs font-bold tracking-widest text-emerald-700 uppercase bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-              {isNutricionista ? "Auditoria e Conferência" : "Folha de Consumo e Baixa Diária"}
-            </span>
-
-            {/* Status dinâmico por refeição */}
-            {isNutricionista && turnoEncerradoPelaCozinha && (
-              <span className="text-[11px] sm:text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>
-                  Finalizado pela Cozinha às {HORARIOS_ENCERRAMENTO_MOCK[tipoRefeicao].hora}
-                </span>
-              </span>
-            )}
-            {isNutricionista && !turnoEncerradoPelaCozinha && (
-              <span className="text-[11px] sm:text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-amber-600" />
-                <span>Aguardando Encerramento da Cozinha</span>
-              </span>
-            )}
-          </div>
-
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">
-            {isNutricionista ? "Conferência de Consumo Diário" : "Registro de Insumos da Cozinha"}
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            {perfil === "COZINHA" ? "Registro de Insumos da Cozinha" : "Conferência de Consumo Diário"}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            {isNutricionista
-              ? "Valide os insumos lançados pela equipe da cozinha ou retifique as quantidades consumidas."
-              : "Lance as quantidades utilizadas no preparo para baixa direta e balanço diário."}
+            {perfil === "COZINHA"
+              ? "Lance as quantidades utilizadas no preparo para baixa direta e balanço diário."
+              : "Valide os insumos lançados pela equipe da cozinha ou retifique as quantidades consumidas."}
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="flex items-center justify-between sm:justify-start gap-3 bg-white px-4 py-3 border border-slate-300 rounded-xl shadow-xs">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span className="text-xs font-semibold text-slate-500 sm:hidden">Data:</span>
-            </div>
-            <input
-              type="date"
-              value={dataRegistro}
-              onChange={(e) => setDataRegistro(e.target.value)}
-              className="text-sm sm:text-base font-semibold text-slate-800 bg-transparent focus:outline-none cursor-pointer"
-            />
-          </div>
-
-          <SeletorRefeicao valor={tipoRefeicao} onChange={setTipoRefeicao} />
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {/* MANTENHA AQUI DENTRO O SELETOR DE DATA E O SELETOR DE TURNO EXISTENTES */}
         </div>
       </div>
+
 
       {/* BANNER DE AVISO DISCRETO (SÓ PARA A COZINHA) */}
       {!isNutricionista && bannerAlertasVisivel && (
@@ -322,9 +287,8 @@ export default function ConsumoDiarioPage() {
         <div className="bg-white border border-slate-200 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-3">
             <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                modoEdicaoNutri ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
-              }`}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center ${modoEdicaoNutri ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+                }`}
             >
               {modoEdicaoNutri ? <Edit3 className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
             </div>
@@ -343,11 +307,10 @@ export default function ConsumoDiarioPage() {
           <button
             type="button"
             onClick={() => setModoEdicaoNutri(!modoEdicaoNutri)}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer self-start sm:self-auto ${
-              modoEdicaoNutri
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer self-start sm:self-auto ${modoEdicaoNutri
                 ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
                 : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-            }`}
+              }`}
           >
             {modoEdicaoNutri ? "Bloquear Edição" : "Habilitar Correção"}
           </button>
@@ -405,21 +368,18 @@ export default function ConsumoDiarioPage() {
                     return (
                       <div
                         key={item.id}
-                        className={`p-3.5 sm:px-6 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors ${
-                          emUso ? "bg-emerald-50/40" : "hover:bg-slate-50/60"
-                        }`}
+                        className={`p-3.5 sm:px-6 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors ${emUso ? "bg-emerald-50/40" : "hover:bg-slate-50/60"
+                          }`}
                       >
                         <div className="flex items-center justify-between sm:justify-start gap-3 min-w-0">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div
-                              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                                emUso ? "bg-emerald-600 scale-125" : "bg-slate-300"
-                              } transition-transform`}
+                              className={`w-2.5 h-2.5 rounded-full shrink-0 ${emUso ? "bg-emerald-600 scale-125" : "bg-slate-300"
+                                } transition-transform`}
                             />
                             <span
-                              className={`text-sm sm:text-base truncate ${
-                                emUso ? "font-bold text-slate-900" : "font-medium text-slate-700"
-                              }`}
+                              className={`text-sm sm:text-base truncate ${emUso ? "font-bold text-slate-900" : "font-medium text-slate-700"
+                                }`}
                             >
                               {item.nome}
                             </span>
@@ -432,11 +392,10 @@ export default function ConsumoDiarioPage() {
 
                         <div className="flex items-center justify-end">
                           <div
-                            className={`flex items-center border-2 rounded-xl bg-white shadow-2xs overflow-hidden w-full sm:w-auto justify-between sm:justify-start ${
-                              desabilitado
+                            className={`flex items-center border-2 rounded-xl bg-white shadow-2xs overflow-hidden w-full sm:w-auto justify-between sm:justify-start ${desabilitado
                                 ? "border-slate-200 bg-slate-50 opacity-80"
                                 : "border-slate-300 focus-within:border-emerald-600"
-                            }`}
+                              }`}
                           >
                             <button
                               type="button"

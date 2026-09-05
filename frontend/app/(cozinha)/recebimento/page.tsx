@@ -193,14 +193,10 @@ export default function RecebimentoPage() {
     parseFloat(quantidade) > 0;
 
   return (
-    <div className="p-4 sm:p-6 lg:p-10 max-w-6xl mx-auto w-full space-y-6 pb-28">
-      {/* 1. CABEÇALHO */}
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-28">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <span className="text-[11px] sm:text-xs font-bold tracking-widest text-emerald-700 uppercase bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-            Entrada de Mercadorias
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             Recebimento de Insumos
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -208,16 +204,17 @@ export default function RecebimentoPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-white px-4 py-2.5 border border-slate-300 rounded-xl shadow-xs self-start sm:self-auto">
-          <Calendar className="w-5 h-5 text-emerald-600 shrink-0" />
+        <div className="flex items-center gap-3 bg-white px-4 py-2 border border-slate-300 rounded-xl shadow-xs self-start sm:self-auto">
+          <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
           <input
             type="date"
             value={dataEntrega}
             onChange={(e) => setDataEntrega(e.target.value)}
-            className="text-sm font-semibold text-slate-800 bg-transparent focus:outline-none cursor-pointer"
+            className="text-xs sm:text-sm font-semibold text-slate-800 bg-transparent focus:outline-none cursor-pointer"
           />
         </div>
       </div>
+
 
       {feedbackSucesso && (
         <div className="p-4 sm:p-5 bg-emerald-600 text-white rounded-2xl flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-3 duration-300">
@@ -253,11 +250,10 @@ export default function RecebimentoPage() {
               key={cat}
               type="button"
               onClick={() => setCategoriaAtiva(cat)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                categoriaAtiva === cat
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${categoriaAtiva === cat
                   ? "bg-emerald-600 text-white shadow-xs"
                   : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-              }`}
+                }`}
             >
               {cat}
             </button>
@@ -311,11 +307,10 @@ export default function RecebimentoPage() {
               key={insumo.id}
               type="button"
               onClick={() => selecionarInsumo(insumo)}
-              className={`text-xs px-3 py-2 rounded-xl border font-bold transition-all cursor-pointer ${
-                insumoSelecionado?.id === insumo.id
+              className={`text-xs px-3 py-2 rounded-xl border font-bold transition-all cursor-pointer ${insumoSelecionado?.id === insumo.id
                   ? "bg-emerald-700 text-white border-emerald-700 shadow-xs scale-105"
                   : "bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/50"
-              }`}
+                }`}
             >
               {insumo.nome}
             </button>

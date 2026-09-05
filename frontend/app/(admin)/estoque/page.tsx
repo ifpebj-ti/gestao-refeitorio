@@ -30,11 +30,11 @@ interface ItemEstoque {
   id: string;
   nome: string;
   categoria:
-    | "Grãos & Cereais"
-    | "Proteínas & Frios"
-    | "Hortifrúti"
-    | "Laticínios"
-    | "Especificações & Condimentos";
+  | "Grãos & Cereais"
+  | "Proteínas & Frios"
+  | "Hortifrúti"
+  | "Laticínios"
+  | "Especificações & Condimentos";
   unidade: string;
   saldoAtual: number;
   estoqueMinimo: number;
@@ -260,10 +260,10 @@ export default function EstoqueGeralPage() {
       prev.map((i) =>
         i.id === itemEntradaId
           ? {
-              ...i,
-              saldoAtual: Number((i.saldoAtual + qtdNum).toFixed(2)),
-              fornecedorPrincipal: fornecedorEntrada.trim(),
-            }
+            ...i,
+            saldoAtual: Number((i.saldoAtual + qtdNum).toFixed(2)),
+            fornecedorPrincipal: fornecedorEntrada.trim(),
+          }
           : i
       )
     );
@@ -304,40 +304,39 @@ export default function EstoqueGeralPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-10 max-w-6xl mx-auto w-full space-y-6 pb-28">
-      {/* 1. TOPO */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-3 border-b border-slate-200">
+
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-28">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             Entradas & Estoque
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            {listaEstoque.length} insumos catalogados • {totalCriticos} itens em nível crítico
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            58 insumos catalogados • 12 itens em nível crítico
           </p>
         </div>
 
-        {abaAtiva !== "registrar" && (
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             type="button"
             onClick={() => setAbaAtiva("registrar")}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
-            <span>Registrar Entrada</span>
+            <span>+ Registrar Entrada</span>
           </button>
-        )}
+        </div>
       </div>
+
 
       {/* 2. ABAS */}
       <div className="flex items-center gap-4 border-b border-slate-200 text-xs sm:text-sm font-bold">
         <button
           type="button"
           onClick={() => setAbaAtiva("inventario")}
-          className={`pb-2.5 border-b-2 transition-all cursor-pointer ${
-            abaAtiva === "inventario"
+          className={`pb-2.5 border-b-2 transition-all cursor-pointer ${abaAtiva === "inventario"
               ? "border-emerald-600 text-emerald-800"
               : "border-transparent text-slate-400 hover:text-slate-700"
-          }`}
+            }`}
         >
           Inventário ({itensFiltrados.length})
         </button>
@@ -345,11 +344,10 @@ export default function EstoqueGeralPage() {
         <button
           type="button"
           onClick={() => setAbaAtiva("registrar")}
-          className={`pb-2.5 border-b-2 transition-all cursor-pointer ${
-            abaAtiva === "registrar"
+          className={`pb-2.5 border-b-2 transition-all cursor-pointer ${abaAtiva === "registrar"
               ? "border-emerald-600 text-emerald-800"
               : "border-transparent text-slate-400 hover:text-slate-700"
-          }`}
+            }`}
         >
           Registrar Entrada
         </button>
@@ -357,11 +355,10 @@ export default function EstoqueGeralPage() {
         <button
           type="button"
           onClick={() => setAbaAtiva("extrato")}
-          className={`pb-2.5 border-b-2 transition-all cursor-pointer ${
-            abaAtiva === "extrato"
+          className={`pb-2.5 border-b-2 transition-all cursor-pointer ${abaAtiva === "extrato"
               ? "border-emerald-600 text-emerald-800"
               : "border-transparent text-slate-400 hover:text-slate-700"
-          }`}
+            }`}
         >
           Histórico de Auditoria ({extrato.length})
         </button>
@@ -388,11 +385,10 @@ export default function EstoqueGeralPage() {
                   key={cat}
                   type="button"
                   onClick={() => setCategoriaFiltro(cat)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                    categoriaFiltro === cat
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${categoriaFiltro === cat
                       ? "bg-slate-900 text-white shadow-2xs"
                       : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   {cat}
                 </button>
@@ -647,11 +643,10 @@ export default function EstoqueGeralPage() {
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        isEntrada
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isEntrada
                           ? "bg-emerald-100 text-emerald-800"
                           : "bg-rose-100 text-rose-800"
-                      }`}
+                        }`}
                     >
                       {isEntrada ? (
                         <ArrowDownLeft className="w-4 h-4" />
@@ -666,11 +661,10 @@ export default function EstoqueGeralPage() {
                           {mov.origemTurno}
                         </p>
                         <span
-                          className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
-                            isEntrada
+                          className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${isEntrada
                               ? "bg-emerald-50 text-emerald-700"
                               : "bg-rose-50 text-rose-700"
-                          }`}
+                            }`}
                         >
                           {isEntrada ? "ENTRADA" : "BAIXA"}
                         </span>
@@ -708,11 +702,10 @@ export default function EstoqueGeralPage() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    itemAuditoriaSelecionado.tipo === "ENTRADA"
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${itemAuditoriaSelecionado.tipo === "ENTRADA"
                       ? "bg-emerald-100 text-emerald-800"
                       : "bg-rose-100 text-rose-800"
-                  }`}
+                    }`}
                 >
                   <FileText className="w-4 h-4" />
                 </div>
