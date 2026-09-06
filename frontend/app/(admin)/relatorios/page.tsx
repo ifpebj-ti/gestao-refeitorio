@@ -136,6 +136,7 @@ export default function RelatoriosPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-28">
+      {/* 1. CABEÇALHO */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -151,30 +152,33 @@ export default function RelatoriosPage() {
             <button
               type="button"
               onClick={() => setPeriodo("semana")}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${periodo === "semana"
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                periodo === "semana"
                   ? "bg-white text-slate-900 shadow-2xs font-bold"
                   : "text-slate-600 hover:text-slate-900"
-                }`}
+              }`}
             >
               Esta Semana
             </button>
             <button
               type="button"
               onClick={() => setPeriodo("mes")}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${periodo === "mes"
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                periodo === "mes"
                   ? "bg-white text-slate-900 shadow-2xs font-bold"
                   : "text-slate-600 hover:text-slate-900"
-                }`}
+              }`}
             >
               Este Mês
             </button>
             <button
               type="button"
               onClick={() => setPeriodo("anterior")}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${periodo === "anterior"
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                periodo === "anterior"
                   ? "bg-white text-slate-900 shadow-2xs font-bold"
                   : "text-slate-600 hover:text-slate-900"
-                }`}
+              }`}
             >
               Mês Anterior
             </button>
@@ -233,16 +237,17 @@ export default function RelatoriosPage() {
           </p>
         </div>
 
+        {/* AJUSTADO: REFLETE O UNIVERSO DOS 58 INSUMOS CATALOGADOS */}
         <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-xs space-y-1 hover:border-emerald-200 transition-colors">
           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
             <Boxes className="w-3.5 h-3.5 text-slate-400" />
             <span>Itens em Movimentação</span>
           </span>
           <p className="text-2xl font-black text-slate-800">
-            31 <span className="text-sm font-semibold text-slate-400">/ 34</span>
+            46 <span className="text-sm font-semibold text-slate-400">/ 58</span>
           </p>
           <p className="text-[11px] text-slate-500">
-            3 itens sem saída recente
+            12 itens sem saída recente
           </p>
         </div>
       </div>
@@ -277,12 +282,13 @@ export default function RelatoriosPage() {
                   setCategoriaAtiva((prev) => (prev === item.categoria ? null : item.categoria))
                 }
                 style={{ width: `${item.porcentagem}%` }}
-                className={`h-full rounded-full transition-all duration-300 cursor-pointer ${item.cor} ${isFocado
+                className={`h-full rounded-full transition-all duration-300 cursor-pointer ${item.cor} ${
+                  isFocado
                     ? "scale-y-125 -translate-y-0.5 shadow-xs z-10 brightness-105"
                     : algumFocado
-                      ? "opacity-40"
-                      : "opacity-100"
-                  }`}
+                    ? "opacity-40"
+                    : "opacity-100"
+                }`}
                 title={`${item.categoria}: ${item.porcentagem}% (R$ ${item.custoTotal.toLocaleString("pt-BR")})`}
               />
             );
@@ -302,17 +308,19 @@ export default function RelatoriosPage() {
                 onClick={() =>
                   setCategoriaAtiva((prev) => (prev === item.categoria ? null : item.categoria))
                 }
-                className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${isFocado
+                className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                  isFocado
                     ? "border-emerald-500 bg-emerald-50/40 shadow-xs -translate-y-0.5"
                     : algumFocado
-                      ? "border-slate-100 bg-slate-50/20 opacity-50"
-                      : "border-slate-100 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-50"
-                  }`}
+                    ? "border-slate-100 bg-slate-50/20 opacity-50"
+                    : "border-slate-100 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-50"
+                }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span
-                    className={`w-3 h-3 rounded-full shrink-0 transition-transform ${item.cor} ${isFocado ? "scale-125" : ""
-                      }`}
+                    className={`w-3 h-3 rounded-full shrink-0 transition-transform ${item.cor} ${
+                      isFocado ? "scale-125" : ""
+                    }`}
                   />
                   <div>
                     <p className="text-xs font-semibold text-slate-800 truncate">
@@ -355,7 +363,7 @@ export default function RelatoriosPage() {
               <button
                 type="button"
                 onClick={() => setFornecedorAtivo(null)}
-                className="text-[10px] font-semibold text-slate-400 hover:text-slate-700 underline"
+                className="text-[10px] font-semibold text-slate-400 hover:text-slate-700 underline cursor-pointer"
               >
                 Limpar seleção
               </button>
@@ -448,12 +456,13 @@ export default function RelatoriosPage() {
                         prev === item.fornecedor ? null : item.fornecedor
                       )
                     }
-                    className={`flex items-center justify-between text-xs p-2 rounded-xl transition-all cursor-pointer ${isFocado
+                    className={`flex items-center justify-between text-xs p-2 rounded-xl transition-all cursor-pointer ${
+                      isFocado
                         ? "bg-slate-100 font-bold scale-[1.02]"
                         : algumFocado
-                          ? "opacity-40"
-                          : "hover:bg-slate-50"
-                      }`}
+                        ? "opacity-40"
+                        : "hover:bg-slate-50"
+                    }`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span
@@ -505,12 +514,13 @@ export default function RelatoriosPage() {
                   onClick={() =>
                     setInsumoAtivo((prev) => (prev === insumo.nome ? null : insumo.nome))
                   }
-                  className={`space-y-1.5 p-2 rounded-xl transition-all cursor-pointer ${isFocado
+                  className={`space-y-1.5 p-2 rounded-xl transition-all cursor-pointer ${
+                    isFocado
                       ? "bg-slate-50 shadow-2xs scale-[1.01]"
                       : algumFocado
-                        ? "opacity-45"
-                        : "hover:bg-slate-50/60"
-                    }`}
+                      ? "opacity-45"
+                      : "hover:bg-slate-50/60"
+                  }`}
                 >
                   <div className="flex items-center justify-between text-xs">
                     <span className={`font-semibold text-slate-800 ${isFocado ? "text-emerald-800 font-bold" : ""}`}>
@@ -525,10 +535,11 @@ export default function RelatoriosPage() {
                   <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                     <div
                       style={{ width: `${insumo.porcentagemGasto}%` }}
-                      className={`h-full rounded-full transition-all duration-300 ${isFocado
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        isFocado
                           ? "bg-emerald-600 scale-y-125 brightness-110"
                           : "bg-emerald-600/80"
-                        }`}
+                      }`}
                     />
                   </div>
                 </div>
@@ -567,12 +578,13 @@ export default function RelatoriosPage() {
 
                 <div className="text-right shrink-0">
                   <span
-                    className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded ${item.statusGiro === "Giro Rápido"
+                    className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded ${
+                      item.statusGiro === "Giro Rápido"
                         ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                         : item.statusGiro === "Estável"
-                          ? "bg-slate-100 text-slate-700"
-                          : "bg-amber-50 text-amber-800 border border-amber-200"
-                      }`}
+                        ? "bg-slate-100 text-slate-700"
+                        : "bg-amber-50 text-amber-800 border border-amber-200"
+                    }`}
                   >
                     {item.classificacaoABC}
                   </span>

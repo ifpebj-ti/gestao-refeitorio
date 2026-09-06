@@ -39,17 +39,17 @@ export default function SeletorRefeicao({ valor, onChange }: SeletorRefeicaoProp
       <button
         type="button"
         onClick={() => setAberto(!aberto)}
-        className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 hover:border-emerald-500 rounded-xl shadow-xs transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer"
+        className="flex items-center gap-2.5 px-3.5 py-2 bg-white border border-slate-300 hover:border-emerald-500 rounded-xl shadow-xs transition-all duration-150 focus:outline-none cursor-pointer"
       >
-        <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-          <IconAtual className="w-4 h-4" />
+        <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+          <IconAtual className="w-3.5 h-3.5" />
         </div>
         <div className="text-left">
-          <p className="text-sm font-bold text-slate-900 leading-none">{opcaoAtual.label}</p>
-          <p className="text-[11px] text-slate-400 mt-1 font-medium">{opcaoAtual.horario}</p>
+          <p className="text-xs sm:text-sm font-bold text-slate-900 leading-none">{opcaoAtual.label}</p>
+          <p className="text-[10px] text-slate-400 mt-0.5 font-medium leading-none">{opcaoAtual.horario}</p>
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-slate-400 ml-1 transition-transform duration-200 ${
+          className={`w-3.5 h-3.5 text-slate-400 ml-0.5 transition-transform duration-200 ${
             aberto ? "rotate-180 text-emerald-600" : ""
           }`}
         />

@@ -256,7 +256,35 @@ export default function ConsumoDiarioPage() {
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          {/* MANTENHA AQUI DENTRO O SELETOR DE DATA E O SELETOR DE TURNO EXISTENTES */}
+          {/* Data: fixa (somente leitura) para Cozinha, seletor com trava futura para Nutricionista */}
+          {isNutricionista ? (
+            <div className="flex items-center gap-2.5 bg-white px-3.5 py-2 border border-slate-300 rounded-xl shadow-xs">
+              <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
+              <input
+                type="date"
+                value={dataRegistro}
+                max={new Date().toISOString().split("T")[0]}
+                onChange={(e) => setDataRegistro(e.target.value)}
+                className="text-xs sm:text-sm font-semibold text-slate-800 bg-transparent focus:outline-none cursor-pointer"
+              />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5 bg-slate-50 px-3.5 py-2 border border-slate-200 rounded-xl shadow-2xs select-none">
+              <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div className="flex flex-col text-left">
+                <span className="text-[10px] uppercase font-bold text-slate-400 leading-none">Hoje</span>
+                <span className="text-xs sm:text-sm font-extrabold text-slate-800 leading-tight">
+                  {new Date().toLocaleDateString("pt-BR")}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Seletor de Turno / Refeição */}
+          <SeletorRefeicao
+            valor={tipoRefeicao}
+            onChange={setTipoRefeicao}
+          />
         </div>
       </div>
 

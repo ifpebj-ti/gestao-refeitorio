@@ -16,7 +16,7 @@ export default function CardapioCard({
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2 max-w-4xl">
           <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs sm:text-sm tracking-wide uppercase">
-            <Tv className="w-4 h-4 text-emerald-600 shrink-0" />
+            {/* <Tv className="w-4 h-4 text-emerald-600 shrink-0" /> */}
             <span>Cardápio do Dia • {refeicao}</span>
           </div>
 

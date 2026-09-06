@@ -19,7 +19,12 @@ interface InsumoDisponivel {
   id: string;
   nome: string;
   unidadePadrao: string;
-  categoria: string;
+  categoria:
+    | "Grãos & Cereais"
+    | "Proteínas & Frios"
+    | "Hortifrúti"
+    | "Laticínios"
+    | "Especificações & Condimentos";
 }
 
 interface ItemRecebido {
@@ -43,7 +48,9 @@ const CATEGORIAS = [
   "Especificações & Condimentos",
 ] as const;
 
+// LISTA COMPLETA DOS 58 INSUMOS OFICIAIS
 const INSUMOS_CATALOGADOS: InsumoDisponivel[] = [
+  // --- 1. GRÃOS & CEREAIS (7 itens) ---
   { id: "g1", nome: "Arroz Parboilizado", unidadePadrao: "Kg", categoria: "Grãos & Cereais" },
   { id: "g2", nome: "Feijão Carioca", unidadePadrao: "Kg", categoria: "Grãos & Cereais" },
   { id: "g3", nome: "Feijão Macassar", unidadePadrao: "Kg", categoria: "Grãos & Cereais" },
@@ -52,41 +59,63 @@ const INSUMOS_CATALOGADOS: InsumoDisponivel[] = [
   { id: "g6", nome: "Flocão de Milho (Cuscuz)", unidadePadrao: "Kg", categoria: "Grãos & Cereais" },
   { id: "g7", nome: "Farinha de Mandioca (Farofa)", unidadePadrao: "Kg", categoria: "Grãos & Cereais" },
 
+  // --- 2. PROTEÍNAS & FRIOS (8 itens) ---
   { id: "p1", nome: "Peito de Frango", unidadePadrao: "Kg", categoria: "Proteínas & Frios" },
   { id: "p2", nome: "Coxa de Frango", unidadePadrao: "Kg", categoria: "Proteínas & Frios" },
-  { id: "p3", nome: "Carne Bovina (Moída)", unidadePadrao: "Kg", categoria: "Proteínas & Frios" },
-  { id: "p4", nome: "Carne Bovina (Acém)", unidadePadrao: "Kg", categoria: "Proteínas & Frios" },
+  { id: "p3", nome: "Carne Bovina (Patinho/Moída)", unidadePadrao: "Kg", categoria: "Proteínas & Frios" },
+  { id: "p4", nome: "Carne Bovina (Acém/Cozido)", unidadePadrao: "Kg", categoria: "Proteínas & Frios" },
   { id: "p5", nome: "Charque", unidadePadrao: "Kg", categoria: "Proteínas & Frios" },
   { id: "p6", nome: "Linguiça Calabresa", unidadePadrao: "Kg", categoria: "Proteínas & Frios" },
   { id: "p7", nome: "Bacon", unidadePadrao: "Kg", categoria: "Proteínas & Frios" },
   { id: "p8", nome: "Ovos Pasteurizados / Cartela", unidadePadrao: "Und", categoria: "Proteínas & Frios" },
 
+  // --- 3. HORTIFRÚTI (13 itens) ---
   { id: "h1", nome: "Abóbora", unidadePadrao: "Kg", categoria: "Hortifrúti" },
   { id: "h2", nome: "Alho in natura", unidadePadrao: "Kg", categoria: "Hortifrúti" },
+  { id: "h3", nome: "Alho triturado", unidadePadrao: "Kg", categoria: "Hortifrúti" },
   { id: "h4", nome: "Banana", unidadePadrao: "Kg", categoria: "Hortifrúti" },
   { id: "h5", nome: "Batata Inglesa", unidadePadrao: "Kg", categoria: "Hortifrúti" },
   { id: "h6", nome: "Beterraba", unidadePadrao: "Kg", categoria: "Hortifrúti" },
   { id: "h7", nome: "Cebola", unidadePadrao: "Kg", categoria: "Hortifrúti" },
+  { id: "h8", nome: "Cebolinha", unidadePadrao: "Maço", categoria: "Hortifrúti" },
   { id: "h9", nome: "Cenoura", unidadePadrao: "Kg", categoria: "Hortifrúti" },
   { id: "h10", nome: "Coentro", unidadePadrao: "Maço", categoria: "Hortifrúti" },
   { id: "h11", nome: "Pimentão", unidadePadrao: "Kg", categoria: "Hortifrúti" },
   { id: "h12", nome: "Tomate", unidadePadrao: "Kg", categoria: "Hortifrúti" },
   { id: "h13", nome: "Couve", unidadePadrao: "Maço", categoria: "Hortifrúti" },
 
+  // --- 4. LATICÍNIOS (5 itens) ---
   { id: "l1", nome: "Leite in natura", unidadePadrao: "Lt", categoria: "Laticínios" },
   { id: "l2", nome: "Creme de Leite", unidadePadrao: "Und", categoria: "Laticínios" },
   { id: "l3", nome: "Margarina", unidadePadrao: "Kg", categoria: "Laticínios" },
   { id: "l4", nome: "Queijo Mussarela", unidadePadrao: "Kg", categoria: "Laticínios" },
   { id: "l5", nome: "Queijo Ralado", unidadePadrao: "Pct", categoria: "Laticínios" },
 
+  // --- 5. ESPECIFICAÇÕES & CONDIMENTOS (25 itens) ---
+  { id: "e1", nome: "Açafrão", unidadePadrao: "g", categoria: "Especificações & Condimentos" },
   { id: "e2", nome: "Açúcar Cristal", unidadePadrao: "Kg", categoria: "Especificações & Condimentos" },
+  { id: "e3", nome: "Água Mineral", unidadePadrao: "Lt", categoria: "Especificações & Condimentos" },
+  { id: "e4", nome: "Amido de Milho", unidadePadrao: "Kg", categoria: "Especificações & Condimentos" },
   { id: "e5", nome: "Azeite de Oliva", unidadePadrao: "Lt", categoria: "Especificações & Condimentos" },
   { id: "e6", nome: "Biscoito Cream Cracker", unidadePadrao: "Pct", categoria: "Especificações & Condimentos" },
   { id: "e7", nome: "Biscoito Maria", unidadePadrao: "Pct", categoria: "Especificações & Condimentos" },
   { id: "e8", nome: "Café", unidadePadrao: "Kg", categoria: "Especificações & Condimentos" },
+  { id: "e9", nome: "Caldo de Carne", unidadePadrao: "Und", categoria: "Especificações & Condimentos" },
+  { id: "e10", nome: "Caldo de Galinha", unidadePadrao: "Und", categoria: "Especificações & Condimentos" },
+  { id: "e11", nome: "Coloral", unidadePadrao: "g", categoria: "Especificações & Condimentos" },
+  { id: "e12", nome: "Cominho", unidadePadrao: "g", categoria: "Especificações & Condimentos" },
+  { id: "e13", nome: "Ervilha", unidadePadrao: "Lata", categoria: "Especificações & Condimentos" },
   { id: "e14", nome: "Extrato de Tomate", unidadePadrao: "Kg", categoria: "Especificações & Condimentos" },
+  { id: "e15", nome: "Folha de Louro", unidadePadrao: "g", categoria: "Especificações & Condimentos" },
+  { id: "e16", nome: "Leite de Coco", unidadePadrao: "Vidro", categoria: "Especificações & Condimentos" },
+  { id: "e17", nome: "Milho Verde", unidadePadrao: "Lata", categoria: "Especificações & Condimentos" },
+  { id: "e18", nome: "Molho Shoyu", unidadePadrao: "Lt", categoria: "Especificações & Condimentos" },
+  { id: "e19", nome: "Molho Inglês", unidadePadrao: "Vidro", categoria: "Especificações & Condimentos" },
   { id: "e20", nome: "Óleo Vegetal", unidadePadrao: "Lt", categoria: "Especificações & Condimentos" },
+  { id: "e21", nome: "Orégano", unidadePadrao: "g", categoria: "Especificações & Condimentos" },
+  { id: "e22", nome: "Pimenta do Reino", unidadePadrao: "g", categoria: "Especificações & Condimentos" },
   { id: "e23", nome: "Sal", unidadePadrao: "Kg", categoria: "Especificações & Condimentos" },
+  { id: "e24", nome: "Vinagre", unidadePadrao: "Lt", categoria: "Especificações & Condimentos" },
   { id: "e25", nome: "Azeitona em Conserva", unidadePadrao: "Kg", categoria: "Especificações & Condimentos" },
 ];
 
@@ -194,6 +223,7 @@ export default function RecebimentoPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-28">
+      {/* 1. CABEÇALHO PADRÃO */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -215,7 +245,6 @@ export default function RecebimentoPage() {
         </div>
       </div>
 
-
       {feedbackSucesso && (
         <div className="p-4 sm:p-5 bg-emerald-600 text-white rounded-2xl flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-3 duration-300">
           <CheckCircle2 className="w-6 h-6 shrink-0 text-emerald-100" />
@@ -233,7 +262,7 @@ export default function RecebimentoPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm sm:text-base font-extrabold text-emerald-950 uppercase tracking-wide flex items-center gap-2">
             <PackagePlus className="w-5 h-5 text-emerald-600" />
-            <span>Selecionar Insumo e Detalhes</span>
+            <span>Selecionar Insumo e Detalhes ({INSUMOS_CATALOGADOS.length} itens)</span>
           </h2>
 
           {insumoSelecionado && (
@@ -250,10 +279,11 @@ export default function RecebimentoPage() {
               key={cat}
               type="button"
               onClick={() => setCategoriaAtiva(cat)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${categoriaAtiva === cat
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                categoriaAtiva === cat
                   ? "bg-emerald-600 text-white shadow-xs"
                   : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                }`}
+              }`}
             >
               {cat}
             </button>
@@ -301,16 +331,17 @@ export default function RecebimentoPage() {
         </div>
 
         {/* Chips dos Produtos */}
-        <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-1">
+        <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto pr-1">
           {insumosFiltrados.map((insumo) => (
             <button
               key={insumo.id}
               type="button"
               onClick={() => selecionarInsumo(insumo)}
-              className={`text-xs px-3 py-2 rounded-xl border font-bold transition-all cursor-pointer ${insumoSelecionado?.id === insumo.id
+              className={`text-xs px-3 py-2 rounded-xl border font-bold transition-all cursor-pointer ${
+                insumoSelecionado?.id === insumo.id
                   ? "bg-emerald-700 text-white border-emerald-700 shadow-xs scale-105"
                   : "bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/50"
-                }`}
+              }`}
             >
               {insumo.nome}
             </button>
@@ -372,7 +403,7 @@ export default function RecebimentoPage() {
                   type="text"
                   value={lote}
                   onChange={(e) => setLote(e.target.value)}
-                  placeholder="Ex.: LT-2024"
+                  placeholder="Ex.: LT-2026"
                   className="w-full p-2.5 bg-white border-2 border-slate-300 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:border-emerald-600"
                 />
               </div>
@@ -414,7 +445,7 @@ export default function RecebimentoPage() {
                       <button
                         type="button"
                         onClick={removerFoto}
-                        className="text-[11px] text-red-600 hover:underline font-semibold"
+                        className="text-[11px] text-red-600 hover:underline font-semibold cursor-pointer"
                       >
                         Remover foto
                       </button>
