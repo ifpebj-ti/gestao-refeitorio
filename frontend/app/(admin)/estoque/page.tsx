@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
 import Image from "next/image";
 import {
   Search,
@@ -206,6 +208,10 @@ const EXTRATO_INICIAL: MovimentacaoExtrato[] = [
 ];
 
 export default function EstoqueGeralPage() {
+  const router = useRouter();
+  const { autenticado, carregando } = useAuth();
+
+  // Estados da página (permanecem intactos no topo)
   const [abaAtiva, setAbaAtiva] = useState<"inventario" | "registrar" | "extrato">("inventario");
   const [busca, setBusca] = useState("");
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>("Todos");
@@ -230,18 +236,28 @@ export default function EstoqueGeralPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Insumo selecionado (null quando nenhum for clicado)
+  // Redireciona para /login se não estiver logado como Nutricionista
+  useEffect(() => {
+    if (!carregando && !autenticado) {
+      router.push("/login");
+    }
+  }, [autenticado, carregando, router]);
+
+  // Intercepta renderização enquanto checa sessão ou se o usuário for não-autorizado
+  if (carregando || !autenticado) {
+    return null;
+  }
+
+  // --- Lógica e funções da página continuam normalmente a partir daqui ---
   const insumoEntradaSelecionado = listaEstoque.find((i) => i.id === itemEntradaId) || null;
 
-  // Função auxiliar para determinar o status real integrado às regras de negócio
   const calcularStatusItem = (item: ItemEstoque): "NORMAL" | "ATENCAO" => {
-    // Alerta se o saldo atingir o mínimo seguro da categoria
     const statusSaldo = verificarStatusEstoque(item.saldoAtual, item.unidade, item.categoria);
-    // Alerta se a validade estiver em até 5 dias
     const statusValidade = item.diasValidade !== undefined && item.diasValidade <= 5 ? "ATENCAO" : "NORMAL";
 
     return statusSaldo === "ATENCAO" || statusValidade === "ATENCAO" ? "ATENCAO" : "NORMAL";
   };
+ 
 
   // Filtro de inventário geral
   const itensFiltrados = listaEstoque.filter((item) => {

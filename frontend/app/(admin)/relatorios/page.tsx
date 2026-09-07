@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
 import {
   Download,
   Utensils,
@@ -127,12 +129,28 @@ const ITENS_SEM_GIRO_MOCK: ItemSemGiro[] = [
 ];
 
 export default function RelatoriosPage() {
-  const [periodo, setPeriodo] = useState<PeriodoFiltro>("semana");
+  const router = useRouter();
+  const { autenticado, carregando } = useAuth();
 
+  // Estados locais (permanecem intactos no topo)
+  const [periodo, setPeriodo] = useState<PeriodoFiltro>("semana");
   const [fornecedorAtivo, setFornecedorAtivo] = useState<string | null>(null);
   const [categoriaAtiva, setCategoriaAtiva] = useState<string | null>(null);
   const [insumoAtivo, setInsumoAtivo] = useState<string | null>(null);
 
+  // Redireciona para /login se a checagem concluiu e não estiver autenticado
+  useEffect(() => {
+    if (!carregando && !autenticado) {
+      router.push("/login");
+    }
+  }, [autenticado, carregando, router]);
+
+  // Evita flash da tela durante a verificação do storage ou se não estiver logado
+  if (carregando || !autenticado) {
+    return null;
+  }
+
+  // Cálculos e variáveis da página continuam normalmente a partir daqui:
   const dadosCategorias = CATEGORIAS_CONSUMO_MOCK[periodo];
   const totalVolumeKg = dadosCategorias.reduce((acc, cur) => acc + cur.totalKg, 0);
   const totalCustoFinanceiro = dadosCategorias.reduce((acc, cur) => acc + cur.custoTotal, 0);

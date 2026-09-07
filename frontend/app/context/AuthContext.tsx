@@ -1,64 +1,73 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export type PerfilUsuario = "COZINHA" | "NUTRICIONISTA";
 
 interface AuthContextType {
   perfil: PerfilUsuario;
-  alternarPerfil: () => void;
+  autenticado: boolean;
+  carregando: boolean; // <-- Adicionado para evitar falso logout no F5/URL direta
   menuMobileAberto: boolean;
   setMenuMobileAberto: (aberto: boolean) => void;
-  toggleMenuMobile: () => void;
   totalAlertasPendentes: number;
   bannerAlertasVisivel: boolean;
+  validarPin: (pin: string) => boolean;
+  logout: () => void;
+  toggleMenuMobile: () => void;
+  fecharMenuMobile: () => void;
   dispensarBannerAlertas: () => void;
 }
 
+const PIN_MESTRE_NUTRI = "1234";
+const STORAGE_KEY = "@nutrifpe:auth_perfil";
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Rotas restritas e exclusivas de cada perfil
-const ROTAS_EXCLUSIVAS_NUTRI = ["/estoque", "/cardapio", "/relatorios"];
-const ROTAS_EXCLUSIVAS_COZINHA = ["/recebimento"];
-
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
-
   const [perfil, setPerfil] = useState<PerfilUsuario>("COZINHA");
+  const [autenticado, setAutenticado] = useState(false);
+  const [carregando, setCarregando] = useState(true); // Começa true até ler o storage
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const [bannerAlertasVisivel, setBannerAlertasVisivel] = useState(true);
 
-  const totalAlertasPendentes = 6;
+  const totalAlertasPendentes = 4;
 
-  // Guarda de rota em tempo real (bloqueia URL digitada ou transições diretas)
+  // Restaura sessão do sessionStorage
   useEffect(() => {
-    if (!pathname) return;
-
-    if (perfil === "COZINHA" && ROTAS_EXCLUSIVAS_NUTRI.some((r) => pathname.startsWith(r))) {
-      router.replace("/consumo");
-    } else if (perfil === "NUTRICIONISTA" && ROTAS_EXCLUSIVAS_COZINHA.some((r) => pathname.startsWith(r))) {
-      router.replace("/estoque");
-    }
-  }, [perfil, pathname, router]);
-
-  const alternarPerfil = () => {
-    setPerfil((prev) => {
-      const novoPerfil = prev === "COZINHA" ? "NUTRICIONISTA" : "COZINHA";
-
-      if (novoPerfil === "COZINHA" && ROTAS_EXCLUSIVAS_NUTRI.some((r) => pathname.startsWith(r))) {
-        router.replace("/consumo");
-      } else if (novoPerfil === "NUTRICIONISTA" && ROTAS_EXCLUSIVAS_COZINHA.some((r) => pathname.startsWith(r))) {
-        router.replace("/estoque");
+    try {
+      const perfilSalvo = sessionStorage.getItem(STORAGE_KEY);
+      if (perfilSalvo === "NUTRICIONISTA") {
+        setPerfil("NUTRICIONISTA");
+        setAutenticado(true);
       }
+    } catch (e) {
+      console.error("Erro ao ler sessão:", e);
+    } finally {
+      setCarregando(false); // Checagem finalizada
+    }
+  }, []);
 
-      return novoPerfil;
-    });
+  const toggleMenuMobile = () => setMenuMobileAberto((prev) => !prev);
+  const fecharMenuMobile = () => setMenuMobileAberto(false);
+
+  const validarPin = (pinDigitado: string): boolean => {
+    if (pinDigitado === PIN_MESTRE_NUTRI) {
+      setPerfil("NUTRICIONISTA");
+      setAutenticado(true);
+      sessionStorage.setItem(STORAGE_KEY, "NUTRICIONISTA");
+      return true;
+    }
+    return false;
   };
 
-  const toggleMenuMobile = () => {
-    setMenuMobileAberto((prev) => !prev);
+  const logout = () => {
+    sessionStorage.removeItem(STORAGE_KEY);
+    setPerfil("COZINHA");
+    setAutenticado(false);
+    router.push("/consumo");
   };
 
   const dispensarBannerAlertas = () => {
@@ -69,12 +78,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         perfil,
-        alternarPerfil,
+        autenticado,
+        carregando,
         menuMobileAberto,
         setMenuMobileAberto,
-        toggleMenuMobile,
         totalAlertasPendentes,
         bannerAlertasVisivel,
+        validarPin,
+        logout,
+        toggleMenuMobile,
+        fecharMenuMobile,
         dispensarBannerAlertas,
       }}
     >
@@ -86,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth deve ser usado dentro de um AuthProvider");
+    throw new Error("useAuth deve ser utilizado dentro de um AuthProvider");
   }
   return context;
 }

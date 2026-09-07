@@ -10,6 +10,10 @@ import {
     CheckCircle2,
 } from "lucide-react";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
+
 type DiaSemana = "Segunda" | "Terça" | "Quarta" | "Quinta" | "Sexta";
 
 interface RefeicaoCardapio {
@@ -115,11 +119,29 @@ const CARDAPIO_INICIAL: Record<DiaSemana, DiaCardapio> = {
 };
 
 export default function CardapioSemanalPage() {
+    const router = useRouter();
+    const { autenticado, carregando } = useAuth(); // <-- pegamos o carregando aqui
+
     const [diaSelecionado, setDiaSelecionado] = useState<DiaSemana>("Segunda");
     const [cardapio, setCardapio] = useState<Record<DiaSemana, DiaCardapio>>(CARDAPIO_INICIAL);
     const [modoEdicao, setModoEdicao] = useState(false);
     const [sucessoSalvo, setSucessoSalvo] = useState(false);
 
+    // Só redireciona se JÁ TERMINOU de carregar o sessionStorage e mesmo assim NÃO está autenticado
+    useEffect(() => {
+        if (!carregando && !autenticado) {
+            router.push("/login");
+        }
+    }, [autenticado, carregando, router]);
+
+    // Enquanto estiver checando o storage ou se não estiver autenticado, não exibe nada
+    if (carregando || !autenticado) {
+        return null;
+    }
+
+    // ... resto do seu código normal continua daqui ...
+
+    // 5. Resto do seu código normal continua daqui em diante:
     const diaAtualDados = cardapio[diaSelecionado];
 
     const handleCampoChange = (
