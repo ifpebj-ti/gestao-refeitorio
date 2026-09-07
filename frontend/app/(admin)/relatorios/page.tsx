@@ -12,11 +12,15 @@ import {
   ArrowUpDown,
   Boxes,
 } from "lucide-react";
+import {
+  CategoriaAlimento,
+  obterEstoqueMinimoPorCategoria,
+} from "@/app/utils/estoqueRules";
 
 type PeriodoFiltro = "semana" | "mes" | "anterior";
 
 interface ConsumoCategoria {
-  categoria: string;
+  categoria: CategoriaAlimento;
   totalKg: number;
   custoTotal: number;
   porcentagem: number;
@@ -29,6 +33,14 @@ interface ItemRotatividade {
   saldoAtual: string;
   frequenciaSaida: string;
   statusGiro: "Giro Rápido" | "Estável" | "Sem Saída";
+}
+
+interface ItemSemGiro {
+  nome: string;
+  categoria: CategoriaAlimento;
+  saldo: string;
+  diasParado: number;
+  local: string;
 }
 
 const CATEGORIAS_CONSUMO_MOCK: Record<PeriodoFiltro, ConsumoCategoria[]> = {
@@ -70,7 +82,6 @@ const PREVISAO_FORNECEDORES_MOCK = [
   { fornecedor: "Feirante Local", valor: 2930, porcentagem: 8, corStroke: "#cbd5e1" },
 ];
 
-// Curva de Rotatividade baseada estritamente nas baixas da cozinha
 const ITENS_ROTATIVIDADE_MOCK: ItemRotatividade[] = [
   {
     nome: "Coxa & Peito de Frango",
@@ -109,10 +120,10 @@ const ITENS_ROTATIVIDADE_MOCK: ItemRotatividade[] = [
   },
 ];
 
-const ITENS_SEM_GIRO_MOCK = [
-  { nome: "Amido de Milho", saldo: "14 Kg", diasParado: 26, local: "Despensa Seca" },
-  { nome: "Azeitona em Conserva", saldo: "10 Kg", diasParado: 21, local: "Despensa Seca" },
-  { nome: "Molho Shoyu", saldo: "5 Lt", diasParado: 19, local: "Despensa Seca" },
+const ITENS_SEM_GIRO_MOCK: ItemSemGiro[] = [
+  { nome: "Amido de Milho", categoria: "Especificações & Condimentos", saldo: "14 Kg", diasParado: 26, local: "Despensa Seca" },
+  { nome: "Azeitona em Conserva", categoria: "Especificações & Condimentos", saldo: "10 Kg", diasParado: 21, local: "Despensa Seca" },
+  { nome: "Molho Shoyu", categoria: "Especificações & Condimentos", saldo: "5 Lt", diasParado: 19, local: "Despensa Seca" },
 ];
 
 export default function RelatoriosPage() {
@@ -237,7 +248,6 @@ export default function RelatoriosPage() {
           </p>
         </div>
 
-        {/* AJUSTADO: REFLETE O UNIVERSO DOS 58 INSUMOS CATALOGADOS */}
         <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-xs space-y-1 hover:border-emerald-200 transition-colors">
           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
             <Boxes className="w-3.5 h-3.5 text-slate-400" />
@@ -609,20 +619,26 @@ export default function RelatoriosPage() {
           </div>
 
           <div className="divide-y divide-slate-100 text-xs">
-            {ITENS_SEM_GIRO_MOCK.map((item) => (
-              <div key={item.nome} className="py-2.5 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-semibold text-slate-800">{item.nome}</p>
-                  <p className="text-[11px] text-slate-400">{item.local} • Saldo parado: {item.saldo}</p>
-                </div>
+            {ITENS_SEM_GIRO_MOCK.map((item) => {
+              const minimoSeguro = obterEstoqueMinimoPorCategoria(item.categoria);
 
-                <div className="text-right shrink-0">
-                  <span className="inline-block text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
-                    {item.diasParado} dias sem saída
-                  </span>
+              return (
+                <div key={item.nome} className="py-2.5 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-800">{item.nome}</p>
+                    <p className="text-[11px] text-slate-400">
+                      {item.local} • Saldo: {item.saldo} (limite de segurança: {minimoSeguro} {item.categoria === "Especificações & Condimentos" && item.nome.includes("Shoyu") ? "Lt" : "Kg"})
+                    </p>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className="inline-block text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                      {item.diasParado} dias sem saída
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <p className="text-[11px] text-slate-400 pt-1">

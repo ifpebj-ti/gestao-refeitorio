@@ -14,24 +14,26 @@ import {
   Info,
   AlertTriangle,
   ArrowRight,
-  ShieldCheck,
   Edit3,
   Lock,
-  Clock,
 } from "lucide-react";
+import { CategoriaAlimento } from "@/app/utils/estoqueRules";
 
 interface ItemFicha {
   id: string;
   nome: string;
   unidade: string;
-  categoria:
-  | "Grãos & Cereais"
-  | "Proteínas & Frios"
-  | "Hortifrúti"
-  | "Laticínios"
-  | "Especificações & Condimentos";
+  categoria: CategoriaAlimento;
   quantidadeUsada: number;
 }
+
+const CATEGORIAS_FICHA: CategoriaAlimento[] = [
+  "Grãos & Cereais",
+  "Proteínas & Frios",
+  "Hortifrúti",
+  "Laticínios",
+  "Especificações & Condimentos",
+];
 
 const BASE_ITENS: ItemFicha[] = [
   // --- GRÃOS & CEREAIS ---
@@ -112,7 +114,6 @@ const CARDAPIO_MOCK: Record<TipoRefeicao, string> = {
     "Sopa nutritiva de carne desfiada com macarrão e legumes, torradas temperadas, café e leite.",
 };
 
-// Horários e status dinâmicos por turno
 const HORARIOS_ENCERRAMENTO_MOCK: Record<TipoRefeicao, { hora: string; status: boolean }> = {
   "Café da Manhã": { hora: "08:45", status: true },
   "Almoço": { hora: "13:30", status: true },
@@ -131,11 +132,9 @@ export default function ConsumoDiarioPage() {
   const [observacao, setObservacao] = useState("");
   const [feedbackSucesso, setFeedbackSucesso] = useState(false);
 
-  // Estados de controle para o modo do nutricionista
   const [turnoEncerradoPelaCozinha, setTurnoEncerradoPelaCozinha] = useState(false);
   const [modoEdicaoNutri, setModoEdicaoNutri] = useState(false);
 
-  // Altera os dados e horários de forma contextual ao mudar de refeição ou perfil
   useEffect(() => {
     const turnoInfo = HORARIOS_ENCERRAMENTO_MOCK[tipoRefeicao];
 
@@ -176,13 +175,11 @@ export default function ConsumoDiarioPage() {
         );
       }
     } else if (isNutricionista && !turnoInfo.status) {
-      // Jantar ainda não finalizado pela cozinha
       setTurnoEncerradoPelaCozinha(false);
       setModoEdicaoNutri(false);
       setObservacao("");
       setItens((prev) => prev.map((item) => ({ ...item, quantidadeUsada: 0 })));
     } else {
-      // Perfil Cozinha
       setTurnoEncerradoPelaCozinha(false);
       setModoEdicaoNutri(true);
       setItens((prev) => prev.map((item) => ({ ...item, quantidadeUsada: 0 })));
@@ -233,14 +230,6 @@ export default function ConsumoDiarioPage() {
 
   const totalLancados = itens.filter((i) => i.quantidadeUsada > 0).length;
 
-  const categorias = [
-    "Grãos & Cereais",
-    "Proteínas & Frios",
-    "Hortifrúti",
-    "Laticínios",
-    "Especificações & Condimentos",
-  ] as const;
-
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-28">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
@@ -256,7 +245,6 @@ export default function ConsumoDiarioPage() {
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          {/* Data: fixa (somente leitura) para Cozinha, seletor com trava futura para Nutricionista */}
           {isNutricionista ? (
             <div className="flex items-center gap-2.5 bg-white px-3.5 py-2 border border-slate-300 rounded-xl shadow-xs">
               <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -280,7 +268,6 @@ export default function ConsumoDiarioPage() {
             </div>
           )}
 
-          {/* Seletor de Turno / Refeição */}
           <SeletorRefeicao
             valor={tipoRefeicao}
             onChange={setTipoRefeicao}
@@ -288,8 +275,6 @@ export default function ConsumoDiarioPage() {
         </div>
       </div>
 
-
-      {/* BANNER DE AVISO DISCRETO (SÓ PARA A COZINHA) */}
       {!isNutricionista && bannerAlertasVisivel && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 bg-amber-50/70 border border-amber-200/90 rounded-xl text-amber-900 transition-all">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -310,13 +295,13 @@ export default function ConsumoDiarioPage() {
         </div>
       )}
 
-      {/* BARRA DE CONTROLE DE AUDITORIA DO NUTRICIONISTA */}
       {isNutricionista && turnoEncerradoPelaCozinha && (
         <div className="bg-white border border-slate-200 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-3">
             <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center ${modoEdicaoNutri ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
-                }`}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                modoEdicaoNutri ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+              }`}
             >
               {modoEdicaoNutri ? <Edit3 className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
             </div>
@@ -335,20 +320,19 @@ export default function ConsumoDiarioPage() {
           <button
             type="button"
             onClick={() => setModoEdicaoNutri(!modoEdicaoNutri)}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer self-start sm:self-auto ${modoEdicaoNutri
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer self-start sm:self-auto ${
+              modoEdicaoNutri
                 ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
                 : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-              }`}
+            }`}
           >
             {modoEdicaoNutri ? "Bloquear Edição" : "Habilitar Correção"}
           </button>
         </div>
       )}
 
-      {/* 2. CARD DO CARDÁPIO */}
       <CardapioCard refeicao={tipoRefeicao} descricao={cardapioAtual} />
 
-      {/* Alerta de Sucesso */}
       {feedbackSucesso && (
         <div className="p-4 sm:p-5 bg-emerald-600 text-white rounded-2xl flex items-center gap-3 sm:gap-4 shadow-lg animate-in fade-in slide-in-from-top-3 duration-300">
           <CheckCircle2 className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 text-emerald-100" />
@@ -367,10 +351,9 @@ export default function ConsumoDiarioPage() {
         </div>
       )}
 
-      {/* 3. FORMULÁRIO COM SEÇÕES */}
       <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
         <div className="space-y-4 sm:space-y-6">
-          {categorias.map((catNome) => {
+          {CATEGORIAS_FICHA.map((catNome) => {
             const itensDaCategoria = itens.filter((i) => i.categoria === catNome);
 
             return (
@@ -396,18 +379,21 @@ export default function ConsumoDiarioPage() {
                     return (
                       <div
                         key={item.id}
-                        className={`p-3.5 sm:px-6 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors ${emUso ? "bg-emerald-50/40" : "hover:bg-slate-50/60"
-                          }`}
+                        className={`p-3.5 sm:px-6 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors ${
+                          emUso ? "bg-emerald-50/40" : "hover:bg-slate-50/60"
+                        }`}
                       >
                         <div className="flex items-center justify-between sm:justify-start gap-3 min-w-0">
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div
-                              className={`w-2.5 h-2.5 rounded-full shrink-0 ${emUso ? "bg-emerald-600 scale-125" : "bg-slate-300"
-                                } transition-transform`}
+                              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                                emUso ? "bg-emerald-600 scale-125" : "bg-slate-300"
+                              } transition-transform`}
                             />
                             <span
-                              className={`text-sm sm:text-base truncate ${emUso ? "font-bold text-slate-900" : "font-medium text-slate-700"
-                                }`}
+                              className={`text-sm sm:text-base truncate ${
+                                emUso ? "font-bold text-slate-900" : "font-medium text-slate-700"
+                              }`}
                             >
                               {item.nome}
                             </span>
@@ -420,10 +406,11 @@ export default function ConsumoDiarioPage() {
 
                         <div className="flex items-center justify-end">
                           <div
-                            className={`flex items-center border-2 rounded-xl bg-white shadow-2xs overflow-hidden w-full sm:w-auto justify-between sm:justify-start ${desabilitado
+                            className={`flex items-center border-2 rounded-xl bg-white shadow-2xs overflow-hidden w-full sm:w-auto justify-between sm:justify-start ${
+                              desabilitado
                                 ? "border-slate-200 bg-slate-50 opacity-80"
                                 : "border-slate-300 focus-within:border-emerald-600"
-                              }`}
+                            }`}
                           >
                             <button
                               type="button"
@@ -466,7 +453,6 @@ export default function ConsumoDiarioPage() {
           })}
         </div>
 
-        {/* 4. OBSERVAÇÕES E SOBRAS */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-xs space-y-2.5">
           <label className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
             <Info className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -488,10 +474,8 @@ export default function ConsumoDiarioPage() {
 
         <div className="h-16 w-full" aria-hidden="true" />
 
-        {/* BARRA FLUTUANTE ENXUTA E ALINHADA */}
         <div className="fixed bottom-4 left-0 right-0 lg:pl-64 px-4 sm:px-6 pointer-events-none z-30">
           <div className="max-w-6xl mx-auto bg-white/95 backdrop-blur-md border border-slate-200 py-2.5 px-4 sm:px-5 rounded-2xl shadow-lg pointer-events-auto flex items-center justify-between gap-4">
-            {/* Lado Esquerdo: Contador Compacto */}
             <div className="flex items-center gap-2.5">
               <span className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0">
                 {totalLancados}
@@ -506,7 +490,6 @@ export default function ConsumoDiarioPage() {
               </div>
             </div>
 
-            {/* Lado Direito: Limpar e Ação Principal */}
             <div className="flex items-center gap-2">
               {!isNutricionista && totalLancados > 0 && (
                 <button

@@ -11,11 +11,15 @@ import {
   AlertTriangle,
   Boxes,
 } from "lucide-react";
+import {
+  obterEstoqueMinimoPorCategoria,
+  CategoriaAlimento,
+} from "@/app/utils/estoqueRules";
 
 interface AlertaValidade {
   id: string;
   insumo: string;
-  categoria: string;
+  categoria: CategoriaAlimento;
   quantidade: number;
   unidade: string;
   dataValidade: string;
@@ -27,9 +31,8 @@ interface AlertaValidade {
 interface AlertaEstoqueMinimo {
   id: string;
   insumo: string;
-  categoria: string;
+  categoria: CategoriaAlimento;
   saldoAtual: number;
-  estoqueMinimo: number;
   unidade: string;
 }
 
@@ -40,7 +43,7 @@ const ALERTAS_VALIDADE: AlertaValidade[] = [
     categoria: "Proteínas & Frios",
     quantidade: 15,
     unidade: "Kg",
-    dataValidade: "06/09/2026",
+    dataValidade: "08/09/2026",
     diasRestantes: 2,
     lote: "LT-902",
     fornecedor: "Avícola Regional",
@@ -51,7 +54,7 @@ const ALERTAS_VALIDADE: AlertaValidade[] = [
     categoria: "Laticínios",
     quantidade: 20,
     unidade: "Lt",
-    dataValidade: "07/09/2026",
+    dataValidade: "09/09/2026",
     diasRestantes: 3,
     fornecedor: "Cooperativa Vale do Ipojuca",
   },
@@ -61,7 +64,7 @@ const ALERTAS_VALIDADE: AlertaValidade[] = [
     categoria: "Hortifrúti",
     quantidade: 12,
     unidade: "Kg",
-    dataValidade: "08/09/2026",
+    dataValidade: "10/09/2026",
     diasRestantes: 4,
     fornecedor: "Feirante Local",
   },
@@ -73,7 +76,6 @@ const ALERTAS_ESTOQUE: AlertaEstoqueMinimo[] = [
     insumo: "Óleo Vegetal",
     categoria: "Especificações & Condimentos",
     saldoAtual: 4,
-    estoqueMinimo: 15,
     unidade: "Lt",
   },
   {
@@ -81,7 +83,6 @@ const ALERTAS_ESTOQUE: AlertaEstoqueMinimo[] = [
     insumo: "Arroz Parboilizado",
     categoria: "Grãos & Cereais",
     saldoAtual: 20,
-    estoqueMinimo: 50,
     unidade: "Kg",
   },
   {
@@ -89,7 +90,6 @@ const ALERTAS_ESTOQUE: AlertaEstoqueMinimo[] = [
     insumo: "Alho in natura",
     categoria: "Hortifrúti",
     saldoAtual: 1.5,
-    estoqueMinimo: 5,
     unidade: "Kg",
   },
 ];
@@ -101,51 +101,30 @@ export default function CentralAlertasPage() {
   const [abaAtiva, setAbaAtiva] = useState<"validade" | "estoque">("validade");
 
   return (
-    // <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-28">
-    //   {/* 1. CABEÇALHO PADRONIZADO */}
-    //   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-3 border-b border-slate-200">
-    //     <div>
-    //       <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1 tracking-tight">
-    //         Central de Alertas
-    //       </h1>
-    //       <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-    //         Consulte produtos que devem ser gastos primeiro e itens que estão acabando no estoque
-    //       </p>
-    //     </div>
-
-    //     <Link
-    //       href={isNutri ? "/cardapio" : "/consumo"}
-    //       className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
-    //     >
-    //       <span>{isNutri ? "Ver Cardápio Semanal" : "Ir para Consumo Diário"}</span>
-    //       <ArrowRight className="w-4 h-4" />
-    //     </Link>
-    //   </div>
-
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-28">
-  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
-    <div>
-      <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-        Central de Alertas
-      </h1>
-      <p className="text-xs sm:text-sm text-slate-500 mt-1">
-        Consulte produtos que devem ser gastos primeiro e itens que estão acabando no estoque.
-      </p>
-    </div>
+      {/* 1. CABEÇALHO */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Central de Alertas
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Consulte produtos que devem ser gastos primeiro e itens que atingiram o limite seguro de estoque.
+          </p>
+        </div>
 
-    <div className="flex items-center gap-2 self-start sm:self-auto">
-      <Link
-        href={isNutri ? "/cardapio" : "/consumo"}
-        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors"
-      >
-        <span>{isNutri ? "Ver Cardápio Semanal" : "Ir para Consumo Diário"}</span>
-        <ArrowRight className="w-4 h-4" />
-      </Link>
-    </div>
-  </div>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Link
+            href={isNutri ? "/cardapio" : "/consumo"}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors"
+          >
+            <span>{isNutri ? "Ver Cardápio Semanal" : "Ir para Consumo Diário"}</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
 
-  
-      {/* 2. CARDS DE SELEÇÃO RÁPIDA (MESMO GRID E BORDAS DOS OUTROS MÓDULOS) */}
+      {/* 2. CARDS DE SELEÇÃO RÁPIDA */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <button
           type="button"
@@ -190,15 +169,15 @@ export default function CentralAlertasPage() {
             </span>
           </div>
           <h2 className="text-base font-extrabold text-slate-900 mt-3">
-            Estoque Acabando (Crítico)
+            Estoque Acabando (Atenção)
           </h2>
           <p className="text-xs text-slate-600 mt-0.5">
-            Itens no final que precisam ser informados à Nutrição / Compras.
+            Itens que atingiram a margem segura de segurança e precisam de reposição.
           </p>
         </button>
       </div>
 
-      {/* 3. TABELA / LISTAGEM COM MESMA LINHAGEM VISUAL */}
+      {/* 3. LISTAGEM */}
       <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
         <div className="bg-slate-50/80 px-4 sm:px-6 py-3.5 border-b border-slate-200 flex items-center justify-between">
           <h3 className="text-xs sm:text-sm font-extrabold text-slate-800 uppercase tracking-wide flex items-center gap-2">
@@ -206,7 +185,7 @@ export default function CentralAlertasPage() {
             <span>
               {abaAtiva === "validade"
                 ? "Produtos Próximos ao Vencimento"
-                : "Produtos com Quantidade Abaixo do Mínimo"}
+                : "Produtos com Quantidade Abaixo do Mínimo Seguro"}
             </span>
           </h3>
 
@@ -262,13 +241,14 @@ export default function CentralAlertasPage() {
           </div>
         )}
 
-        {/* LISTA 2: ESTOQUE BAIXO */}
+        {/* LISTA 2: ESTOQUE BAIXO (CALCULADO VIA CATEGORIA) */}
         {abaAtiva === "estoque" && (
           <div className="divide-y divide-slate-100">
             {ALERTAS_ESTOQUE.map((item) => {
+              const minimoCategoria = obterEstoqueMinimoPorCategoria(item.categoria);
               const porcentagem = Math.min(
                 100,
-                Math.round((item.saldoAtual / item.estoqueMinimo) * 100)
+                Math.round((item.saldoAtual / minimoCategoria) * 100)
               );
 
               return (
@@ -291,7 +271,7 @@ export default function CentralAlertasPage() {
                       <strong className="text-rose-700 text-sm">
                         {item.saldoAtual} {item.unidade}
                       </strong>{" "}
-                      (mínimo recomendado: {item.estoqueMinimo} {item.unidade})
+                      (mínimo seguro para categoria: {minimoCategoria} {item.unidade})
                     </p>
 
                     <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -329,7 +309,7 @@ export default function CentralAlertasPage() {
       <div className="bg-slate-100/70 border border-slate-200 p-4 rounded-2xl text-xs text-slate-600 flex items-start gap-3">
         <Clock className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
         <p>
-          <strong>Dica para a equipe:</strong> Ao iniciar o turno, verifique esta lista para priorizar os pacotes abertos ou produtos que vencem primeiro no preparo do dia.
+          <strong>Dica para a equipe:</strong> Ao iniciar o turno, verifique esta lista para priorizar os insumos de prazo curto no cardápio do dia e acompanhar o estoque de segurança.
         </p>
       </div>
     </div>

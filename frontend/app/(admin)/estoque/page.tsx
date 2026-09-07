@@ -17,21 +17,16 @@ import {
   X,
   ImageIcon,
 } from "lucide-react";
+import { verificarStatusEstoque, CategoriaAlimento } from "@/app/utils/estoqueRules";
 
 interface ItemEstoque {
   id: string;
   nome: string;
-  categoria:
-    | "Grãos & Cereais"
-    | "Proteínas & Frios"
-    | "Hortifrúti"
-    | "Laticínios"
-    | "Especificações & Condimentos";
+  categoria: CategoriaAlimento;
   unidade: string;
   saldoAtual: number;
   dataValidade?: string;
   diasValidade?: number;
-  statusGiro?: "NORMAL" | "ATENCAO";
   fornecedorPrincipal: string;
 }
 
@@ -68,72 +63,72 @@ const CATEGORIAS = [
 // 58 ITENS COMPLETOS E EQUALIZADOS
 const TODOS_ITENS_ESTOQUE: ItemEstoque[] = [
   // --- GRÃOS & CEREAIS (7 itens) ---
-  { id: "g1", nome: "Arroz Parboilizado", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 20, dataValidade: "15/12/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "g2", nome: "Feijão Carioca", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 45, dataValidade: "20/11/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "g3", nome: "Feijão Macassar", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 35, dataValidade: "10/11/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Cooperativa Vale do Ipojuca" },
-  { id: "g4", nome: "Macarrão Espaguete", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 28, dataValidade: "05/01/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "g5", nome: "Macarrão (Sopa)", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 14, dataValidade: "02/01/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "g6", nome: "Flocão de Milho (Cuscuz)", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 60, dataValidade: "18/10/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Cerealista Central" },
-  { id: "g7", nome: "Farinha de Mandioca (Farofa)", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 22, dataValidade: "30/11/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Cooperativa Vale do Ipojuca" },
+  { id: "g1", nome: "Arroz Parboilizado", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 20, dataValidade: "15/12/2026", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "g2", nome: "Feijão Carioca", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 45, dataValidade: "20/11/2026", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "g3", nome: "Feijão Macassar", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 35, dataValidade: "10/11/2026", fornecedorPrincipal: "Cooperativa Vale do Ipojuca" },
+  { id: "g4", nome: "Macarrão Espaguete", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 28, dataValidade: "05/01/2027", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "g5", nome: "Macarrão (Sopa)", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 14, dataValidade: "02/01/2027", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "g6", nome: "Flocão de Milho (Cuscuz)", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 60, dataValidade: "18/10/2026", fornecedorPrincipal: "Cerealista Central" },
+  { id: "g7", nome: "Farinha de Mandioca (Farofa)", categoria: "Grãos & Cereais", unidade: "Kg", saldoAtual: 22, dataValidade: "30/11/2026", fornecedorPrincipal: "Cooperativa Vale do Ipojuca" },
 
   // --- PROTEÍNAS & FRIOS (8 itens) ---
-  { id: "p1", nome: "Peito de Frango", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 15, dataValidade: "08/09/2026", diasValidade: 2, statusGiro: "ATENCAO", fornecedorPrincipal: "Avícola Regional" },
-  { id: "p2", nome: "Coxa de Frango", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 52, dataValidade: "11/09/2026", diasValidade: 5, statusGiro: "ATENCAO", fornecedorPrincipal: "Avícola Regional" },
-  { id: "p3", nome: "Carne Bovina (Patinho/Moída)", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 25, dataValidade: "14/09/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Frigorífico Belo Jardim" },
-  { id: "p4", nome: "Carne Bovina (Acém/Cozido)", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 30, dataValidade: "15/09/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Frigorífico Belo Jardim" },
-  { id: "p5", nome: "Charque", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 18, dataValidade: "20/10/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Frigorífico Belo Jardim" },
-  { id: "p6", nome: "Linguiça Calabresa", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 12, dataValidade: "28/09/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Frigorífico Belo Jardim" },
-  { id: "p7", nome: "Bacon", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 8, dataValidade: "05/10/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Frigorífico Belo Jardim" },
-  { id: "p8", nome: "Ovos Pasteurizados / Cartela", categoria: "Proteínas & Frios", unidade: "Und", saldoAtual: 180, dataValidade: "22/09/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Granja São José" },
+  { id: "p1", nome: "Peito de Frango", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 15, dataValidade: "08/09/2026", diasValidade: 2, fornecedorPrincipal: "Avícola Regional" },
+  { id: "p2", nome: "Coxa de Frango", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 52, dataValidade: "11/09/2026", diasValidade: 5, fornecedorPrincipal: "Avícola Regional" },
+  { id: "p3", nome: "Carne Bovina (Patinho/Moída)", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 25, dataValidade: "14/09/2026", fornecedorPrincipal: "Frigorífico Belo Jardim" },
+  { id: "p4", nome: "Carne Bovina (Acém/Cozido)", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 30, dataValidade: "15/09/2026", fornecedorPrincipal: "Frigorífico Belo Jardim" },
+  { id: "p5", nome: "Charque", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 18, dataValidade: "20/10/2026", fornecedorPrincipal: "Frigorífico Belo Jardim" },
+  { id: "p6", nome: "Linguiça Calabresa", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 12, dataValidade: "28/09/2026", fornecedorPrincipal: "Frigorífico Belo Jardim" },
+  { id: "p7", nome: "Bacon", categoria: "Proteínas & Frios", unidade: "Kg", saldoAtual: 8, dataValidade: "05/10/2026", fornecedorPrincipal: "Frigorífico Belo Jardim" },
+  { id: "p8", nome: "Ovos Pasteurizados / Cartela", categoria: "Proteínas & Frios", unidade: "Und", saldoAtual: 180, dataValidade: "22/09/2026", fornecedorPrincipal: "Granja São José" },
 
   // --- HORTIFRÚTI (13 itens) ---
-  { id: "h1", nome: "Abóbora", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 16, dataValidade: "18/09/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Feirante Local" },
-  { id: "h2", nome: "Alho in natura", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 1.5, dataValidade: "25/09/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Feirante Local" },
-  { id: "h3", nome: "Alho triturado", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 4, dataValidade: "15/10/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "h4", nome: "Banana", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 35, dataValidade: "10/09/2026", diasValidade: 4, statusGiro: "ATENCAO", fornecedorPrincipal: "Cooperativa Vale do Ipojuca" },
-  { id: "h5", nome: "Batata Inglesa", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 24, dataValidade: "20/09/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Feirante Local" },
-  { id: "h6", nome: "Beterraba", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 14, dataValidade: "17/09/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Feirante Local" },
-  { id: "h7", nome: "Cebola", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 18, dataValidade: "25/09/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Feirante Local" },
-  { id: "h8", nome: "Cebolinha", categoria: "Hortifrúti", unidade: "Maço", saldoAtual: 10, dataValidade: "09/09/2026", diasValidade: 3, statusGiro: "ATENCAO", fornecedorPrincipal: "Feirante Local" },
-  { id: "h9", nome: "Cenoura", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 22, dataValidade: "19/09/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Feirante Local" },
-  { id: "h10", nome: "Coentro", categoria: "Hortifrúti", unidade: "Maço", saldoAtual: 9, dataValidade: "09/09/2026", diasValidade: 3, statusGiro: "ATENCAO", fornecedorPrincipal: "Feirante Local" },
-  { id: "h11", nome: "Pimentão", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 11, dataValidade: "14/09/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Feirante Local" },
-  { id: "h12", nome: "Tomate", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 12, dataValidade: "10/09/2026", diasValidade: 4, statusGiro: "ATENCAO", fornecedorPrincipal: "Feirante Local" },
-  { id: "h13", nome: "Couve", categoria: "Hortifrúti", unidade: "Maço", saldoAtual: 8, dataValidade: "09/09/2026", diasValidade: 3, statusGiro: "ATENCAO", fornecedorPrincipal: "Feirante Local" },
+  { id: "h1", nome: "Abóbora", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 16, dataValidade: "18/09/2026", fornecedorPrincipal: "Feirante Local" },
+  { id: "h2", nome: "Alho in natura", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 1.5, dataValidade: "25/09/2026", fornecedorPrincipal: "Feirante Local" },
+  { id: "h3", nome: "Alho triturado", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 4, dataValidade: "15/10/2026", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "h4", nome: "Banana", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 35, dataValidade: "10/09/2026", diasValidade: 4, fornecedorPrincipal: "Cooperativa Vale do Ipojuca" },
+  { id: "h5", nome: "Batata Inglesa", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 24, dataValidade: "20/09/2026", fornecedorPrincipal: "Feirante Local" },
+  { id: "h6", nome: "Beterraba", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 14, dataValidade: "17/09/2026", fornecedorPrincipal: "Feirante Local" },
+  { id: "h7", nome: "Cebola", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 18, dataValidade: "25/09/2026", fornecedorPrincipal: "Feirante Local" },
+  { id: "h8", nome: "Cebolinha", categoria: "Hortifrúti", unidade: "Maço", saldoAtual: 10, dataValidade: "09/09/2026", diasValidade: 3, fornecedorPrincipal: "Feirante Local" },
+  { id: "h9", nome: "Cenoura", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 22, dataValidade: "19/09/2026", fornecedorPrincipal: "Feirante Local" },
+  { id: "h10", nome: "Coentro", categoria: "Hortifrúti", unidade: "Maço", saldoAtual: 9, dataValidade: "09/09/2026", diasValidade: 3, fornecedorPrincipal: "Feirante Local" },
+  { id: "h11", nome: "Pimentão", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 11, dataValidade: "14/09/2026", fornecedorPrincipal: "Feirante Local" },
+  { id: "h12", nome: "Tomate", categoria: "Hortifrúti", unidade: "Kg", saldoAtual: 12, dataValidade: "10/09/2026", diasValidade: 4, fornecedorPrincipal: "Feirante Local" },
+  { id: "h13", nome: "Couve", categoria: "Hortifrúti", unidade: "Maço", saldoAtual: 8, dataValidade: "09/09/2026", diasValidade: 3, fornecedorPrincipal: "Feirante Local" },
 
   // --- LATICÍNIOS (5 itens) ---
-  { id: "l1", nome: "Leite in natura", categoria: "Laticínios", unidade: "Lt", saldoAtual: 20, dataValidade: "09/09/2026", diasValidade: 3, statusGiro: "ATENCAO", fornecedorPrincipal: "Cooperativa Vale do Ipojuca" },
-  { id: "l2", nome: "Creme de Leite", categoria: "Laticínios", unidade: "Und", saldoAtual: 26, dataValidade: "15/12/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "l3", nome: "Margarina", categoria: "Laticínios", unidade: "Kg", saldoAtual: 12, dataValidade: "20/11/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "l4", nome: "Queijo Mussarela", categoria: "Laticínios", unidade: "Kg", saldoAtual: 15, dataValidade: "24/09/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Laticínios do Vale" },
-  { id: "l5", nome: "Queijo Ralado", categoria: "Laticínios", unidade: "Pct", saldoAtual: 30, dataValidade: "10/01/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "l1", nome: "Leite in natura", categoria: "Laticínios", unidade: "Lt", saldoAtual: 20, dataValidade: "09/09/2026", diasValidade: 3, fornecedorPrincipal: "Cooperativa Vale do Ipojuca" },
+  { id: "l2", nome: "Creme de Leite", categoria: "Laticínios", unidade: "Und", saldoAtual: 26, dataValidade: "15/12/2026", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "l3", nome: "Margarina", categoria: "Laticínios", unidade: "Kg", saldoAtual: 12, dataValidade: "20/11/2026", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "l4", nome: "Queijo Mussarela", categoria: "Laticínios", unidade: "Kg", saldoAtual: 15, dataValidade: "24/09/2026", fornecedorPrincipal: "Laticínios do Vale" },
+  { id: "l5", nome: "Queijo Ralado", categoria: "Laticínios", unidade: "Pct", saldoAtual: 30, dataValidade: "10/01/2027", fornecedorPrincipal: "Distribuidora Bela" },
 
   // --- ESPECIFICAÇÕES & CONDIMENTOS (25 itens) ---
-  { id: "e1", nome: "Açafrão", categoria: "Especificações & Condimentos", unidade: "g", saldoAtual: 800, dataValidade: "30/03/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "e2", nome: "Açúcar Cristal", categoria: "Especificações & Condimentos", unidade: "Kg", saldoAtual: 65, dataValidade: "15/04/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "e3", nome: "Água Mineral", categoria: "Especificações & Condimentos", unidade: "Lt", saldoAtual: 120, dataValidade: "10/02/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Fonte Pura" },
-  { id: "e4", nome: "Amido de Milho", categoria: "Especificações & Condimentos", unidade: "Kg", saldoAtual: 14, dataValidade: "25/01/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "e5", nome: "Azeite de Oliva", categoria: "Especificações & Condimentos", unidade: "Lt", saldoAtual: 8, dataValidade: "12/03/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e6", nome: "Biscoito Cream Cracker", categoria: "Especificações & Condimentos", unidade: "Pct", saldoAtual: 48, dataValidade: "18/11/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e7", nome: "Biscoito Maria", categoria: "Especificações & Condimentos", unidade: "Pct", saldoAtual: 36, dataValidade: "20/11/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e8", nome: "Café", categoria: "Especificações & Condimentos", unidade: "Kg", saldoAtual: 24, dataValidade: "15/12/2026", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "e9", nome: "Caldo de Carne", categoria: "Especificações & Condimentos", unidade: "Und", saldoAtual: 20, dataValidade: "08/02/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e10", nome: "Caldo de Galinha", categoria: "Especificações & Condimentos", unidade: "Und", saldoAtual: 25, dataValidade: "08/02/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e11", nome: "Coloral", categoria: "Especificações & Condimentos", unidade: "g", saldoAtual: 1200, dataValidade: "20/04/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "e12", nome: "Cominho", categoria: "Especificações & Condimentos", unidade: "g", saldoAtual: 750, dataValidade: "20/04/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "e13", nome: "Ervilha", categoria: "Especificações & Condimentos", unidade: "Lata", saldoAtual: 18, dataValidade: "15/06/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e14", nome: "Extrato de Tomate", categoria: "Especificações & Condimentos", unidade: "Kg", saldoAtual: 16, dataValidade: "10/03/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e15", nome: "Folha de Louro", categoria: "Especificações & Condimentos", unidade: "g", saldoAtual: 300, dataValidade: "25/05/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "e16", nome: "Leite de Coco", categoria: "Especificações & Condimentos", unidade: "Vidro", saldoAtual: 22, dataValidade: "18/02/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e17", nome: "Milho Verde", categoria: "Especificações & Condimentos", unidade: "Lata", saldoAtual: 20, dataValidade: "12/06/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e18", nome: "Molho Shoyu", categoria: "Especificações & Condimentos", unidade: "Lt", saldoAtual: 5, dataValidade: "05/04/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e19", nome: "Molho Inglês", categoria: "Especificações & Condimentos", unidade: "Vidro", saldoAtual: 6, dataValidade: "05/04/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e20", nome: "Óleo Vegetal", categoria: "Especificações & Condimentos", unidade: "Lt", saldoAtual: 4, dataValidade: "20/01/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "e21", nome: "Orégano", categoria: "Especificações & Condimentos", unidade: "g", saldoAtual: 450, dataValidade: "15/04/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e22", nome: "Pimenta do Reino", categoria: "Especificações & Condimentos", unidade: "g", saldoAtual: 600, dataValidade: "15/04/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e23", nome: "Sal", categoria: "Especificações & Condimentos", unidade: "Kg", saldoAtual: 28, dataValidade: "10/08/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora do Agreste" },
-  { id: "e24", nome: "Vinagre", categoria: "Especificações & Condimentos", unidade: "Lt", saldoAtual: 14, dataValidade: "30/03/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
-  { id: "e25", nome: "Azeitona em Conserva", categoria: "Especificações & Condimentos", unidade: "Kg", saldoAtual: 10, dataValidade: "20/02/2027", statusGiro: "NORMAL", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e1", nome: "Açafrão", categoria: "Especificações & Condimentos", unidade: "g", saldoAtual: 800, dataValidade: "30/03/2027", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "e2", nome: "Açúcar Cristal", categoria: "Especificações & Condimentos", unidade: "Kg", saldoAtual: 65, dataValidade: "15/04/2027", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "e3", nome: "Água Mineral", categoria: "Especificações & Condimentos", unidade: "Lt", saldoAtual: 120, dataValidade: "10/02/2027", fornecedorPrincipal: "Fonte Pura" },
+  { id: "e4", nome: "Amido de Milho", categoria: "Especificações & Condimentos", unidade: "Kg", saldoAtual: 14, dataValidade: "25/01/2027", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "e5", nome: "Azeite de Oliva", categoria: "Especificações & Condimentos", unidade: "Lt", saldoAtual: 8, dataValidade: "12/03/2027", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e6", nome: "Biscoito Cream Cracker", categoria: "Especificações & Condimentos", unidade: "Pct", saldoAtual: 48, dataValidade: "18/11/2026", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e7", nome: "Biscoito Maria", categoria: "Especificações & Condimentos", unidade: "Pct", saldoAtual: 36, dataValidade: "20/11/2026", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e8", nome: "Café", categoria: "Especificações & Condimentos", unidade: "Kg", saldoAtual: 24, dataValidade: "15/12/2026", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "e9", nome: "Caldo de Carne", categoria: "Especificações & Condimentos", unidade: "Und", saldoAtual: 20, dataValidade: "08/02/2027", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e10", nome: "Caldo de Galinha", categoria: "Especificações & Condimentos", unidade: "Und", saldoAtual: 25, dataValidade: "08/02/2027", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e11", nome: "Coloral", categoria: "Especificações & Condimentos", unidade: "g", saldoAtual: 1200, dataValidade: "20/04/2027", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "e12", nome: "Cominho", categoria: "Especificações & Condimentos", unidade: "g", saldoAtual: 750, dataValidade: "20/04/2027", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "e13", nome: "Ervilha", categoria: "Especificações & Condimentos", unidade: "Lata", saldoAtual: 18, dataValidade: "15/06/2027", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e14", nome: "Extrato de Tomate", categoria: "Especificações & Condimentos", unidade: "Kg", saldoAtual: 16, dataValidade: "10/03/2027", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e15", nome: "Folha de Louro", categoria: "Especificações & Condimentos", unidade: "g", saldoAtual: 300, dataValidade: "25/05/2027", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "e16", nome: "Leite de Coco", categoria: "Especificações & Condimentos", unidade: "Vidro", saldoAtual: 22, dataValidade: "18/02/2027", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e17", nome: "Milho Verde", categoria: "Especificações & Condimentos", unidade: "Lata", saldoAtual: 20, dataValidade: "12/06/2027", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e18", nome: "Molho Shoyu", categoria: "Especificações & Condimentos", unidade: "Lt", saldoAtual: 5, dataValidade: "05/04/2027", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e19", nome: "Molho Inglês", categoria: "Especificações & Condimentos", unidade: "Vidro", saldoAtual: 6, dataValidade: "05/04/2027", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e20", nome: "Óleo Vegetal", categoria: "Especificações & Condimentos", unidade: "Lt", saldoAtual: 4, dataValidade: "20/01/2027", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "e21", nome: "Orégano", categoria: "Especificações & Condimentos", unidade: "g", saldoAtual: 450, dataValidade: "15/04/2027", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e22", nome: "Pimenta do Reino", categoria: "Especificações & Condimentos", unidade: "g", saldoAtual: 600, dataValidade: "15/04/2027", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e23", nome: "Sal", categoria: "Especificações & Condimentos", unidade: "Kg", saldoAtual: 28, dataValidade: "10/08/2027", fornecedorPrincipal: "Distribuidora do Agreste" },
+  { id: "e24", nome: "Vinagre", categoria: "Especificações & Condimentos", unidade: "Lt", saldoAtual: 14, dataValidade: "30/03/2027", fornecedorPrincipal: "Distribuidora Bela" },
+  { id: "e25", nome: "Azeitona em Conserva", categoria: "Especificações & Condimentos", unidade: "Kg", saldoAtual: 10, dataValidade: "20/02/2027", fornecedorPrincipal: "Distribuidora Bela" },
 ];
 
 const EXTRATO_INICIAL: MovimentacaoExtrato[] = [
@@ -238,6 +233,16 @@ export default function EstoqueGeralPage() {
   // Insumo selecionado (null quando nenhum for clicado)
   const insumoEntradaSelecionado = listaEstoque.find((i) => i.id === itemEntradaId) || null;
 
+  // Função auxiliar para determinar o status real integrado às regras de negócio
+  const calcularStatusItem = (item: ItemEstoque): "NORMAL" | "ATENCAO" => {
+    // Alerta se o saldo atingir o mínimo seguro da categoria
+    const statusSaldo = verificarStatusEstoque(item.saldoAtual, item.unidade, item.categoria);
+    // Alerta se a validade estiver em até 5 dias
+    const statusValidade = item.diasValidade !== undefined && item.diasValidade <= 5 ? "ATENCAO" : "NORMAL";
+
+    return statusSaldo === "ATENCAO" || statusValidade === "ATENCAO" ? "ATENCAO" : "NORMAL";
+  };
+
   // Filtro de inventário geral
   const itensFiltrados = listaEstoque.filter((item) => {
     const bateCategoria =
@@ -258,7 +263,8 @@ export default function EstoqueGeralPage() {
     return bateCategoria && bateBusca;
   });
 
-  const totalAtencao = listaEstoque.filter((i) => i.statusGiro === "ATENCAO").length;
+  // Total calculado dinamicamente com base nas regras do estoqueRules
+  const totalAtencao = listaEstoque.filter((i) => calcularStatusItem(i) === "ATENCAO").length;
 
   // TOGGLE: Se clicar no mesmo, desmarca
   const alternarSelecaoInsumo = (item: ItemEstoque) => {
@@ -365,7 +371,7 @@ export default function EstoqueGeralPage() {
             Entradas & Estoque
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            {listaEstoque.length} insumos catalogados • {totalAtencao} itens em atenção de validade
+            {listaEstoque.length} insumos catalogados • {totalAtencao} itens em atenção de reposição/validade
           </p>
         </div>
       </div>
@@ -455,7 +461,8 @@ export default function EstoqueGeralPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800">
                 {itensFiltrados.map((item) => {
-                  const isAtencao = item.statusGiro === "ATENCAO";
+                  const statusItem = calcularStatusItem(item);
+                  const isAtencao = statusItem === "ATENCAO";
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
