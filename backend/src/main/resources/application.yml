@@ -18,6 +18,10 @@ security:
     secret: ${JWT_SECRET:troque-este-segredo-em-producao-min-32-chars}
     expiration-ms: 86400000 # 24h
 
+google:
+  oauth:
+    client-id: ${GOOGLE_CLIENT_ID:}
+
 management:
   endpoints:
     web:
