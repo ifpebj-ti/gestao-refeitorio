@@ -1,4 +1,4 @@
-# Sistema de Controle de Estoque da Cozinha — IFPE Campus Belo Jardim
+# Sistema de Gestão de Refeitorio — IFPE Campus Belo Jardim
 
 Plataforma web (responsiva para mobile) para centralizar o controle de estoque,
 produção interna, notas de recebimento, documentos e relatórios da cozinha do
