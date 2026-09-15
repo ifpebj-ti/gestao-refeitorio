@@ -1,5 +1,6 @@
 package br.ifpe.estoquecozinha.security;
 
+import br.ifpe.estoquecozinha.model.Usuario;
 import br.ifpe.estoquecozinha.repository.UsuarioRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -33,12 +34,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String token = header.substring(7);
             if (jwtService.tokenValido(token)) {
                 String email = jwtService.extrairEmail(token);
-                usuarioRepository.findByEmail(email).ifPresent(usuario -> {
-                    var authority = new SimpleGrantedAuthority("ROLE_" + usuario.getPerfil().name());
-                    var auth = new UsernamePasswordAuthenticationToken(
-                            usuario, null, List.of(authority));
-                    SecurityContextHolder.getContext().setAuthentication(auth);
-                });
+                usuarioRepository.findByEmail(email)
+                        .filter(Usuario::isAtivo)
+                        .ifPresent(usuario -> {
+                            var authority = new SimpleGrantedAuthority("ROLE_" + usuario.getPerfil().name());
+                            var auth = new UsernamePasswordAuthenticationToken(
+                                    usuario, null, List.of(authority));
+                            SecurityContextHolder.getContext().setAuthentication(auth);
+                        });
             }
         }
         chain.doFilter(request, response);
