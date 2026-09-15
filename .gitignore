@@ -9,6 +9,14 @@ frontend/.next/
 frontend/out/
 frontend/.env.local
 
+# Env
+.env
+.env.prod
+!.env.example
+
+# Claude
+CLAUDE.md
+
 # Geral
 .DS_Store
 *.log

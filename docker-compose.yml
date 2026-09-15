@@ -1,41 +1,43 @@
 services:
   db:
     image: postgres:16-alpine
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: estoque_cozinha
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   backend:
     build: ./backend
+    env_file:
+      - .env
     environment:
       DB_HOST: db
       DB_PORT: 5432
-      DB_NAME: estoque_cozinha
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      JWT_SECRET: troque-este-segredo-em-producao-min-32-chars
-    ports:
-      - "8080:8080"
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     depends_on:
       db:
         condition: service_healthy
 
   frontend:
     build: ./frontend
+    env_file:
+      - .env
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8080/api
-    ports:
-      - "3000:3000"
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     depends_on:
       - backend
 
