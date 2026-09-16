@@ -1,10 +1,14 @@
 package br.ifpe.gestaorefeitorio.controller;
 
 import br.ifpe.gestaorefeitorio.model.LocalArmazenamento;
+import br.ifpe.gestaorefeitorio.model.Movimentacao;
 import br.ifpe.gestaorefeitorio.model.Produto;
 import br.ifpe.gestaorefeitorio.model.Usuario;
+import br.ifpe.gestaorefeitorio.model.enums.OrigemMovimentacao;
 import br.ifpe.gestaorefeitorio.model.enums.Perfil;
+import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
 import br.ifpe.gestaorefeitorio.repository.LocalArmazenamentoRepository;
+import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import br.ifpe.gestaorefeitorio.repository.UsuarioRepository;
 import br.ifpe.gestaorefeitorio.security.JwtService;
@@ -14,21 +18,29 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 /**
  * Testes de integração ponta a ponta do registro de entrada de produto
- * (US07/#84), cobrindo os critérios de aceite da #86.
+ * (US07/#84) e de anexar/consultar foto de movimentação (US08/#88),
+ * cobrindo os critérios de aceite da #86 e da #89.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -53,16 +65,40 @@ class MovimentacaoControllerIntegrationTest {
     private LocalArmazenamentoRepository localArmazenamentoRepository;
 
     @Autowired
+    private MovimentacaoRepository movimentacaoRepository;
+
+    @Autowired
     private JwtService jwtService;
 
-    private String tokenPara(Perfil perfil) {
+    private Usuario criarUsuario(Perfil perfil) {
         Usuario usuario = new Usuario();
         usuario.setNome("Usuário " + perfil);
         usuario.setEmail(perfil + "-" + UUID.randomUUID() + "@ifpe.edu.br");
         usuario.setPerfil(perfil);
         usuario.setAtivo(true);
-        usuario = usuarioRepository.save(usuario);
+        return usuarioRepository.save(usuario);
+    }
+
+    private String tokenPara(Perfil perfil) {
+        Usuario usuario = criarUsuario(perfil);
         return jwtService.gerarToken(usuario.getEmail(), usuario.getPerfil().name());
+    }
+
+    private Movimentacao criarMovimentacao() {
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+        Usuario responsavel = criarUsuario(Perfil.COZINHA);
+
+        Movimentacao movimentacao = new Movimentacao();
+        movimentacao.setProduto(produto);
+        movimentacao.setLocal(local);
+        movimentacao.setTipo(TipoMovimentacao.ENTRADA);
+        movimentacao.setOrigem(OrigemMovimentacao.EXTERNA);
+        movimentacao.setQuantidade(new BigDecimal("10"));
+        movimentacao.setValor(new BigDecimal("50.00"));
+        movimentacao.setData(LocalDate.now());
+        movimentacao.setResponsavel(responsavel);
+        return movimentacaoRepository.save(movimentacao);
     }
 
     private Produto criarProduto() {
@@ -175,5 +211,100 @@ class MovimentacaoControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpoValido(produto.getId(), local.getId())))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void deveAnexarFotoValidaEDepoisRecuperarOsMesmosBytes() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Movimentacao movimentacao = criarMovimentacao();
+        byte[] bytesOriginais = "conteudo-fake-da-foto".getBytes();
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", bytesOriginais);
+
+        mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .file(arquivo)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.contentType").value("image/jpeg"));
+
+        mockMvc.perform(get("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/jpeg"))
+                .andExpect(content -> assertArrayEquals(bytesOriginais, content.getResponse().getContentAsByteArray()));
+    }
+
+    @Test
+    void deveRetornar400AoAnexarTipoDeArquivoNaoPermitido() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Movimentacao movimentacao = criarMovimentacao();
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "documento.pdf", "application/pdf", "conteudo".getBytes());
+
+        mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .file(arquivo)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar400AoAnexarArquivoAcimaDoLimite() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Movimentacao movimentacao = criarMovimentacao();
+        MockMultipartFile arquivo = new MockMultipartFile(
+                "arquivo", "foto.jpg", "image/jpeg", new byte[6 * 1024 * 1024]);
+
+        mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .file(arquivo)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar404AoAnexarFotoEmMovimentacaoInexistente() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", "conteudo".getBytes());
+
+        mockMvc.perform(multipart("/api/movimentacoes/" + UUID.randomUUID() + "/foto")
+                        .file(arquivo)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar404AoBuscarFotoDeMovimentacaoSemFotoAnexada() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Movimentacao movimentacao = criarMovimentacao();
+
+        mockMvc.perform(get("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar403AoAnexarFotoComPerfilAdmin() throws Exception {
+        String token = tokenPara(Perfil.ADMIN);
+        Movimentacao movimentacao = criarMovimentacao();
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", "conteudo".getBytes());
+
+        mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .file(arquivo)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveAutorizarConsultaDeFotoParaQualquerPerfilAutenticado() throws Exception {
+        String tokenCozinha = tokenPara(Perfil.COZINHA);
+        Movimentacao movimentacao = criarMovimentacao();
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", "conteudo".getBytes());
+
+        mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .file(arquivo)
+                        .header("Authorization", "Bearer " + tokenCozinha))
+                .andExpect(status().isCreated());
+
+        String tokenAdmin = tokenPara(Perfil.ADMIN);
+        mockMvc.perform(get("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk());
     }
 }
