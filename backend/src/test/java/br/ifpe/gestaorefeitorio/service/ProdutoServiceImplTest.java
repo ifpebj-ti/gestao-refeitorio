@@ -2,8 +2,11 @@ package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.Produto;
+import br.ifpe.gestaorefeitorio.model.Usuario;
+import br.ifpe.gestaorefeitorio.model.enums.Perfil;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -92,5 +95,41 @@ class ProdutoServiceImplTest {
         when(produtoRepository.findById(id)).thenReturn(Optional.empty());
 
         assertThrows(ProdutoNaoEncontradoException.class, () -> produtoService.buscarPorId(id));
+    }
+
+    @Test
+    void deveAtualizarUnidadeMedidaMapeandoParaDTO() {
+        UUID id = UUID.randomUUID();
+        Produto produto = produtoComId(id, "Arroz", "Secos", "kg");
+        Usuario responsavel = new Usuario();
+        responsavel.setNome("Nutri");
+        responsavel.setEmail("nutri@ifpe.edu.br");
+        responsavel.setPerfil(Perfil.NUTRICIONISTA);
+        responsavel.setAtivo(true);
+
+        when(produtoRepository.findById(id)).thenReturn(Optional.of(produto));
+        when(produtoRepository.save(any(Produto.class))).thenAnswer(chamada -> chamada.getArgument(0));
+
+        ProdutoUnidadeMedidaDTO request = new ProdutoUnidadeMedidaDTO("g");
+        ProdutoResponseDTO resposta = produtoService.atualizarUnidadeMedida(id, request, responsavel);
+
+        assertThat(resposta.unidadeMedida()).isEqualTo("g");
+    }
+
+    @Test
+    void deveLancarNaoEncontradoQuandoAtualizarUnidadeMedidaDeIdInexistente() {
+        UUID id = UUID.randomUUID();
+        Usuario responsavel = new Usuario();
+        responsavel.setNome("Nutri");
+        responsavel.setEmail("nutri@ifpe.edu.br");
+        responsavel.setPerfil(Perfil.NUTRICIONISTA);
+        responsavel.setAtivo(true);
+
+        when(produtoRepository.findById(id)).thenReturn(Optional.empty());
+
+        ProdutoUnidadeMedidaDTO request = new ProdutoUnidadeMedidaDTO("g");
+
+        assertThrows(ProdutoNaoEncontradoException.class,
+                () -> produtoService.atualizarUnidadeMedida(id, request, responsavel));
     }
 }

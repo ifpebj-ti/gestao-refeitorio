@@ -2,8 +2,10 @@ package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.Produto;
+import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,10 +47,17 @@ public class ProdutoServiceImpl implements ProdutoService {
     }
 
     @Override
-    public Produto atualizarUnidadeMedida(UUID id, String novaUnidade) {
+    public ProdutoResponseDTO atualizarUnidadeMedida(UUID id, ProdutoUnidadeMedidaDTO request, Usuario responsavel) {
         Produto produto = buscarEntidade(id);
-        produto.setUnidadeMedida(novaUnidade);
-        return produtoRepository.save(produto);
+        String unidadeAnterior = produto.getUnidadeMedida();
+        produto.setUnidadeMedida(request.unidadeMedida());
+        produto = produtoRepository.save(produto);
+
+        log.info("Unidade de medida alterada: produto {} ({}), {} -> {}, por {}",
+                produto.getId(), produto.getNome(), unidadeAnterior, produto.getUnidadeMedida(),
+                responsavel.getEmail());
+
+        return paraDTO(produto);
     }
 
     private Produto buscarEntidade(UUID id) {

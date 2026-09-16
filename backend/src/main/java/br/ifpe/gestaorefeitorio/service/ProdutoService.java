@@ -2,7 +2,8 @@ package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
-import br.ifpe.gestaorefeitorio.model.Produto;
+import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
+import br.ifpe.gestaorefeitorio.model.Usuario;
 
 import java.util.List;
 import java.util.UUID;
@@ -14,6 +15,5 @@ public interface ProdutoService {
 
     ProdutoResponseDTO buscarPorId(UUID id);
 
-    // Legado (US05/#22 vai revisar pra usar DTO em vez da entidade).
-    Produto atualizarUnidadeMedida(UUID id, String novaUnidade);
+    ProdutoResponseDTO atualizarUnidadeMedida(UUID id, ProdutoUnidadeMedidaDTO request, Usuario responsavel);
 }

@@ -1,7 +1,9 @@
 package br.ifpe.gestaorefeitorio.controller;
 
+import br.ifpe.gestaorefeitorio.model.Produto;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.model.enums.Perfil;
+import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import br.ifpe.gestaorefeitorio.repository.UsuarioRepository;
 import br.ifpe.gestaorefeitorio.security.JwtService;
 import org.junit.jupiter.api.Test;
@@ -19,6 +21,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -44,6 +47,9 @@ class ProdutoControllerIntegrationTest {
     private UsuarioRepository usuarioRepository;
 
     @Autowired
+    private ProdutoRepository produtoRepository;
+
+    @Autowired
     private JwtService jwtService;
 
     private String tokenPara(Perfil perfil) {
@@ -54,6 +60,14 @@ class ProdutoControllerIntegrationTest {
         usuario.setAtivo(true);
         usuario = usuarioRepository.save(usuario);
         return jwtService.gerarToken(usuario.getEmail(), usuario.getPerfil().name());
+    }
+
+    private Produto criarProduto(String nome, String unidadeMedida) {
+        Produto produto = new Produto();
+        produto.setNome(nome);
+        produto.setCategoria("Secos");
+        produto.setUnidadeMedida(unidadeMedida);
+        return produtoRepository.save(produto);
     }
 
     @Test
@@ -142,6 +156,66 @@ class ProdutoControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"nome":"Arroz","categoria":"Secos","unidadeMedida":"kg"}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveRetornar200AoAtualizarUnidadeMedida() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Arroz", "kg");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/unidade-medida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"unidadeMedida":"g"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.unidadeMedida").value("g"));
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.unidadeMedida").value("g"));
+    }
+
+    @Test
+    void deveRetornar400AoAtualizarUnidadeMedidaComValorEmBranco() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Arroz", "kg");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/unidade-medida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"unidadeMedida":""}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar404AoAtualizarUnidadeMedidaDeIdInexistente() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(patch("/api/produtos/" + UUID.randomUUID() + "/unidade-medida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"unidadeMedida":"g"}
+                                """))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar403QuandoPerfilNaoNutricionistaAtualizaUnidadeMedida() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto("Arroz", "kg");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/unidade-medida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"unidadeMedida":"g"}
                                 """))
                 .andExpect(status().isForbidden());
     }
