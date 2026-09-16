@@ -2,13 +2,15 @@ package br.ifpe.gestaorefeitorio.controller;
 
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
-import br.ifpe.gestaorefeitorio.model.Produto;
+import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
+import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.service.ProdutoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,9 +44,10 @@ public class ProdutoController {
     // Requisito do cliente: poder editar a unidade de medida de um produto.
     @PatchMapping("/{id}/unidade-medida")
     @PreAuthorize("hasRole('NUTRICIONISTA')")
-    public ResponseEntity<Produto> atualizarUnidadeMedida(
+    public ResponseEntity<ProdutoResponseDTO> atualizarUnidadeMedida(
             @PathVariable UUID id,
-            @RequestBody String novaUnidade) {
-        return ResponseEntity.ok(produtoService.atualizarUnidadeMedida(id, novaUnidade));
+            @Valid @RequestBody ProdutoUnidadeMedidaDTO request,
+            @AuthenticationPrincipal Usuario responsavel) {
+        return ResponseEntity.ok(produtoService.atualizarUnidadeMedida(id, request, responsavel));
     }
 }
