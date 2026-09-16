@@ -1,5 +1,6 @@
 package br.ifpe.gestaorefeitorio.service;
 
+import br.ifpe.gestaorefeitorio.dto.MovimentacaoHistoricoDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
@@ -21,4 +22,6 @@ public interface ProdutoService {
     ProdutoResponseDTO atualizarUnidadeMedida(UUID id, ProdutoUnidadeMedidaDTO request, Usuario responsavel);
 
     List<SaldoPorLocalDTO> listarSaldoPorLocal(UUID produtoId);
+
+    List<MovimentacaoHistoricoDTO> listarHistorico(UUID produtoId);
 }
