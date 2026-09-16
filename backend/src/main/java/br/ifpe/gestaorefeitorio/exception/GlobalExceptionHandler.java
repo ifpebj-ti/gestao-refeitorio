@@ -52,6 +52,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(corpo(ex.getMessage()));
     }
 
+    @ExceptionHandler(UsuarioNaoEncontradoPorIdException.class)
+    public ResponseEntity<Map<String, Object>> handleUsuarioNaoEncontradoPorId(UsuarioNaoEncontradoPorIdException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(corpo(ex.getMessage()));
+    }
+
+    @ExceptionHandler({ EmailJaCadastradoException.class, AutoDesativacaoNaoPermitidaException.class })
+    public ResponseEntity<Map<String, Object>> handleConflito(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo(ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(corpo("Erro interno"));
