@@ -1,8 +1,10 @@
 package br.ifpe.gestaorefeitorio.controller;
 
+import br.ifpe.gestaorefeitorio.model.LocalArmazenamento;
 import br.ifpe.gestaorefeitorio.model.Produto;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.model.enums.Perfil;
+import br.ifpe.gestaorefeitorio.repository.LocalArmazenamentoRepository;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import br.ifpe.gestaorefeitorio.repository.UsuarioRepository;
 import br.ifpe.gestaorefeitorio.security.JwtService;
@@ -50,6 +52,9 @@ class ProdutoControllerIntegrationTest {
     private ProdutoRepository produtoRepository;
 
     @Autowired
+    private LocalArmazenamentoRepository localArmazenamentoRepository;
+
+    @Autowired
     private JwtService jwtService;
 
     private String tokenPara(Perfil perfil) {
@@ -72,6 +77,32 @@ class ProdutoControllerIntegrationTest {
         produto.setCategoria(categoria);
         produto.setUnidadeMedida(unidadeMedida);
         return produtoRepository.save(produto);
+    }
+
+    private LocalArmazenamento criarLocal() {
+        LocalArmazenamento local = new LocalArmazenamento();
+        local.setNome("Local " + UUID.randomUUID());
+        return localArmazenamentoRepository.save(local);
+    }
+
+    private void registrarEntrada(String token, UUID produtoId, UUID localId, String quantidade) throws Exception {
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"produtoId":"%s","localId":"%s","quantidade":%s,"data":"2026-01-10","origem":"EXTERNA","valor":10.00}
+                                """.formatted(produtoId, localId, quantidade)))
+                .andExpect(status().isCreated());
+    }
+
+    private void registrarSaida(String token, UUID produtoId, UUID localId, String quantidade) throws Exception {
+        mockMvc.perform(post("/api/movimentacoes/saida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"produtoId":"%s","localId":"%s","quantidade":%s,"data":"2026-01-10","tipoSaida":"CONSUMO"}
+                                """.formatted(produtoId, localId, quantidade)))
+                .andExpect(status().isCreated());
     }
 
     @Test
@@ -270,5 +301,80 @@ class ProdutoControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void deveRetornarSaldoTotalCorretoAposEntradasESaidas() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto("Arroz", "Secos", "kg");
+        LocalArmazenamento local = criarLocal();
+
+        registrarEntrada(token, produto.getId(), local.getId(), "10");
+        registrarSaida(token, produto.getId(), local.getId(), "4");
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.saldoTotal").value(6));
+    }
+
+    @Test
+    void deveRetornarSaldoZeroQuandoProdutoSemMovimentacoes() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Feijão", "Secos", "kg");
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.saldoTotal").value(0));
+    }
+
+    @Test
+    void deveRetornarSaldoPorLocalComLocaisDiferentes() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto("Arroz", "Secos", "kg");
+        LocalArmazenamento despensa = criarLocal();
+        LocalArmazenamento congelados = criarLocal();
+
+        registrarEntrada(token, produto.getId(), despensa.getId(), "10");
+        registrarEntrada(token, produto.getId(), congelados.getId(), "5");
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId() + "/saldo-por-local")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[?(@.localId == '" + despensa.getId() + "')].saldo").value(10.0))
+                .andExpect(jsonPath("$[?(@.localId == '" + congelados.getId() + "')].saldo").value(5.0));
+    }
+
+    @Test
+    void deveRetornarListaVaziaDeSaldoPorLocalQuandoSemMovimentacoes() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Feijão", "Secos", "kg");
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId() + "/saldo-por-local")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void deveRetornar404AoConsultarSaldoPorLocalDeProdutoInexistente() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(get("/api/produtos/" + UUID.randomUUID() + "/saldo-por-local")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveAutorizarConsultaDeSaldoPorLocalParaQualquerPerfilAutenticado() throws Exception {
+        String tokenAdmin = tokenPara(Perfil.ADMIN);
+        Produto produto = criarProduto("Feijão", "Secos", "kg");
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId() + "/saldo-por-local")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk());
     }
 }

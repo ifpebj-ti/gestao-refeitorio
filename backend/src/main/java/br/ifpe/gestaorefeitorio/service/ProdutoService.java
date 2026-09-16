@@ -3,6 +3,7 @@ package br.ifpe.gestaorefeitorio.service;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
+import br.ifpe.gestaorefeitorio.dto.SaldoPorLocalDTO;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 
 import java.util.List;
@@ -18,4 +19,6 @@ public interface ProdutoService {
     ProdutoResponseDTO buscarPorId(UUID id);
 
     ProdutoResponseDTO atualizarUnidadeMedida(UUID id, ProdutoUnidadeMedidaDTO request, Usuario responsavel);
+
+    List<SaldoPorLocalDTO> listarSaldoPorLocal(UUID produtoId);
 }
