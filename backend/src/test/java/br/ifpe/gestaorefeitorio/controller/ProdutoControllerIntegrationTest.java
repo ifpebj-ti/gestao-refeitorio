@@ -63,9 +63,13 @@ class ProdutoControllerIntegrationTest {
     }
 
     private Produto criarProduto(String nome, String unidadeMedida) {
+        return criarProduto(nome, "Secos", unidadeMedida);
+    }
+
+    private Produto criarProduto(String nome, String categoria, String unidadeMedida) {
         Produto produto = new Produto();
         produto.setNome(nome);
-        produto.setCategoria("Secos");
+        produto.setCategoria(categoria);
         produto.setUnidadeMedida(unidadeMedida);
         return produtoRepository.save(produto);
     }
@@ -218,5 +222,53 @@ class ProdutoControllerIntegrationTest {
                                 {"unidadeMedida":"g"}
                                 """))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveFiltrarListagemPorCategoria() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        criarProduto("Leite", "Frios", "L");
+        criarProduto("Arroz", "Secos", "kg");
+
+        mockMvc.perform(get("/api/produtos").param("categoria", "Frios")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.nome == 'Leite')]").exists())
+                .andExpect(jsonPath("$[?(@.nome == 'Arroz')]").doesNotExist());
+    }
+
+    @Test
+    void deveFiltrarListagemPorCategoriaSemDiferenciarMaiusculas() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        criarProduto("Leite", "Frios", "L");
+
+        mockMvc.perform(get("/api/produtos").param("categoria", "frios")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.nome == 'Leite')]").exists());
+    }
+
+    @Test
+    void deveListarTodosQuandoSemParametroDeCategoria() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        criarProduto("Leite", "Frios", "L");
+        criarProduto("Arroz", "Secos", "kg");
+
+        mockMvc.perform(get("/api/produtos")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.nome == 'Leite')]").exists())
+                .andExpect(jsonPath("$[?(@.nome == 'Arroz')]").exists());
+    }
+
+    @Test
+    void deveRetornarListaVaziaQuandoCategoriaSemCorrespondencia() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(get("/api/produtos").param("categoria", "Bebidas")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$").isEmpty());
     }
 }

@@ -78,6 +78,26 @@ class ProdutoServiceImplTest {
     }
 
     @Test
+    void deveListarPorCategoriaMapeandoParaDTO() {
+        Produto p1 = produtoComId(UUID.randomUUID(), "Leite", "Frios", "L");
+        when(produtoRepository.findByCategoriaIgnoreCase("Frios")).thenReturn(List.of(p1));
+
+        List<ProdutoResponseDTO> resposta = produtoService.listarPorCategoria("Frios");
+
+        assertThat(resposta).hasSize(1);
+        assertThat(resposta.get(0).nome()).isEqualTo("Leite");
+    }
+
+    @Test
+    void deveListarPorCategoriaRetornandoListaVaziaQuandoSemCorrespondencia() {
+        when(produtoRepository.findByCategoriaIgnoreCase("Bebidas")).thenReturn(List.of());
+
+        List<ProdutoResponseDTO> resposta = produtoService.listarPorCategoria("Bebidas");
+
+        assertThat(resposta).isEmpty();
+    }
+
+    @Test
     void deveBuscarPorIdQuandoExiste() {
         UUID id = UUID.randomUUID();
         Produto produto = produtoComId(id, "Feijão", "Secos", "kg");
