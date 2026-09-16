@@ -3,6 +3,7 @@ package br.ifpe.gestaorefeitorio.service;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 
 import br.ifpe.gestaorefeitorio.dto.AuthResponseDTO;
+import br.ifpe.gestaorefeitorio.dto.UsuarioAutenticadoDTO;
 import br.ifpe.gestaorefeitorio.exception.UsuarioInativoException;
 import br.ifpe.gestaorefeitorio.exception.UsuarioNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.Usuario;
@@ -44,5 +45,10 @@ public class AuthServiceImpl implements AuthService {
         log.info("Login realizado com sucesso: {}", email);
 
         return new AuthResponseDTO(token, usuario.getNome(), usuario.getEmail(), usuario.getPerfil());
+    }
+
+    @Override
+    public UsuarioAutenticadoDTO usuarioAutenticado(Usuario usuario) {
+        return new UsuarioAutenticadoDTO(usuario.getNome(), usuario.getEmail(), usuario.getPerfil());
     }
 }
