@@ -43,4 +43,7 @@ public interface MovimentacaoRepository extends JpaRepository<Movimentacao, UUID
             group by m.local.id, m.local.nome
             """)
     List<SaldoPorLocalDTO> listarSaldoPorLocal(@Param("produtoId") UUID produtoId);
+
+    // Histórico de movimentações do produto (US11/#97), mais recente primeiro.
+    List<Movimentacao> findByProdutoIdOrderByDataDesc(UUID produtoId);
 }

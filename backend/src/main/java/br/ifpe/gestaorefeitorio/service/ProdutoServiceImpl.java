@@ -1,10 +1,12 @@
 package br.ifpe.gestaorefeitorio.service;
 
+import br.ifpe.gestaorefeitorio.dto.MovimentacaoHistoricoDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
 import br.ifpe.gestaorefeitorio.dto.SaldoPorLocalDTO;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
+import br.ifpe.gestaorefeitorio.model.Movimentacao;
 import br.ifpe.gestaorefeitorio.model.Produto;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
@@ -76,6 +78,14 @@ public class ProdutoServiceImpl implements ProdutoService {
         return movimentacaoRepository.listarSaldoPorLocal(produtoId);
     }
 
+    @Override
+    public List<MovimentacaoHistoricoDTO> listarHistorico(UUID produtoId) {
+        buscarEntidade(produtoId); // valida que o produto existe (404 se não)
+        return movimentacaoRepository.findByProdutoIdOrderByDataDesc(produtoId).stream()
+                .map(this::paraHistoricoDTO)
+                .toList();
+    }
+
     private Produto buscarEntidade(UUID id) {
         return produtoRepository.findById(id)
                 .orElseThrow(() -> new ProdutoNaoEncontradoException(id));
@@ -89,5 +99,20 @@ public class ProdutoServiceImpl implements ProdutoService {
                 produto.getUnidadeMedida(),
                 produto.getValorReferencia(),
                 movimentacaoRepository.calcularSaldoTotal(produto.getId()));
+    }
+
+    private MovimentacaoHistoricoDTO paraHistoricoDTO(Movimentacao movimentacao) {
+        return new MovimentacaoHistoricoDTO(
+                movimentacao.getId(),
+                movimentacao.getTipo(),
+                movimentacao.getQuantidade(),
+                movimentacao.getData(),
+                movimentacao.getLocal().getId(),
+                movimentacao.getLocal().getNome(),
+                movimentacao.getOrigem(),
+                movimentacao.getTipoSaida(),
+                movimentacao.getValor(),
+                movimentacao.getResponsavel().getNome(),
+                movimentacao.getResponsavel().getEmail());
     }
 }

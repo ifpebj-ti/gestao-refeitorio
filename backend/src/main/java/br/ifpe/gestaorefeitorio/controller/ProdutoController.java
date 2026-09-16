@@ -1,5 +1,6 @@
 package br.ifpe.gestaorefeitorio.controller;
 
+import br.ifpe.gestaorefeitorio.dto.MovimentacaoHistoricoDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
@@ -43,6 +44,12 @@ public class ProdutoController {
     @GetMapping("/{id}/saldo-por-local")
     public List<SaldoPorLocalDTO> saldoPorLocal(@PathVariable UUID id) {
         return produtoService.listarSaldoPorLocal(id);
+    }
+
+    // Histórico de movimentações do produto (US11/#97), mais recente primeiro.
+    @GetMapping("/{id}/movimentacoes")
+    public List<MovimentacaoHistoricoDTO> historico(@PathVariable UUID id) {
+        return produtoService.listarHistorico(id);
     }
 
     // Apenas o perfil NUTRICIONISTA pode cadastrar produtos (ADMIN é perfil técnico, não gerencia catálogo).
