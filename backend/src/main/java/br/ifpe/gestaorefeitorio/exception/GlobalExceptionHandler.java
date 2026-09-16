@@ -11,6 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -53,7 +54,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({ UsuarioNaoEncontradoPorIdException.class, ProdutoNaoEncontradoException.class,
-            LocalArmazenamentoNaoEncontradoException.class })
+            LocalArmazenamentoNaoEncontradoException.class, MovimentacaoNaoEncontradaException.class,
+            MovimentacaoFotoNaoEncontradaException.class })
     public ResponseEntity<Map<String, Object>> handleNaoEncontradoPorId(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(corpo(ex.getMessage()));
     }
@@ -61,6 +63,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({ EmailJaCadastradoException.class, AutoDesativacaoNaoPermitidaException.class })
     public ResponseEntity<Map<String, Object>> handleConflito(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo(ex.getMessage()));
+    }
+
+    @ExceptionHandler({ ArquivoInvalidoException.class, MaxUploadSizeExceededException.class })
+    public ResponseEntity<Map<String, Object>> handleArquivoInvalido(Exception ex) {
+        String mensagem = ex instanceof MaxUploadSizeExceededException
+                ? "Arquivo excede o tamanho máximo permitido"
+                : ex.getMessage();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(mensagem));
     }
 
     @ExceptionHandler(Exception.class)
