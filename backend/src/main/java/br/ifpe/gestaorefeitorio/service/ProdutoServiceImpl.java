@@ -42,6 +42,13 @@ public class ProdutoServiceImpl implements ProdutoService {
     }
 
     @Override
+    public List<ProdutoResponseDTO> listarPorCategoria(String categoria) {
+        return produtoRepository.findByCategoriaIgnoreCase(categoria).stream()
+                .map(this::paraDTO)
+                .toList();
+    }
+
+    @Override
     public ProdutoResponseDTO buscarPorId(UUID id) {
         return paraDTO(buscarEntidade(id));
     }
