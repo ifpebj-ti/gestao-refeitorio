@@ -121,6 +121,12 @@ class MovimentacaoControllerIntegrationTest {
                 """.formatted(produtoId, localId);
     }
 
+    private String corpoSaidaValido(UUID produtoId, UUID localId, String quantidade) {
+        return """
+                {"produtoId":"%s","localId":"%s","quantidade":%s,"data":"2026-01-10","tipoSaida":"CONSUMO"}
+                """.formatted(produtoId, localId, quantidade);
+    }
+
     @Test
     void deveRetornar201AoRegistrarEntradaValidaEAumentarSaldo() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
@@ -210,6 +216,106 @@ class MovimentacaoControllerIntegrationTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpoValido(produto.getId(), local.getId())))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void deveRetornar201AoRegistrarSaidaValidaEReduzirSaldo() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoValido(produto.getId(), local.getId())))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/movimentacoes/saida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoSaidaValido(produto.getId(), local.getId(), "4")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.tipo").value("SAIDA"))
+                .andExpect(jsonPath("$.tipoSaida").value("CONSUMO"))
+                .andExpect(jsonPath("$.saldoAtual").value(6));
+    }
+
+    @Test
+    void deveRetornar404QuandoProdutoInexistenteNaSaida() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/saida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoSaidaValido(UUID.randomUUID(), local.getId(), "4")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar404QuandoLocalInexistenteNaSaida() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto();
+
+        mockMvc.perform(post("/api/movimentacoes/saida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoSaidaValido(produto.getId(), UUID.randomUUID(), "4")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar400QuandoQuantidadeZeroOuNegativaNaSaida() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/saida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoSaidaValido(produto.getId(), local.getId(), "0")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar400QuandoTipoSaidaAusente() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/saida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"produtoId":"%s","localId":"%s","quantidade":4,"data":"2026-01-10"}
+                                """.formatted(produto.getId(), local.getId())))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar403QuandoPerfilAdminNaSaida() throws Exception {
+        String token = tokenPara(Perfil.ADMIN);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/saida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoSaidaValido(produto.getId(), local.getId(), "4")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveAutorizarQuandoPerfilNutricionistaNaSaida() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/saida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoSaidaValido(produto.getId(), local.getId(), "4")))
                 .andExpect(status().isCreated());
     }
 

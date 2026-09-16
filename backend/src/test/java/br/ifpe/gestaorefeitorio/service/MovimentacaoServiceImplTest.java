@@ -2,6 +2,7 @@ package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoResponseDTO;
+import br.ifpe.gestaorefeitorio.dto.MovimentacaoSaidaRequestDTO;
 import br.ifpe.gestaorefeitorio.exception.LocalArmazenamentoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.LocalArmazenamento;
@@ -11,6 +12,7 @@ import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.model.enums.OrigemMovimentacao;
 import br.ifpe.gestaorefeitorio.model.enums.Perfil;
 import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
+import br.ifpe.gestaorefeitorio.model.enums.TipoSaida;
 import br.ifpe.gestaorefeitorio.repository.LocalArmazenamentoRepository;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
@@ -137,6 +139,69 @@ class MovimentacaoServiceImplTest {
 
         assertThrows(LocalArmazenamentoNaoEncontradoException.class,
                 () -> movimentacaoService.registrarEntrada(request, responsavel()));
+
+        verifyNoInteractions(movimentacaoRepository);
+    }
+
+    @Test
+    void deveRegistrarSaidaEReduzirSaldo() {
+        UUID produtoId = UUID.randomUUID();
+        UUID localId = UUID.randomUUID();
+        Produto produto = produtoComId(produtoId);
+        LocalArmazenamento local = localComId(localId);
+        MovimentacaoSaidaRequestDTO request = new MovimentacaoSaidaRequestDTO(
+                produtoId, localId, new BigDecimal("4"), LocalDate.now(), TipoSaida.CONSUMO);
+
+        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
+        when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.of(local));
+        when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(chamada -> {
+            Movimentacao salva = chamada.getArgument(0);
+            salva.setId(UUID.randomUUID());
+            return salva;
+        });
+        when(movimentacaoRepository.calcularSaldo(produtoId, localId)).thenReturn(new BigDecimal("6"));
+
+        MovimentacaoResponseDTO resposta = movimentacaoService.registrarSaida(request, responsavel());
+
+        assertThat(resposta.tipo()).isEqualTo(TipoMovimentacao.SAIDA);
+        assertThat(resposta.tipoSaida()).isEqualTo(TipoSaida.CONSUMO);
+        assertThat(resposta.quantidade()).isEqualByComparingTo("4");
+        assertThat(resposta.saldoAtual()).isEqualByComparingTo("6");
+
+        ArgumentCaptor<Movimentacao> captor = ArgumentCaptor.forClass(Movimentacao.class);
+        verify(movimentacaoRepository).save(captor.capture());
+        assertThat(captor.getValue().getTipo()).isEqualTo(TipoMovimentacao.SAIDA);
+        assertThat(captor.getValue().getTipoSaida()).isEqualTo(TipoSaida.CONSUMO);
+    }
+
+    @Test
+    void deveLancarProdutoNaoEncontradoAoRegistrarSaidaEmProdutoInexistente() {
+        UUID produtoId = UUID.randomUUID();
+        UUID localId = UUID.randomUUID();
+        MovimentacaoSaidaRequestDTO request = new MovimentacaoSaidaRequestDTO(
+                produtoId, localId, new BigDecimal("4"), LocalDate.now(), TipoSaida.CONSUMO);
+
+        when(produtoRepository.findById(produtoId)).thenReturn(Optional.empty());
+
+        assertThrows(ProdutoNaoEncontradoException.class,
+                () -> movimentacaoService.registrarSaida(request, responsavel()));
+
+        verifyNoInteractions(localArmazenamentoRepository, movimentacaoRepository);
+    }
+
+    @Test
+    void deveLancarLocalNaoEncontradoAoRegistrarSaidaEmLocalInexistente() {
+        UUID produtoId = UUID.randomUUID();
+        UUID localId = UUID.randomUUID();
+        Produto produto = produtoComId(produtoId);
+        MovimentacaoSaidaRequestDTO request = new MovimentacaoSaidaRequestDTO(
+                produtoId, localId, new BigDecimal("4"), LocalDate.now(), TipoSaida.PERDA);
+
+        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
+        when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.empty());
+
+        assertThrows(LocalArmazenamentoNaoEncontradoException.class,
+                () -> movimentacaoService.registrarSaida(request, responsavel()));
 
         verifyNoInteractions(movimentacaoRepository);
     }
