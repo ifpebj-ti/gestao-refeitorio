@@ -12,6 +12,7 @@ import java.util.UUID;
 
 import br.ifpe.gestaorefeitorio.model.enums.OrigemMovimentacao;
 import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
+import br.ifpe.gestaorefeitorio.model.enums.TipoSaida;
 
 @Entity
 @Table(name = "movimentacoes")
@@ -36,19 +37,19 @@ public class Movimentacao {
     @Column(nullable = false)
     private TipoMovimentacao tipo;
 
-    /**
-     * De onde veio o produto de uma ENTRADA (EXTERNA/AGROINDUSTRIA/INTERNA).
-     * Não confundir com tipo_saida (CONSUMO/PERDA/DESCARTE/OUTRO), que é um campo
-     * separado da US09/saída, ainda não implementado.
-     */
+    /** Obrigatório só em ENTRADA, nulo em SAIDA — CLAUDE.md seção 13.3/4. */
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private OrigemMovimentacao origem;
+
+    /** Obrigatório só em SAIDA (CONSUMO/PERDA/DESCARTE/OUTRO), nulo em ENTRADA. */
+    @Enumerated(EnumType.STRING)
+    private TipoSaida tipoSaida;
 
     @Column(nullable = false, precision = 12, scale = 3)
     private BigDecimal quantidade;
 
-    @Column(nullable = false, precision = 12, scale = 2)
+    /** Valor de compra — só faz sentido em ENTRADA, nulo em SAIDA. */
+    @Column(precision = 12, scale = 2)
     private BigDecimal valor;
 
     @Column(nullable = false)

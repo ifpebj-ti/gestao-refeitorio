@@ -2,6 +2,7 @@ package br.ifpe.gestaorefeitorio.dto;
 
 import br.ifpe.gestaorefeitorio.model.enums.OrigemMovimentacao;
 import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
+import br.ifpe.gestaorefeitorio.model.enums.TipoSaida;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,6 +18,7 @@ public record MovimentacaoResponseDTO(
         BigDecimal quantidade,
         LocalDate data,
         OrigemMovimentacao origem,
+        TipoSaida tipoSaida,
         BigDecimal valor,
         BigDecimal saldoAtual
 ) {
