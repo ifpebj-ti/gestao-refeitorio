@@ -24,9 +24,13 @@ public class ProdutoController {
     private final ProdutoService produtoService;
 
     // Ambos os perfis podem consultar o estoque.
+    // categoria opcional filtra a listagem (US06/#80); sem parâmetro, retorna todos.
     @GetMapping
-    public List<ProdutoResponseDTO> listar() {
-        return produtoService.listarTodos();
+    public List<ProdutoResponseDTO> listar(@RequestParam(required = false) String categoria) {
+        if (categoria == null || categoria.isBlank()) {
+            return produtoService.listarTodos();
+        }
+        return produtoService.listarPorCategoria(categoria);
     }
 
     @GetMapping("/{id}")

@@ -10,6 +10,8 @@ import java.util.UUID;
 
 public interface ProdutoRepository extends JpaRepository<Produto, UUID> {
 
+    List<Produto> findByCategoriaIgnoreCase(String categoria);
+
     // Base para o job de alerta: produtos cujas movimentações de entrada
     // tenham validade dentro da janela de alerta configurada.
     @org.springframework.data.jpa.repository.Query("""

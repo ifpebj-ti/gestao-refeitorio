@@ -13,6 +13,8 @@ public interface ProdutoService {
 
     List<ProdutoResponseDTO> listarTodos();
 
+    List<ProdutoResponseDTO> listarPorCategoria(String categoria);
+
     ProdutoResponseDTO buscarPorId(UUID id);
 
     ProdutoResponseDTO atualizarUnidadeMedida(UUID id, ProdutoUnidadeMedidaDTO request, Usuario responsavel);
