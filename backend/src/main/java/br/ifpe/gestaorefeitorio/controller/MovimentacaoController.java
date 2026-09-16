@@ -3,6 +3,7 @@ package br.ifpe.gestaorefeitorio.controller;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoFotoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoResponseDTO;
+import br.ifpe.gestaorefeitorio.dto.MovimentacaoSaidaRequestDTO;
 import br.ifpe.gestaorefeitorio.model.MovimentacaoFoto;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.service.MovimentacaoFotoService;
@@ -41,6 +42,15 @@ public class MovimentacaoController {
             @Valid @RequestBody MovimentacaoRequestDTO request,
             @AuthenticationPrincipal Usuario responsavel) {
         return ResponseEntity.status(HttpStatus.CREATED).body(movimentacaoService.registrarEntrada(request, responsavel));
+    }
+
+    // Bloqueio de saldo negativo ainda não implementado — US12/#30, issue própria.
+    @PostMapping("/saida")
+    @PreAuthorize("hasAnyRole('COZINHA', 'NUTRICIONISTA')")
+    public ResponseEntity<MovimentacaoResponseDTO> registrarSaida(
+            @Valid @RequestBody MovimentacaoSaidaRequestDTO request,
+            @AuthenticationPrincipal Usuario responsavel) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(movimentacaoService.registrarSaida(request, responsavel));
     }
 
     // Anexar foto é sempre opcional (US08/#88) — não faz parte do registro da entrada.

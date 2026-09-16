@@ -2,6 +2,7 @@ package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoResponseDTO;
+import br.ifpe.gestaorefeitorio.dto.MovimentacaoSaidaRequestDTO;
 import br.ifpe.gestaorefeitorio.exception.LocalArmazenamentoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.LocalArmazenamento;
@@ -17,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -29,10 +31,9 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
 
     @Override
     public MovimentacaoResponseDTO registrarEntrada(MovimentacaoRequestDTO request, Usuario responsavel) {
-        Produto produto = produtoRepository.findById(request.produtoId())
-                .orElseThrow(() -> new ProdutoNaoEncontradoException(request.produtoId()));
-        LocalArmazenamento local = localArmazenamentoRepository.findById(request.localId())
-                .orElseThrow(() -> new LocalArmazenamentoNaoEncontradoException(request.localId()));
+        ProdutoELocal produtoELocal = buscarProdutoELocal(request.produtoId(), request.localId());
+        Produto produto = produtoELocal.produto();
+        LocalArmazenamento local = produtoELocal.local();
 
         Movimentacao movimentacao = new Movimentacao();
         movimentacao.setProduto(produto);
@@ -52,6 +53,40 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
         return paraDTO(movimentacao);
     }
 
+    @Override
+    public MovimentacaoResponseDTO registrarSaida(MovimentacaoSaidaRequestDTO request, Usuario responsavel) {
+        ProdutoELocal produtoELocal = buscarProdutoELocal(request.produtoId(), request.localId());
+        Produto produto = produtoELocal.produto();
+        LocalArmazenamento local = produtoELocal.local();
+
+        Movimentacao movimentacao = new Movimentacao();
+        movimentacao.setProduto(produto);
+        movimentacao.setLocal(local);
+        movimentacao.setTipo(TipoMovimentacao.SAIDA);
+        movimentacao.setTipoSaida(request.tipoSaida());
+        movimentacao.setQuantidade(request.quantidade());
+        movimentacao.setData(request.data());
+        movimentacao.setResponsavel(responsavel);
+        movimentacao = movimentacaoRepository.save(movimentacao);
+
+        log.info("Saída registrada: produto {} ({}), local {}, quantidade {}, tipo {}, por {}",
+                produto.getId(), produto.getNome(), local.getNome(), movimentacao.getQuantidade(),
+                movimentacao.getTipoSaida(), responsavel.getEmail());
+
+        return paraDTO(movimentacao);
+    }
+
+    private ProdutoELocal buscarProdutoELocal(UUID produtoId, UUID localId) {
+        Produto produto = produtoRepository.findById(produtoId)
+                .orElseThrow(() -> new ProdutoNaoEncontradoException(produtoId));
+        LocalArmazenamento local = localArmazenamentoRepository.findById(localId)
+                .orElseThrow(() -> new LocalArmazenamentoNaoEncontradoException(localId));
+        return new ProdutoELocal(produto, local);
+    }
+
+    private record ProdutoELocal(Produto produto, LocalArmazenamento local) {
+    }
+
     private MovimentacaoResponseDTO paraDTO(Movimentacao movimentacao) {
         Produto produto = movimentacao.getProduto();
         LocalArmazenamento local = movimentacao.getLocal();
@@ -67,6 +102,7 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
                 movimentacao.getQuantidade(),
                 movimentacao.getData(),
                 movimentacao.getOrigem(),
+                movimentacao.getTipoSaida(),
                 movimentacao.getValor(),
                 saldo);
     }
