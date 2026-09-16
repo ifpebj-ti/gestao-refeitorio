@@ -3,9 +3,11 @@ package br.ifpe.gestaorefeitorio.service;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
+import br.ifpe.gestaorefeitorio.dto.SaldoPorLocalDTO;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.Produto;
 import br.ifpe.gestaorefeitorio.model.Usuario;
+import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +22,7 @@ import java.util.UUID;
 public class ProdutoServiceImpl implements ProdutoService {
 
     private final ProdutoRepository produtoRepository;
+    private final MovimentacaoRepository movimentacaoRepository;
 
     @Override
     public ProdutoResponseDTO cadastrar(ProdutoRequestDTO request) {
@@ -67,6 +70,12 @@ public class ProdutoServiceImpl implements ProdutoService {
         return paraDTO(produto);
     }
 
+    @Override
+    public List<SaldoPorLocalDTO> listarSaldoPorLocal(UUID produtoId) {
+        buscarEntidade(produtoId); // valida que o produto existe (404 se não)
+        return movimentacaoRepository.listarSaldoPorLocal(produtoId);
+    }
+
     private Produto buscarEntidade(UUID id) {
         return produtoRepository.findById(id)
                 .orElseThrow(() -> new ProdutoNaoEncontradoException(id));
@@ -78,6 +87,7 @@ public class ProdutoServiceImpl implements ProdutoService {
                 produto.getNome(),
                 produto.getCategoria(),
                 produto.getUnidadeMedida(),
-                produto.getValorReferencia());
+                produto.getValorReferencia(),
+                movimentacaoRepository.calcularSaldoTotal(produto.getId()));
     }
 }

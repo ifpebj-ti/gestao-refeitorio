@@ -3,6 +3,7 @@ package br.ifpe.gestaorefeitorio.controller;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
+import br.ifpe.gestaorefeitorio.dto.SaldoPorLocalDTO;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.service.ProdutoService;
 import jakarta.validation.Valid;
@@ -36,6 +37,12 @@ public class ProdutoController {
     @GetMapping("/{id}")
     public ProdutoResponseDTO buscar(@PathVariable UUID id) {
         return produtoService.buscarPorId(id);
+    }
+
+    // Saldo detalhado por local (US10/#94) — saldoTotal já vem em ProdutoResponseDTO acima.
+    @GetMapping("/{id}/saldo-por-local")
+    public List<SaldoPorLocalDTO> saldoPorLocal(@PathVariable UUID id) {
+        return produtoService.listarSaldoPorLocal(id);
     }
 
     // Apenas o perfil NUTRICIONISTA pode cadastrar produtos (ADMIN é perfil técnico, não gerencia catálogo).
