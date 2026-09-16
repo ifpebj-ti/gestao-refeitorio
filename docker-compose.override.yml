@@ -1,4 +1,5 @@
 # Carregado automaticamente pelo `docker compose up` (não precisa passar -f).
+services:
   db:
     ports:
       - "5432:5432"
