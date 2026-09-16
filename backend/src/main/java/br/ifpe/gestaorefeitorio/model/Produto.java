@@ -9,8 +9,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-import br.ifpe.gestaorefeitorio.model.enums.OrigemProduto;
-
 @Entity
 @Table(name = "produtos")
 @Getter
@@ -31,10 +29,6 @@ public class Produto {
     /** Unidade de medida (kg, L, un, etc). Editável pelo nutricionista. */
     @Column(nullable = false)
     private String unidadeMedida;
-
-    // Opcional: pertence conceitualmente à Movimentacao (origem de uma entrada), não ao cadastro do produto.
-    @Enumerated(EnumType.STRING)
-    private OrigemProduto origem;
 
     @Column(nullable = false, precision = 12, scale = 3)
     private BigDecimal saldoAtual = BigDecimal.ZERO;
