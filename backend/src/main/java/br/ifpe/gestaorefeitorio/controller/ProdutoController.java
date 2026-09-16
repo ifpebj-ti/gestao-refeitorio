@@ -29,7 +29,7 @@ public class ProdutoController {
         return produtoService.buscarPorId(id);
     }
 
-    // Apenas a nutricionista (admin) pode cadastrar produtos.
+    // Apenas o perfil NUTRICIONISTA pode cadastrar produtos (ADMIN é perfil técnico, não gerencia catálogo).
     @PostMapping
     @PreAuthorize("hasRole('NUTRICIONISTA')")
     public ResponseEntity<Produto> criar(@RequestBody Produto produto) {
