@@ -107,7 +107,7 @@ class RbacIntegrationTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(PRODUTO_VALIDO))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.nome").value("Arroz"));
     }
 }
