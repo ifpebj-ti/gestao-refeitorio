@@ -57,9 +57,6 @@ public class Movimentacao {
     /** Data de validade do lote recebido, quando aplicável (entradas). */
     private LocalDate dataValidade;
 
-    /** URL da foto anexada (opcional) no storage de arquivos. */
-    private String fotoUrl;
-
     @ManyToOne(optional = false)
     @JoinColumn(name = "responsavel_id")
     private Usuario responsavel;

@@ -12,6 +12,12 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      # Limite próprio (5MB) validado em MovimentacaoFotoServiceImpl; isso só evita que o
+      # Spring rejeite antes mesmo de chegar no controller (default do Boot é 1MB).
+      max-file-size: 5MB
+      max-request-size: 5MB
 
 security:
   jwt:
