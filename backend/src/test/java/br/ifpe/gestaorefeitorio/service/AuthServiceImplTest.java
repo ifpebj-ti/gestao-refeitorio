@@ -1,6 +1,7 @@
 package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.AuthResponseDTO;
+import br.ifpe.gestaorefeitorio.dto.UsuarioAutenticadoDTO;
 import br.ifpe.gestaorefeitorio.exception.TokenGoogleInvalidoException;
 import br.ifpe.gestaorefeitorio.exception.UsuarioInativoException;
 import br.ifpe.gestaorefeitorio.exception.UsuarioNaoEncontradoException;
@@ -114,5 +115,20 @@ class AuthServiceImplTest {
                 () -> authService.autenticarComGoogle(idToken));
 
         verifyNoInteractions(jwtService);
+    }
+
+    @Test
+    void deveMapearUsuarioAutenticadoParaDTO() {
+        Usuario usuario = new Usuario();
+        usuario.setNome("Ana Cozinha");
+        usuario.setEmail("ana.cozinha@ifpe.edu.br");
+        usuario.setPerfil(Perfil.COZINHA);
+        usuario.setAtivo(true);
+
+        UsuarioAutenticadoDTO dto = authService.usuarioAutenticado(usuario);
+
+        assertThat(dto.nome()).isEqualTo("Ana Cozinha");
+        assertThat(dto.email()).isEqualTo("ana.cozinha@ifpe.edu.br");
+        assertThat(dto.perfil()).isEqualTo(Perfil.COZINHA);
     }
 }
