@@ -32,8 +32,8 @@ public class Produto {
     @Column(nullable = false)
     private String unidadeMedida;
 
+    // Opcional: pertence conceitualmente à Movimentacao (origem de uma entrada), não ao cadastro do produto.
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private OrigemProduto origem;
 
     @Column(nullable = false, precision = 12, scale = 3)
