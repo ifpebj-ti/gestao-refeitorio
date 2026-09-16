@@ -86,22 +86,30 @@ class ProdutoControllerIntegrationTest {
     }
 
     private void registrarEntrada(String token, UUID produtoId, UUID localId, String quantidade) throws Exception {
+        registrarEntrada(token, produtoId, localId, quantidade, "2026-01-10");
+    }
+
+    private void registrarEntrada(String token, UUID produtoId, UUID localId, String quantidade, String data) throws Exception {
         mockMvc.perform(post("/api/movimentacoes/entrada")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"produtoId":"%s","localId":"%s","quantidade":%s,"data":"2026-01-10","origem":"EXTERNA","valor":10.00}
-                                """.formatted(produtoId, localId, quantidade)))
+                                {"produtoId":"%s","localId":"%s","quantidade":%s,"data":"%s","origem":"EXTERNA","valor":10.00}
+                                """.formatted(produtoId, localId, quantidade, data)))
                 .andExpect(status().isCreated());
     }
 
     private void registrarSaida(String token, UUID produtoId, UUID localId, String quantidade) throws Exception {
+        registrarSaida(token, produtoId, localId, quantidade, "2026-01-10");
+    }
+
+    private void registrarSaida(String token, UUID produtoId, UUID localId, String quantidade, String data) throws Exception {
         mockMvc.perform(post("/api/movimentacoes/saida")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"produtoId":"%s","localId":"%s","quantidade":%s,"data":"2026-01-10","tipoSaida":"CONSUMO"}
-                                """.formatted(produtoId, localId, quantidade)))
+                                {"produtoId":"%s","localId":"%s","quantidade":%s,"data":"%s","tipoSaida":"CONSUMO"}
+                                """.formatted(produtoId, localId, quantidade, data)))
                 .andExpect(status().isCreated());
     }
 
@@ -374,6 +382,57 @@ class ProdutoControllerIntegrationTest {
         Produto produto = criarProduto("Feijão", "Secos", "kg");
 
         mockMvc.perform(get("/api/produtos/" + produto.getId() + "/saldo-por-local")
+                        .header("Authorization", "Bearer " + tokenAdmin))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void deveRetornarHistoricoOrdenadoDoMaisRecenteParaOMaisAntigo() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto("Arroz", "Secos", "kg");
+        LocalArmazenamento local = criarLocal();
+
+        registrarEntrada(token, produto.getId(), local.getId(), "10", "2026-01-05");
+        registrarSaida(token, produto.getId(), local.getId(), "4", "2026-01-10");
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId() + "/movimentacoes")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].tipo").value("SAIDA"))
+                .andExpect(jsonPath("$[0].data").value("2026-01-10"))
+                .andExpect(jsonPath("$[0].responsavelEmail").exists())
+                .andExpect(jsonPath("$[1].tipo").value("ENTRADA"))
+                .andExpect(jsonPath("$[1].data").value("2026-01-05"));
+    }
+
+    @Test
+    void deveRetornarListaVaziaDeHistoricoQuandoSemMovimentacoes() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Feijão", "Secos", "kg");
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId() + "/movimentacoes")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void deveRetornar404AoConsultarHistoricoDeProdutoInexistente() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(get("/api/produtos/" + UUID.randomUUID() + "/movimentacoes")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveAutorizarConsultaDeHistoricoParaQualquerPerfilAutenticado() throws Exception {
+        String tokenAdmin = tokenPara(Perfil.ADMIN);
+        Produto produto = criarProduto("Feijão", "Secos", "kg");
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId() + "/movimentacoes")
                         .header("Authorization", "Bearer " + tokenAdmin))
                 .andExpect(status().isOk());
     }

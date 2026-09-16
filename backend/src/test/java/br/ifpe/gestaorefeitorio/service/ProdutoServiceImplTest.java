@@ -1,13 +1,18 @@
 package br.ifpe.gestaorefeitorio.service;
 
+import br.ifpe.gestaorefeitorio.dto.MovimentacaoHistoricoDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
 import br.ifpe.gestaorefeitorio.dto.SaldoPorLocalDTO;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
+import br.ifpe.gestaorefeitorio.model.LocalArmazenamento;
+import br.ifpe.gestaorefeitorio.model.Movimentacao;
 import br.ifpe.gestaorefeitorio.model.Produto;
 import br.ifpe.gestaorefeitorio.model.Usuario;
+import br.ifpe.gestaorefeitorio.model.enums.OrigemMovimentacao;
 import br.ifpe.gestaorefeitorio.model.enums.Perfil;
+import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import org.junit.jupiter.api.Test;
@@ -17,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -187,5 +193,68 @@ class ProdutoServiceImplTest {
 
         assertThrows(ProdutoNaoEncontradoException.class,
                 () -> produtoService.listarSaldoPorLocal(produtoId));
+    }
+
+    @Test
+    void deveListarHistoricoMapeandoParaDTO() {
+        UUID produtoId = UUID.randomUUID();
+        Produto produto = produtoComId(produtoId, "Arroz", "Secos", "kg");
+
+        LocalArmazenamento local = new LocalArmazenamento();
+        local.setId(UUID.randomUUID());
+        local.setNome("Despensa");
+
+        Usuario responsavel = new Usuario();
+        responsavel.setNome("Cozinha");
+        responsavel.setEmail("cozinha@ifpe.edu.br");
+        responsavel.setPerfil(Perfil.COZINHA);
+        responsavel.setAtivo(true);
+
+        Movimentacao entrada = new Movimentacao();
+        entrada.setId(UUID.randomUUID());
+        entrada.setProduto(produto);
+        entrada.setLocal(local);
+        entrada.setTipo(TipoMovimentacao.ENTRADA);
+        entrada.setOrigem(OrigemMovimentacao.EXTERNA);
+        entrada.setQuantidade(new BigDecimal("10"));
+        entrada.setValor(new BigDecimal("50.00"));
+        entrada.setData(LocalDate.of(2026, 1, 10));
+        entrada.setResponsavel(responsavel);
+
+        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
+        when(movimentacaoRepository.findByProdutoIdOrderByDataDesc(produtoId)).thenReturn(List.of(entrada));
+
+        List<MovimentacaoHistoricoDTO> resposta = produtoService.listarHistorico(produtoId);
+
+        assertThat(resposta).hasSize(1);
+        MovimentacaoHistoricoDTO dto = resposta.get(0);
+        assertThat(dto.tipo()).isEqualTo(TipoMovimentacao.ENTRADA);
+        assertThat(dto.quantidade()).isEqualByComparingTo("10");
+        assertThat(dto.localNome()).isEqualTo("Despensa");
+        assertThat(dto.origem()).isEqualTo(OrigemMovimentacao.EXTERNA);
+        assertThat(dto.responsavelNome()).isEqualTo("Cozinha");
+        assertThat(dto.responsavelEmail()).isEqualTo("cozinha@ifpe.edu.br");
+    }
+
+    @Test
+    void deveRetornarListaVaziaQuandoProdutoSemMovimentacoes() {
+        UUID produtoId = UUID.randomUUID();
+        Produto produto = produtoComId(produtoId, "Arroz", "Secos", "kg");
+
+        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
+        when(movimentacaoRepository.findByProdutoIdOrderByDataDesc(produtoId)).thenReturn(List.of());
+
+        List<MovimentacaoHistoricoDTO> resposta = produtoService.listarHistorico(produtoId);
+
+        assertThat(resposta).isEmpty();
+    }
+
+    @Test
+    void deveLancarNaoEncontradoAoListarHistoricoDeProdutoInexistente() {
+        UUID produtoId = UUID.randomUUID();
+        when(produtoRepository.findById(produtoId)).thenReturn(Optional.empty());
+
+        assertThrows(ProdutoNaoEncontradoException.class,
+                () -> produtoService.listarHistorico(produtoId));
     }
 }
