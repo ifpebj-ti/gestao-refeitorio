@@ -34,5 +34,5 @@ services:
     environment:
       NODE_ENV: production
 
-  volumes:
-    db_data:
+volumes:
+  db_data:
