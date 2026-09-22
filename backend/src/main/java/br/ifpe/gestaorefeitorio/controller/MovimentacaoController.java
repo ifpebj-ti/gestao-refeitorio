@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.List;
 
 import java.util.UUID;
 
@@ -71,4 +72,15 @@ public class MovimentacaoController {
                 .contentType(MediaType.parseMediaType(foto.getContentType()))
                 .body(foto.getConteudo());
     }
+
+
+
+    // Rota NOVA para alimentar a aba de Auditoria do Front
+    @GetMapping
+    public ResponseEntity<List<MovimentacaoResponseDTO>> listarHistorico() {
+        return ResponseEntity.ok(movimentacaoService.listarHistorico());
+    }
+
+
+
 }
