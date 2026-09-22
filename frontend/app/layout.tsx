@@ -4,7 +4,8 @@ import "./globals.css";
 import { useState, useRef, useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Sidebar from "./components/Sidebar";
-import { Menu, Bell, ChevronRight } from "lucide-react";import Link from "next/link";
+import { Menu, Bell, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
 function HeaderComSininho() {

@@ -11,11 +11,11 @@ import {
   CheckCircle2,
   Send,
   AlertCircle,
-  Building2,
   Loader2,
-  X,
   Upload,
   ImageIcon,
+  X,
+  Building2,
 } from "lucide-react";
 import { produtoService, ProdutoResponse } from "@/lib/produtos";
 import { registrarEntradaApi } from "@/lib/movimentacoes";
@@ -572,19 +572,20 @@ export default function RecebimentoCozinhaPage() {
               <p className="text-xs">Selecione um insumo acima, preencha a quantidade e clique em &quot;Incluir na Entrada&quot;.</p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="p-3 sm:p-0 space-y-3 sm:space-y-0 sm:divide-y sm:divide-slate-100">
               {itensRecebidos.map((item) => (
                 <div
                   key={item.idTemp}
-                  className="p-4 sm:px-6 flex items-center justify-between gap-4 hover:bg-slate-50/60 transition-colors"
+                  className="p-3.5 sm:p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 bg-white sm:bg-transparent rounded-xl sm:rounded-none border border-slate-200/80 sm:border-0 hover:bg-slate-50/60 transition-colors shadow-sm sm:shadow-none"
                 >
-                  <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex items-start sm:items-center gap-3 min-w-0">
                     {item.fotoPreview ? (
                       <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-300 shrink-0">
                         <Image
                           src={item.fotoPreview}
                           alt={item.nome}
                           fill
+                          sizes="48px"
                           className="object-cover"
                         />
                       </div>
@@ -594,7 +595,7 @@ export default function RecebimentoCozinhaPage() {
                       </div>
                     )}
 
-                    <div className="space-y-0.5 min-w-0">
+                    <div className="space-y-0.5 min-w-0 flex-1">
                       <p className="text-sm sm:text-base font-bold text-slate-900 truncate">
                         {item.nome}
                       </p>
@@ -610,8 +611,8 @@ export default function RecebimentoCozinhaPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 shrink-0">
-                    <span className="text-base sm:text-lg font-black text-emerald-800 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t border-slate-100 sm:border-t-0 shrink-0">
+                    <span className="text-sm sm:text-lg font-black text-emerald-800 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200">
                       +{item.quantidade} {item.unidade}
                     </span>
                     <button

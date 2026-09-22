@@ -71,8 +71,8 @@ export default function Sidebar() {
                 src="/ifpe_bjpng.png"
                 alt="Logo IFPE"
                 fill
+                sizes="144px"
                 className="object-contain object-left"
-                priority
               />
             </div>
 
