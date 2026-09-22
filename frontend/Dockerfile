@@ -7,6 +7,11 @@ RUN npm run build
 
 FROM node:20-alpine
 WORKDIR /app
-COPY --from=build /app ./
+
+# Cria um usuário não-root para o Node.js
+RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
+USER nextjs
+
+COPY --from=build --chown=nextjs:nodejs /app ./
 EXPOSE 3000
 CMD ["npm", "start"]
