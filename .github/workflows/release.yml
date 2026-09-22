@@ -1,0 +1,122 @@
+name: Release and Production
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  release:
+    name: Calculate version and create release
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Release Please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          target-branch: main
+
+  publish:
+    name: Publish ${{ matrix.app }} ${{ needs.release.outputs.version }}
+    if: needs.release.outputs.created == 'true'
+    needs: release
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [frontend, backend]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+      - name: Resolve release revision
+        id: revision
+        run: echo "short_sha=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build immutable image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.app }}
+          file: ./${{ matrix.app }}/Dockerfile
+          load: true
+          push: false
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.app }}:${{ needs.release.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.app }}:${{ needs.release.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.app }}:sha-${{ steps.revision.outputs.short_sha }}
+            ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.app }}:latest
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+      - name: Security gate before publish
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ github.repository }}-${{ matrix.app }}:${{ needs.release.outputs.version }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Push verified tags
+        run: docker image push --all-tags "${REGISTRY}/${GITHUB_REPOSITORY}-${{ matrix.app }}"
+
+  deploy-production:
+    name: Deploy production
+    if: needs.release.outputs.created == 'true'
+    needs: [release, publish]
+    runs-on: ubuntu-24.04
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Upload Compose definitions
+        env:
+          HOST: ${{ secrets.PRODUCTION_HOST }}
+          USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          scp -i ~/.ssh/deploy_key docker-compose.yml docker-compose.prod.yml \
+            "$USER@$HOST:/opt/gestao-refeitorio/"
+      - name: Deploy with health check and rollback
+        env:
+          HOST: ${{ secrets.PRODUCTION_HOST }}
+          USER: ${{ secrets.PRODUCTION_USER }}
+          IMAGE_TAG: ${{ needs.release.outputs.version }}
+        run: |
+          ssh -i ~/.ssh/deploy_key "$USER@$HOST" \
+            "bash -s -- '$IMAGE_TAG' docker-compose.prod.yml" < scripts/deploy-remote.sh

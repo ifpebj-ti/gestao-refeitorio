@@ -1,0 +1,23 @@
+services:
+  db:
+    restart: unless-stopped
+
+  backend:
+    image: ghcr.io/ifpebj-ti/gestao-refeitorio-backend:${IMAGE_TAG:-dev}
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+
+  frontend:
+    image: ghcr.io/ifpebj-ti/gestao-refeitorio-frontend:${IMAGE_TAG:-dev}
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"
+
+    environment:
+      NODE_ENV: production
