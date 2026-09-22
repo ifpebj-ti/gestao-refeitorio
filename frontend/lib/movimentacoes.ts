@@ -9,6 +9,14 @@ export interface MovimentacaoEntradaRequest {
   valor: number;
 }
 
+export interface MovimentacaoSaidaRequest {
+  produtoId: string;
+  localId: string;
+  quantidade: number;
+  data: string; // YYYY-MM-DD
+  tipoSaida: "CONSUMO" | "PERDA" | "DESCARTE" | "OUTRO";
+}
+
 export interface MovimentacaoResponse {
   id: string;
   produtoId: string;
@@ -63,6 +71,35 @@ export const registrarEntradaApi = async (
   }
 
   return movimentacaoCriada;
+};
+
+export const registrarSaidaApi = async (
+  dados: MovimentacaoSaidaRequest
+): Promise<MovimentacaoResponse> => {
+  const token = typeof window !== "undefined" ? localStorage.getItem("@gestao_refeitorio:token") : null;
+
+  if (!token) {
+    throw new Error("Token de autenticação não encontrado. Faça login na Área do Nutricionista.");
+  }
+
+  const url = `${BASE_URL}/movimentacoes/saida`;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(dados),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error(">>> Resposta de erro do backend:", res.status, errorText);
+    throw new Error(`Erro na API (${res.status}): ${errorText || "Falha na requisição"}`);
+  }
+
+  return await res.json();
 };
 
 export const listarHistoricoApi = async (): Promise<MovimentacaoResponse[]> => {
