@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { verificarStatusEstoque, CategoriaAlimento } from "@/app/utils/estoqueRules";
 import { produtoService, ProdutoResponse } from "@/lib/produtos";
-import { registrarEntradaApi } from "@/lib/movimentacoes";
+import { registrarEntradaApi, listarHistoricoApi } from "@/lib/movimentacoes"; 
 
 interface ItemMovimentadoDetalhe {
   insumo: string;
@@ -67,7 +67,12 @@ export default function EstoqueGeralPage() {
 
   // Extrato de auditoria
   const [extrato, setExtrato] = useState<MovimentacaoExtrato[]>([]);
+  const [carregandoExtrato, setCarregandoExtrato] = useState(false); 
   const [itemAuditoriaSelecionado, setItemAuditoriaSelecionado] = useState<MovimentacaoExtrato | null>(null);
+  
+  // Estado para a foto do modal de auditoria
+  const [fotoAuditoria, setFotoAuditoria] = useState<string | null>(null);
+  const [carregandoFotoAuditoria, setCarregandoFotoAuditoria] = useState(false);
 
   // Formulário da Aba Registrar Entrada
   const [categoriaEntradaAtiva, setCategoriaEntradaAtiva] = useState<string>("Todos");
@@ -114,6 +119,91 @@ export default function EstoqueGeralPage() {
       carregarProdutos();
     }
   }, [autenticado, categoriaFiltro]);
+
+  // Função para buscar a foto ao abrir o modal
+  useEffect(() => {
+    const buscarFoto = async (id: string) => {
+      setCarregandoFotoAuditoria(true);
+      try {
+        const token = localStorage.getItem("@gestao_refeitorio:token");
+        const res = await fetch(`http://localhost:8080/api/movimentacoes/${id}/foto`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          setFotoAuditoria(URL.createObjectURL(blob));
+        } else {
+          setFotoAuditoria(null);
+        }
+      } catch (e) {
+        setFotoAuditoria(null);
+      } finally {
+        setCarregandoFotoAuditoria(false);
+      }
+    };
+
+    if (itemAuditoriaSelecionado) {
+      buscarFoto(itemAuditoriaSelecionado.id);
+    } else {
+      setFotoAuditoria(null); 
+    }
+  }, [itemAuditoriaSelecionado]);
+
+  const carregarHistorico = async () => {
+    try {
+      setCarregandoExtrato(true);
+      const dados = await listarHistoricoApi();
+      
+      const extratoFormatado: MovimentacaoExtrato[] = dados.map((mov) => {
+        let dataFormatada = mov.data;
+        try {
+          if (mov.data) {
+            const dataObj = new Date(mov.data);
+            if (!isNaN(dataObj.getTime())) {
+               dataFormatada = dataObj.toLocaleString("pt-BR", {
+                day: "2-digit", month: "2-digit", year: "numeric"
+              });
+            }
+          }
+        } catch (e) {}
+
+        const nomeInsumo = listaEstoque.find(p => p.id === mov.produtoId)?.nome || "Produto Desconhecido";
+        const unidade = listaEstoque.find(p => p.id === mov.produtoId)?.unidadeMedida || "un";
+
+        return {
+          id: mov.id,
+          tipo: mov.tipo,
+          dataHora: dataFormatada,
+          origemTurno: mov.tipo === "ENTRADA" ? "Recebimento • Entrada" : `Saída • ${mov.tipoSaida || 'Consumo'}`,
+          responsavel: "Equipe (Cozinha/Nutrição)", 
+          fornecedor: mov.origem === "EXTERNA" ? "Fornecedor Externo Comum" : "Agroindústria (IFPE)",
+          itensResumo: `${nomeInsumo} (${mov.tipo === 'ENTRADA' ? '+' : '-'}${mov.quantidade} ${unidade})`,
+          detalhesItens: [
+            {
+              insumo: nomeInsumo,
+              quantidade: mov.quantidade,
+              unidade: unidade,
+            },
+          ],
+          observacao: mov.tipo === "ENTRADA" 
+            ? "Entrada de insumos conferida e registrada via sistema." 
+            : "Saída de insumos registrada via sistema.",
+        };
+      });
+
+      setExtrato(extratoFormatado.reverse());
+    } catch (error) {
+      console.error("Erro ao buscar histórico:", error);
+    } finally {
+      setCarregandoExtrato(false);
+    }
+  };
+
+  useEffect(() => {
+    if (abaAtiva === "extrato" && autenticado) {
+      carregarHistorico();
+    }
+  }, [abaAtiva, autenticado, listaEstoque]); 
 
   if (carregando || !autenticado) {
     return null;
@@ -214,7 +304,7 @@ export default function EstoqueGeralPage() {
       setSalvandoEntrada(true);
       setErroEntrada(null);
 
-      const movCriada = await registrarEntradaApi(
+      await registrarEntradaApi(
         {
           produtoId: insumoEntradaSelecionado.id,
           localId,
@@ -227,39 +317,7 @@ export default function EstoqueGeralPage() {
       );
 
       await carregarProdutos();
-
-      const agoraFormatada = new Date().toLocaleString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
-      const novaMovimentacao: MovimentacaoExtrato = {
-        id: movCriada.id || Math.random().toString(),
-        tipo: "ENTRADA",
-        dataHora: agoraFormatada,
-        origemTurno: `Recebimento • Entrada (${
-          insumoEntradaSelecionado.categoria === "Proteínas & Frios" ? "Congelados" : "Despensa"
-        })`,
-        responsavel: "Nutrição / Cozinha",
-        fornecedor: fornecedorEntrada.trim(),
-        validade: validadeEntrada || undefined,
-        lote: loteEntrada || undefined,
-        itensResumo: `${insumoEntradaSelecionado.nome} (+${qtdNum} ${insumoEntradaSelecionado.unidadeMedida})`,
-        detalhesItens: [
-          {
-            insumo: insumoEntradaSelecionado.nome,
-            quantidade: qtdNum,
-            unidade: insumoEntradaSelecionado.unidadeMedida,
-          },
-        ],
-        observacao: `Entrada registrada via sistema. Origem: ${origem}. Valor: R$ ${valorTotal.toFixed(2)}`,
-        fotoAnexada: fotoMercadoria || undefined,
-      };
-
-      setExtrato((prev) => [novaMovimentacao, ...prev]);
+      
       setSucessoFeedback(true);
 
       setTimeout(() => {
@@ -327,7 +385,7 @@ export default function EstoqueGeralPage() {
               : "border-transparent text-slate-400 hover:text-slate-700"
           }`}
         >
-          Histórico de Auditoria ({extrato.length})
+          Histórico de Auditoria
         </button>
       </div>
 
@@ -732,7 +790,11 @@ export default function EstoqueGeralPage() {
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl shadow-xs divide-y divide-slate-100 overflow-hidden">
-            {extrato.length === 0 ? (
+            {carregandoExtrato ? (
+               <div className="p-6 text-center text-xs text-slate-400 font-medium animate-pulse">
+                Sincronizando histórico de auditoria com o banco de dados...
+              </div>
+            ) : extrato.length === 0 ? (
               <div className="p-6 text-center text-xs text-slate-400">
                 Nenhuma movimentação registrada nesta sessão.
               </div>
@@ -879,11 +941,39 @@ export default function EstoqueGeralPage() {
             {itemAuditoriaSelecionado.observacao && (
               <div className="space-y-1">
                 <span className="text-xs font-bold uppercase text-slate-700 tracking-wide">Ocorrências</span>
-                <p className="text-xs text-slate-600 bg-amber-50/60 border border-amber-200/80 p-3 rounded-xl leading-relaxed">
+                <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 p-3 rounded-xl leading-relaxed">
                   {itemAuditoriaSelecionado.observacao}
                 </p>
               </div>
             )}
+
+            <div className="space-y-1.5 pt-2 border-t border-slate-100">
+              <span className="text-xs font-bold uppercase text-slate-700 tracking-wide">
+                Comprovante / Anexo
+              </span>
+              {carregandoFotoAuditoria ? (
+                <div className="p-4 text-center text-xs font-medium text-slate-400 bg-slate-50 rounded-xl animate-pulse">
+                  Buscando anexo no servidor...
+                </div>
+              ) : fotoAuditoria ? (
+                <div>
+                  <a 
+                    href={fotoAuditoria} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="block border border-slate-200 rounded-xl overflow-hidden hover:opacity-90 transition-opacity"
+                    title="Clique para expandir"
+                  >
+                    <img src={fotoAuditoria} alt="Comprovante" className="w-full h-36 object-cover" />
+                  </a>
+                  <p className="text-[10px] text-slate-400 mt-1 text-right">Clique na imagem para ampliar</p>
+                </div>
+              ) : (
+                <div className="p-3 text-center text-xs text-slate-400 bg-slate-50 border border-slate-200 border-dashed rounded-xl">
+                  Nenhum comprovante anexado a este registro.
+                </div>
+              )}
+            </div>
 
             <div className="pt-2 flex justify-end">
               <button
