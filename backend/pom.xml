@@ -75,20 +75,19 @@
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
-        <!-- Validação do id_token do Google (login OAuth2/OIDC) -->
         <dependency>
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client</artifactId>
             <version>${google-api-client.version}</version>
         </dependency>
 
-        <!-- Jobs agendados (alerta de validade) -->
+        <!-- Jobs agendados -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-quartz</artifactId>
         </dependency>
 
-        <!-- Observabilidade (funcionamento concreto: health, métricas) -->
+        <!-- Observabilidade -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -136,6 +135,7 @@
             <version>1.19.8</version>
             <scope>test</scope>
         </dependency>
+    </dependencies>
 
     <build>
         <plugins>
