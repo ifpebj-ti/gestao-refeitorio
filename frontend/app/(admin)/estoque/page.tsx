@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { verificarStatusEstoque, CategoriaAlimento } from "@/app/utils/estoqueRules";
 import { produtoService, ProdutoResponse } from "@/lib/produtos";
+import { registrarEntradaApi } from "@/lib/movimentacoes";
 
 interface ItemMovimentadoDetalhe {
   insumo: string;
@@ -50,41 +51,6 @@ const CATEGORIAS = [
   "Especificações & Condimentos",
 ] as const;
 
-const EXTRATO_INICIAL: MovimentacaoExtrato[] = [
-  {
-    id: "m1",
-    tipo: "SAIDA",
-    dataHora: "04/09/2026 13:30",
-    origemTurno: "Consumo • Almoço",
-    responsavel: "Equipe Cozinha (Maria das Dores e Severina)",
-    itensResumo: "Coxa de Frango (45kg), Arroz (30kg), Feijão Macassar (18kg)...",
-    detalhesItens: [
-      { insumo: "Coxa de Frango", quantidade: 45, unidade: "Kg" },
-      { insumo: "Arroz Parboilizado", quantidade: 30, unidade: "Kg" },
-      { insumo: "Feijão Macassar", quantidade: 18, unidade: "Kg" },
-    ],
-    observacao: "Sobra de cerca de 2,5 kg de arroz pronto na bancada.",
-  },
-  {
-    id: "m2",
-    tipo: "ENTRADA",
-    dataHora: "04/09/2026 09:15",
-    origemTurno: "Recebimento • Hortifrúti",
-    responsavel: "Recepção / Cozinha",
-    fornecedor: "Produtor Feirante Local (Agricultura Familiar)",
-    lote: "HORTI-0409",
-    validade: "09/09/2026",
-    itensResumo: "Tomate (+25kg), Couve (+20 maços), Beterraba (+15kg)",
-    detalhesItens: [
-      { insumo: "Tomate", quantidade: 25, unidade: "Kg" },
-      { insumo: "Couve", quantidade: 20, unidade: "Maço" },
-      { insumo: "Beterraba", quantidade: 15, unidade: "Kg" },
-    ],
-    observacao: "Carga fresca entregue em caixas plásticas higienizadas.",
-    fotoAnexada: "Foto do canhoto/entrega anexada",
-  },
-];
-
 export default function EstoqueGeralPage() {
   const router = useRouter();
   const { autenticado, carregando } = useAuth();
@@ -100,7 +66,7 @@ export default function EstoqueGeralPage() {
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
 
   // Extrato de auditoria
-  const [extrato, setExtrato] = useState<MovimentacaoExtrato[]>(EXTRATO_INICIAL);
+  const [extrato, setExtrato] = useState<MovimentacaoExtrato[]>([]);
   const [itemAuditoriaSelecionado, setItemAuditoriaSelecionado] = useState<MovimentacaoExtrato | null>(null);
 
   // Formulário da Aba Registrar Entrada
@@ -114,18 +80,19 @@ export default function EstoqueGeralPage() {
   const [validadeEntrada, setValidadeEntrada] = useState("");
   const [loteEntrada, setLoteEntrada] = useState("");
   const [fotoMercadoria, setFotoMercadoria] = useState<string | null>(null);
+  const [arquivoFotoReal, setArquivoFotoReal] = useState<File | null>(null);
+  const [salvandoEntrada, setSalvandoEntrada] = useState(false);
+  const [erroEntrada, setErroEntrada] = useState<string | null>(null);
   const [sucessoFeedback, setSucessoFeedback] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Redireciona para login se deslogado
   useEffect(() => {
     if (!carregando && !autenticado) {
       router.push("/login");
     }
   }, [autenticado, carregando, router]);
 
-  // Busca dados na API
   const carregarProdutos = async () => {
     try {
       setCarregandoProdutos(true);
@@ -152,10 +119,8 @@ export default function EstoqueGeralPage() {
     return null;
   }
 
-  // Objeto selecionado no formulário de entrada
   const insumoEntradaSelecionado = listaEstoque.find((i) => i.id === itemEntradaId) || null;
 
-  // Calcula status de atenção usando os dados reais da API
   const calcularStatusItem = (item: ProdutoResponse): "NORMAL" | "ATENCAO" => {
     const statusSaldo = verificarStatusEstoque(
       item.saldoTotal ?? 0,
@@ -165,22 +130,15 @@ export default function EstoqueGeralPage() {
     return statusSaldo === "ATENCAO" ? "ATENCAO" : "NORMAL";
   };
 
-  // Filtros de busca no cliente
   const itensFiltrados = listaEstoque.filter((item) => {
-    const bateCategoria =
-      categoriaFiltro === "Todos" || item.categoria === categoriaFiltro;
-    const bateBusca =
-      busca.trim() === "" ||
-      item.nome.toLowerCase().includes(busca.toLowerCase());
+    const bateCategoria = categoriaFiltro === "Todos" || item.categoria === categoriaFiltro;
+    const bateBusca = busca.trim() === "" || item.nome.toLowerCase().includes(busca.toLowerCase());
     return bateCategoria && bateBusca;
   });
 
   const insumosEntradaFiltrados = listaEstoque.filter((item) => {
-    const bateCategoria =
-      categoriaEntradaAtiva === "Todos" || item.categoria === categoriaEntradaAtiva;
-    const bateBusca =
-      buscaEntrada.trim() === "" ||
-      item.nome.toLowerCase().includes(buscaEntrada.toLowerCase());
+    const bateCategoria = categoriaEntradaAtiva === "Todos" || item.categoria === categoriaEntradaAtiva;
+    const bateBusca = buscaEntrada.trim() === "" || item.nome.toLowerCase().includes(buscaEntrada.toLowerCase());
     return bateCategoria && bateBusca;
   });
 
@@ -205,74 +163,125 @@ export default function EstoqueGeralPage() {
     setValidadeEntrada("");
     setLoteEntrada("");
     setFotoMercadoria(null);
+    setArquivoFotoReal(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const removerFoto = () => {
     setFotoMercadoria(null);
+    setArquivoFotoReal(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  const registrarNovaEntrada = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!insumoEntradaSelecionado) return;
+  const handleSalvarEntrada = async () => {
+    if (!insumoEntradaSelecionado) {
+      alert("Selecione um insumo da lista!");
+      return;
+    }
+
     const qtdNum = parseFloat(quantidadeEntrada);
-    if (isNaN(qtdNum) || qtdNum <= 0 || !fornecedorEntrada.trim()) return;
+    if (isNaN(qtdNum) || qtdNum <= 0) {
+      alert("Informe uma quantidade válida maior que zero!");
+      return;
+    }
 
-    // Atualiza saldo local enquanto US07/entrada completa no back é finalizada
-    setListaEstoque((prev) =>
-      prev.map((i) =>
-        i.id === itemEntradaId
-          ? {
-              ...i,
-              saldoTotal: Number(((i.saldoTotal ?? 0) + qtdNum).toFixed(2)),
-            }
-          : i
-      )
-    );
+    if (!fornecedorEntrada.trim()) {
+      alert("Informe o fornecedor!");
+      return;
+    }
 
-    const novaMovimentacao: MovimentacaoExtrato = {
-      id: Math.random().toString(),
-      tipo: "ENTRADA",
-      dataHora: "21/09/2026 11:30",
-      origemTurno: "Recebimento • Entrada de Insumo",
-      responsavel: "Nutricionista Hítalo",
-      fornecedor: fornecedorEntrada.trim(),
-      validade: validadeEntrada || undefined,
-      lote: loteEntrada || undefined,
-      itensResumo: `${insumoEntradaSelecionado.nome} (+${qtdNum} ${insumoEntradaSelecionado.unidadeMedida})`,
-      detalhesItens: [
+    const LOCAL_CONGELADOS = "e10aa4e1-9b74-4791-8b01-1a8efd93af8c";
+    const LOCAL_DESPENSA = "eddeb319-7af8-4d68-bd88-8a739c968c74";
+    const localId =
+      insumoEntradaSelecionado.categoria === "Proteínas & Frios"
+        ? LOCAL_CONGELADOS
+        : LOCAL_DESPENSA;
+
+    const ehAgro = fornecedorEntrada.toLowerCase().includes("agro");
+    const origem = ehAgro ? "AGROINDUSTRIA" : "EXTERNA";
+
+    const precoUnitario =
+      insumoEntradaSelecionado.valorReferencia && insumoEntradaSelecionado.valorReferencia > 0
+        ? insumoEntradaSelecionado.valorReferencia
+        : 10.0;
+    const valorTotal = Number((qtdNum * precoUnitario).toFixed(2));
+
+    const hojeIso = new Date().toISOString().split("T")[0];
+
+    try {
+      setSalvandoEntrada(true);
+      setErroEntrada(null);
+
+      const movCriada = await registrarEntradaApi(
         {
-          insumo: insumoEntradaSelecionado.nome,
+          produtoId: insumoEntradaSelecionado.id,
+          localId,
           quantidade: qtdNum,
-          unidade: insumoEntradaSelecionado.unidadeMedida,
+          data: hojeIso,
+          origem,
+          valor: valorTotal,
         },
-      ],
-      observacao: "Entrada registrada e conferida pela Nutrição.",
-      fotoAnexada: fotoMercadoria || undefined,
-    };
+        arquivoFotoReal
+      );
 
-    setExtrato((prev) => [novaMovimentacao, ...prev]);
-    setSucessoFeedback(true);
+      await carregarProdutos();
 
-    setTimeout(() => {
-      setSucessoFeedback(false);
-      limparSelecao();
-      setAbaAtiva("inventario");
-    }, 1200);
+      const agoraFormatada = new Date().toLocaleString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      const novaMovimentacao: MovimentacaoExtrato = {
+        id: movCriada.id || Math.random().toString(),
+        tipo: "ENTRADA",
+        dataHora: agoraFormatada,
+        origemTurno: `Recebimento • Entrada (${
+          insumoEntradaSelecionado.categoria === "Proteínas & Frios" ? "Congelados" : "Despensa"
+        })`,
+        responsavel: "Nutrição / Cozinha",
+        fornecedor: fornecedorEntrada.trim(),
+        validade: validadeEntrada || undefined,
+        lote: loteEntrada || undefined,
+        itensResumo: `${insumoEntradaSelecionado.nome} (+${qtdNum} ${insumoEntradaSelecionado.unidadeMedida})`,
+        detalhesItens: [
+          {
+            insumo: insumoEntradaSelecionado.nome,
+            quantidade: qtdNum,
+            unidade: insumoEntradaSelecionado.unidadeMedida,
+          },
+        ],
+        observacao: `Entrada registrada via sistema. Origem: ${origem}. Valor: R$ ${valorTotal.toFixed(2)}`,
+        fotoAnexada: fotoMercadoria || undefined,
+      };
+
+      setExtrato((prev) => [novaMovimentacao, ...prev]);
+      setSucessoFeedback(true);
+
+      setTimeout(() => {
+        setSucessoFeedback(false);
+        limparSelecao();
+        setAbaAtiva("inventario");
+      }, 1200);
+    } catch (err: any) {
+      console.error("Falha ao registrar entrada:", err);
+      const msg =
+        err.response?.data?.message ||
+        err.message ||
+        "Não foi possível salvar a entrada no estoque.";
+      alert("ERRO AO SALVAR NO BANCO: " + msg);
+      setErroEntrada(msg);
+    } finally {
+      setSalvandoEntrada(false);
+    }
   };
-
-  const podeSalvar =
-    insumoEntradaSelecionado &&
-    fornecedorEntrada.trim().length > 0 &&
-    Boolean(quantidadeEntrada) &&
-    parseFloat(quantidadeEntrada) > 0;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-28">
-      {/* 1. CABEÇALHO PADRÃO */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -284,7 +293,6 @@ export default function EstoqueGeralPage() {
         </div>
       </div>
 
-      {/* 2. ABAS */}
       <div className="flex items-center gap-4 border-b border-slate-200 text-xs sm:text-sm font-bold">
         <button
           type="button"
@@ -323,7 +331,6 @@ export default function EstoqueGeralPage() {
         </button>
       </div>
 
-      {/* 3. ABA 1: INVENTÁRIO */}
       {abaAtiva === "inventario" && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
@@ -393,12 +400,8 @@ export default function EstoqueGeralPage() {
 
                     return (
                       <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="px-4 py-3 font-semibold text-slate-900">
-                          {item.nome}
-                        </td>
-                        <td className="px-4 py-3 text-slate-500 text-xs">
-                          {item.categoria}
-                        </td>
+                        <td className="px-4 py-3 font-semibold text-slate-900">{item.nome}</td>
+                        <td className="px-4 py-3 text-slate-500 text-xs">{item.categoria}</td>
                         <td className="px-4 py-3 text-right font-extrabold text-slate-900">
                           {item.saldoTotal ?? 0} {item.unidadeMedida}
                         </td>
@@ -413,9 +416,7 @@ export default function EstoqueGeralPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-right text-slate-400 text-xs">
-                          -
-                        </td>
+                        <td className="px-4 py-3 text-right text-slate-400 text-xs">-</td>
                       </tr>
                     );
                   })
@@ -426,7 +427,6 @@ export default function EstoqueGeralPage() {
         </div>
       )}
 
-      {/* 4. ABA 2: REGISTRAR ENTRADA */}
       {abaAtiva === "registrar" && (
         <div className="w-full space-y-6">
           {sucessoFeedback ? (
@@ -436,7 +436,7 @@ export default function EstoqueGeralPage() {
               <p className="text-xs text-slate-500">O saldo foi somado ao inventário e registrado no histórico.</p>
             </div>
           ) : (
-            <form onSubmit={registrarNovaEntrada} className="w-full space-y-5">
+            <div className="w-full space-y-5">
               <div className="bg-emerald-50/50 border-2 border-emerald-200/80 rounded-2xl p-4 sm:p-6 space-y-4 shadow-xs">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm sm:text-base font-extrabold text-emerald-950 uppercase tracking-wide flex items-center gap-2">
@@ -593,7 +593,6 @@ export default function EstoqueGeralPage() {
                     </label>
                     <input
                       type="text"
-                      required
                       value={fornecedorEntrada}
                       onChange={(e) => setFornecedorEntrada(e.target.value)}
                       placeholder="Ex.: Distribuidora Agreste, Cooperativa..."
@@ -609,7 +608,6 @@ export default function EstoqueGeralPage() {
                       type="number"
                       step="0.1"
                       min="0.1"
-                      required
                       value={quantidadeEntrada}
                       onChange={(e) => setQuantidadeEntrada(e.target.value)}
                       placeholder="Ex.: 30"
@@ -675,29 +673,43 @@ export default function EstoqueGeralPage() {
                             accept="image/*"
                             ref={fileInputRef}
                             className="hidden"
-                            onChange={() => setFotoMercadoria("foto-mercadoria-recebida.jpg")}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setArquivoFotoReal(file);
+                                setFotoMercadoria(URL.createObjectURL(file));
+                              }
+                            }}
                           />
                         </label>
                       )}
                     </div>
                   </div>
 
+                  {erroEntrada && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700">
+                      {erroEntrada}
+                    </div>
+                  )}
+
                   <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
                     <button
                       type="button"
                       onClick={limparSelecao}
-                      className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                      disabled={salvandoEntrada}
+                      className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer disabled:opacity-50"
                     >
                       Limpar
                     </button>
 
                     <button
-                      type="submit"
-                      disabled={!podeSalvar}
+                      type="button"
+                      onClick={handleSalvarEntrada}
+                      disabled={salvandoEntrada}
                       className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Salvar Entrada no Estoque</span>
+                      <span>{salvandoEntrada ? "Registrando no estoque..." : "Salvar Entrada no Estoque"}</span>
                     </button>
                   </div>
                 </div>
@@ -706,12 +718,11 @@ export default function EstoqueGeralPage() {
                   Selecione um insumo acima para abrir os campos de registro.
                 </div>
               )}
-            </form>
+            </div>
           )}
         </div>
       )}
 
-      {/* 5. ABA 3: HISTÓRICO COM VISUALIZAÇÃO AUDITÁVEL */}
       {abaAtiva === "extrato" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
@@ -721,72 +732,65 @@ export default function EstoqueGeralPage() {
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl shadow-xs divide-y divide-slate-100 overflow-hidden">
-            {extrato.map((mov) => {
-              const isEntrada = mov.tipo === "ENTRADA";
+            {extrato.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-400">
+                Nenhuma movimentação registrada nesta sessão.
+              </div>
+            ) : (
+              extrato.map((mov) => {
+                const isEntrada = mov.tipo === "ENTRADA";
 
-              return (
-                <div
-                  key={mov.id}
-                  onClick={() => setItemAuditoriaSelecionado(mov)}
-                  className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors text-xs sm:text-sm cursor-pointer group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        isEntrada
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-rose-100 text-rose-800"
-                      }`}
-                    >
-                      {isEntrada ? (
-                        <ArrowDownLeft className="w-4 h-4" />
-                      ) : (
-                        <ArrowUpRight className="w-4 h-4" />
-                      )}
-                    </div>
-
-                    <div className="min-w-0 space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <p className="font-bold text-slate-900 truncate">
-                          {mov.origemTurno}
-                        </p>
-                        <span
-                          className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
-                            isEntrada
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-rose-50 text-rose-700"
-                          }`}
-                        >
-                          {isEntrada ? "ENTRADA" : "SAÍDA"}
-                        </span>
+                return (
+                  <div
+                    key={mov.id}
+                    onClick={() => setItemAuditoriaSelecionado(mov)}
+                    className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors text-xs sm:text-sm cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                          isEntrada ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
+                        }`}
+                      >
+                        {isEntrada ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                       </div>
 
-                      <p className="text-slate-500 text-xs truncate">
-                        {mov.itensResumo}
-                      </p>
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-slate-900 truncate">{mov.origemTurno}</p>
+                          <span
+                            className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
+                              isEntrada ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                            }`}
+                          >
+                            {isEntrada ? "ENTRADA" : "SAÍDA"}
+                          </span>
+                        </div>
+
+                        <p className="text-slate-500 text-xs truncate">{mov.itensResumo}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-[11px] font-semibold text-slate-400 hidden sm:inline-block">
+                        {mov.dataHora}
+                      </span>
+                      <button
+                        type="button"
+                        className="p-1.5 text-slate-400 group-hover:text-emerald-700 group-hover:bg-emerald-50 rounded-lg transition-colors"
+                        title="Auditar detalhes"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-[11px] font-semibold text-slate-400 hidden sm:inline-block">
-                      {mov.dataHora}
-                    </span>
-                    <button
-                      type="button"
-                      className="p-1.5 text-slate-400 group-hover:text-emerald-700 group-hover:bg-emerald-50 rounded-lg transition-colors"
-                      title="Auditar detalhes"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       )}
 
-      {/* 6. MODAL DE AUDITORIA DO REGISTRO */}
       {itemAuditoriaSelecionado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-lg w-full p-5 sm:p-6 space-y-4">
@@ -822,42 +826,26 @@ export default function EstoqueGeralPage() {
 
             <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-2xl text-xs">
               <div>
-                <span className="text-slate-400 font-bold block text-[10px] uppercase">
-                  Tipo / Turno
-                </span>
-                <span className="font-extrabold text-slate-800">
-                  {itemAuditoriaSelecionado.origemTurno}
-                </span>
+                <span className="text-slate-400 font-bold block text-[10px] uppercase">Tipo / Turno</span>
+                <span className="font-extrabold text-slate-800">{itemAuditoriaSelecionado.origemTurno}</span>
               </div>
 
               <div>
-                <span className="text-slate-400 font-bold block text-[10px] uppercase">
-                  Responsável
-                </span>
-                <span className="font-semibold text-slate-800">
-                  {itemAuditoriaSelecionado.responsavel}
-                </span>
+                <span className="text-slate-400 font-bold block text-[10px] uppercase">Responsável</span>
+                <span className="font-semibold text-slate-800">{itemAuditoriaSelecionado.responsavel}</span>
               </div>
 
               {itemAuditoriaSelecionado.fornecedor && (
                 <div>
-                  <span className="text-slate-400 font-bold block text-[10px] uppercase">
-                    Fornecedor / Origem
-                  </span>
-                  <span className="font-medium text-slate-700">
-                    {itemAuditoriaSelecionado.fornecedor}
-                  </span>
+                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Fornecedor / Origem</span>
+                  <span className="font-medium text-slate-700">{itemAuditoriaSelecionado.fornecedor}</span>
                 </div>
               )}
 
               {itemAuditoriaSelecionado.lote && (
                 <div>
-                  <span className="text-slate-400 font-bold block text-[10px] uppercase">
-                    Lote / Validade
-                  </span>
-                  <span className="font-medium text-slate-700">
-                    {itemAuditoriaSelecionado.lote}
-                  </span>
+                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Lote / Validade</span>
+                  <span className="font-medium text-slate-700">{itemAuditoriaSelecionado.lote}</span>
                 </div>
               )}
             </div>
@@ -890,9 +878,7 @@ export default function EstoqueGeralPage() {
 
             {itemAuditoriaSelecionado.observacao && (
               <div className="space-y-1">
-                <span className="text-xs font-bold uppercase text-slate-700 tracking-wide">
-                  Ocorrências
-                </span>
+                <span className="text-xs font-bold uppercase text-slate-700 tracking-wide">Ocorrências</span>
                 <p className="text-xs text-slate-600 bg-amber-50/60 border border-amber-200/80 p-3 rounded-xl leading-relaxed">
                   {itemAuditoriaSelecionado.observacao}
                 </p>
