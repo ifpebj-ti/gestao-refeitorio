@@ -45,6 +45,15 @@ estoque-cozinha-ifpe/
 - Docker e Docker Compose (opcional, mas recomendado para rodar tudo junto)
 - PostgreSQL 16 (se não usar Docker)
 
+## CI/CD e releases
+
+Pull requests passam por build, testes do backend, análise estática, detecção de segredos e scan
+das imagens. `develop` publica automaticamente o ambiente de desenvolvimento após o CI; merges
+em `main` alimentam um PR de release e geram versões SemVer a partir de Conventional Commits.
+
+Configuração, secrets, promoção para produção e rollback estão documentados em
+[`docs/CI_CD.md`](docs/CI_CD.md).
+
 ## Primeiros passos
 
 ### 1. Clonar e configurar

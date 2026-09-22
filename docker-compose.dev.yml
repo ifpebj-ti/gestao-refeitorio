@@ -3,7 +3,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: ghcr.io/ifpebj-ti/gestao-refeitorio-backend:dev
+    image: ghcr.io/ifpebj-ti/gestao-refeitorio-backend:${IMAGE_TAG:-dev}
     restart: unless-stopped
 
     ports:
@@ -13,7 +13,7 @@ services:
       SPRING_PROFILES_ACTIVE: dev
 
   frontend:
-    image: ghcr.io/ifpebj-ti/gestao-refeitorio-frontend:dev
+    image: ghcr.io/ifpebj-ti/gestao-refeitorio-frontend:${IMAGE_TAG:-dev}
     restart: unless-stopped
 
     ports:
