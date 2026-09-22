@@ -1,0 +1,13 @@
+# Carregado automaticamente pelo `docker compose up` (não precisa passar -f).
+services:
+  db:
+    ports:
+      - "5432:5432"
+
+  backend:
+    ports:
+      - "8080:8080"
+
+  frontend:
+    ports:
+      - "3000:3000"

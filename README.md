@@ -1,4 +1,4 @@
-# Sistema de Controle de Estoque da Cozinha — IFPE Campus Belo Jardim
+# Sistema de Gestão de Refeitorio — IFPE Campus Belo Jardim
 
 Plataforma web (responsiva para mobile) para centralizar o controle de estoque,
 produção interna, notas de recebimento, documentos e relatórios da cozinha do
@@ -44,6 +44,15 @@ estoque-cozinha-ifpe/
 - Node.js 20+
 - Docker e Docker Compose (opcional, mas recomendado para rodar tudo junto)
 - PostgreSQL 16 (se não usar Docker)
+
+## CI/CD e releases
+
+Pull requests passam por build, testes do backend, análise estática, detecção de segredos e scan
+das imagens. `develop` publica automaticamente o ambiente de desenvolvimento após o CI; merges
+em `main` alimentam um PR de release e geram versões SemVer a partir de Conventional Commits.
+
+Configuração, secrets, promoção para produção e rollback estão documentados em
+[`docs/CI_CD.md`](docs/CI_CD.md).
 
 ## Primeiros passos
 
