@@ -1,5 +1,6 @@
 package br.ifpe.gestaorefeitorio.security;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -7,7 +8,6 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
-import java.util.Map;
 
 @Service
 public class JwtService {
@@ -27,7 +27,7 @@ public class JwtService {
         Date expira = new Date(agora.getTime() + expirationMs);
         return Jwts.builder()
                 .subject(email)
-                .claims(Map.of("perfil", perfil))
+                .claim("perfil", perfil)
                 .issuedAt(agora)
                 .expiration(expira)
                 .signWith(key())
@@ -35,16 +35,23 @@ public class JwtService {
     }
 
     public String extrairEmail(String token) {
-        return Jwts.parser().verifyWith(key()).build()
-                .parseSignedClaims(token).getPayload().getSubject();
+        return parseClaims(token).getSubject();
     }
 
     public boolean tokenValido(String token) {
         try {
-            Jwts.parser().verifyWith(key()).build().parseSignedClaims(token);
+            parseClaims(token);
             return true;
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private Claims parseClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(key())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 }

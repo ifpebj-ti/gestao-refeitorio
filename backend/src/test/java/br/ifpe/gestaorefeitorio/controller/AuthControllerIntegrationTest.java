@@ -8,9 +8,9 @@ import br.ifpe.gestaorefeitorio.security.GoogleTokenValidator;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -37,6 +37,7 @@ class AuthControllerIntegrationTest {
 
     @Container
     @ServiceConnection
+    @SuppressWarnings("resource")
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Autowired
@@ -45,7 +46,7 @@ class AuthControllerIntegrationTest {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
-    @MockBean
+    @MockitoBean
     private GoogleTokenValidator googleTokenValidator;
 
     private GoogleIdToken.Payload payloadComEmail(String email) {

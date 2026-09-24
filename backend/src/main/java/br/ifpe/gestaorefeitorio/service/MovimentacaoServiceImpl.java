@@ -17,9 +17,12 @@ import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -86,6 +89,14 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
         return paraDTO(movimentacao);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<MovimentacaoResponseDTO> listarHistorico() {
+        return movimentacaoRepository.findAll().stream()
+                .map(this::paraDTOHistorico) // Aqui mudamos para usar o DTO simplificado
+                .collect(Collectors.toList());
+    }
+
     private ProdutoELocal buscarProdutoELocal(UUID produtoId, UUID localId) {
         Produto produto = produtoRepository.findById(produtoId)
                 .orElseThrow(() -> new ProdutoNaoEncontradoException(produtoId));
@@ -115,5 +126,25 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
                 movimentacao.getTipoSaida(),
                 movimentacao.getValor(),
                 saldo);
+    }
+
+    // NOVO MÉTODO: Cria o DTO sem tentar calcular o saldo no banco de dados!
+    private MovimentacaoResponseDTO paraDTOHistorico(Movimentacao movimentacao) {
+        Produto produto = movimentacao.getProduto();
+        LocalArmazenamento local = movimentacao.getLocal();
+
+        return new MovimentacaoResponseDTO(
+                movimentacao.getId(),
+                produto.getId(),
+                produto.getNome(),
+                local.getId(),
+                local.getNome(),
+                movimentacao.getTipo(),
+                movimentacao.getQuantidade(),
+                movimentacao.getData(),
+                movimentacao.getOrigem(),
+                movimentacao.getTipoSaida(),
+                movimentacao.getValor(),
+                BigDecimal.ZERO); // Mandamos ZERO no saldo, pois a tela de histórico não usa!
     }
 }
