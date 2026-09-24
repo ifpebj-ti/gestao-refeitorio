@@ -133,6 +133,12 @@ class MovimentacaoControllerIntegrationTest {
                 """.formatted(produtoId, localId, quantidade);
     }
 
+    private String corpoComDataValidade(UUID produtoId, UUID localId, String data, String dataValidade) {
+        return """
+                {"produtoId":"%s","localId":"%s","quantidade":10,"data":"%s","origem":"EXTERNA","valor":50.00,"dataValidade":"%s"}
+                """.formatted(produtoId, localId, data, dataValidade);
+    }
+
     @Test
     void deveRetornar201AoRegistrarEntradaValidaEAumentarSaldo() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
@@ -508,5 +514,46 @@ class MovimentacaoControllerIntegrationTest {
         mockMvc.perform(get("/api/movimentacoes/" + movimentacao.getId() + "/foto")
                         .header("Authorization", "Bearer " + tokenAdmin))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void deveRetornar201ComDataValidadeAoRegistrarEntradaComDataValidadeInformada() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoComDataValidade(produto.getId(), local.getId(), "2026-01-10", "2026-02-10")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.dataValidade").value("2026-02-10"));
+    }
+
+    @Test
+    void deveRetornar201SemDataValidadeQuandoNaoInformada() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoValido(produto.getId(), local.getId())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.dataValidade").doesNotExist());
+    }
+
+    @Test
+    void deveRetornar400QuandoDataValidadeAnteriorADataDaMovimentacao() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoComDataValidade(produto.getId(), local.getId(), "2026-01-10", "2026-01-05")))
+                .andExpect(status().isBadRequest());
     }
 }

@@ -437,4 +437,24 @@ class ProdutoControllerIntegrationTest {
                         .header("Authorization", "Bearer " + tokenAdmin))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void deveExibirDataValidadeNoHistoricoQuandoInformada() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto("Iogurte", "Frios", "un");
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"produtoId":"%s","localId":"%s","quantidade":10,"data":"2026-01-10","origem":"EXTERNA","valor":10.00,"dataValidade":"2026-02-10"}
+                                """.formatted(produto.getId(), local.getId())))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId() + "/movimentacoes")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].dataValidade").value("2026-02-10"));
+    }
 }

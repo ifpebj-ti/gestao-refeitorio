@@ -3,6 +3,7 @@ package br.ifpe.gestaorefeitorio.service;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoSaidaRequestDTO;
+import br.ifpe.gestaorefeitorio.exception.DataValidadeInvalidaException;
 import br.ifpe.gestaorefeitorio.exception.LocalArmazenamentoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.exception.SaldoInsuficienteException;
@@ -86,7 +87,7 @@ class MovimentacaoServiceImplTest {
         LocalArmazenamento local = localComId(localId);
         MovimentacaoRequestDTO request = new MovimentacaoRequestDTO(
                 produtoId, localId, new BigDecimal("10"), LocalDate.now(),
-                OrigemMovimentacao.EXTERNA, new BigDecimal("50.00"));
+                OrigemMovimentacao.EXTERNA, new BigDecimal("50.00"), null);
 
         when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
         when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.of(local));
@@ -116,7 +117,7 @@ class MovimentacaoServiceImplTest {
         UUID localId = UUID.randomUUID();
         MovimentacaoRequestDTO request = new MovimentacaoRequestDTO(
                 produtoId, localId, new BigDecimal("10"), LocalDate.now(),
-                OrigemMovimentacao.EXTERNA, new BigDecimal("50.00"));
+                OrigemMovimentacao.EXTERNA, new BigDecimal("50.00"), null);
 
         when(produtoRepository.findById(produtoId)).thenReturn(Optional.empty());
 
@@ -133,7 +134,7 @@ class MovimentacaoServiceImplTest {
         Produto produto = produtoComId(produtoId);
         MovimentacaoRequestDTO request = new MovimentacaoRequestDTO(
                 produtoId, localId, new BigDecimal("10"), LocalDate.now(),
-                OrigemMovimentacao.EXTERNA, new BigDecimal("50.00"));
+                OrigemMovimentacao.EXTERNA, new BigDecimal("50.00"), null);
 
         when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
         when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.empty());
@@ -248,5 +249,77 @@ class MovimentacaoServiceImplTest {
 
         assertThat(resposta.tipo()).isEqualTo(TipoMovimentacao.SAIDA);
         verify(movimentacaoRepository).save(any(Movimentacao.class));
+    }
+
+    @Test
+    void deveRegistrarEntradaPersistindoDataValidadeQuandoInformada() {
+        UUID produtoId = UUID.randomUUID();
+        UUID localId = UUID.randomUUID();
+        Produto produto = produtoComId(produtoId);
+        LocalArmazenamento local = localComId(localId);
+        LocalDate dataValidade = LocalDate.now().plusDays(30);
+        MovimentacaoRequestDTO request = new MovimentacaoRequestDTO(
+                produtoId, localId, new BigDecimal("10"), LocalDate.now(),
+                OrigemMovimentacao.EXTERNA, new BigDecimal("50.00"), dataValidade);
+
+        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
+        when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.of(local));
+        when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(chamada -> {
+            Movimentacao salva = chamada.getArgument(0);
+            salva.setId(UUID.randomUUID());
+            return salva;
+        });
+        when(movimentacaoRepository.calcularSaldo(produtoId, localId)).thenReturn(new BigDecimal("10"));
+
+        MovimentacaoResponseDTO resposta = movimentacaoService.registrarEntrada(request, responsavel());
+
+        assertThat(resposta.dataValidade()).isEqualTo(dataValidade);
+        ArgumentCaptor<Movimentacao> captor = ArgumentCaptor.forClass(Movimentacao.class);
+        verify(movimentacaoRepository).save(captor.capture());
+        assertThat(captor.getValue().getDataValidade()).isEqualTo(dataValidade);
+    }
+
+    @Test
+    void deveRegistrarEntradaSemDataValidadeQuandoNaoInformada() {
+        UUID produtoId = UUID.randomUUID();
+        UUID localId = UUID.randomUUID();
+        Produto produto = produtoComId(produtoId);
+        LocalArmazenamento local = localComId(localId);
+        MovimentacaoRequestDTO request = new MovimentacaoRequestDTO(
+                produtoId, localId, new BigDecimal("10"), LocalDate.now(),
+                OrigemMovimentacao.EXTERNA, new BigDecimal("50.00"), null);
+
+        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
+        when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.of(local));
+        when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(chamada -> {
+            Movimentacao salva = chamada.getArgument(0);
+            salva.setId(UUID.randomUUID());
+            return salva;
+        });
+        when(movimentacaoRepository.calcularSaldo(produtoId, localId)).thenReturn(new BigDecimal("10"));
+
+        MovimentacaoResponseDTO resposta = movimentacaoService.registrarEntrada(request, responsavel());
+
+        assertThat(resposta.dataValidade()).isNull();
+    }
+
+    @Test
+    void deveLancarDataValidadeInvalidaQuandoAnteriorADataDaMovimentacao() {
+        UUID produtoId = UUID.randomUUID();
+        UUID localId = UUID.randomUUID();
+        Produto produto = produtoComId(produtoId);
+        LocalArmazenamento local = localComId(localId);
+        LocalDate data = LocalDate.now();
+        MovimentacaoRequestDTO request = new MovimentacaoRequestDTO(
+                produtoId, localId, new BigDecimal("10"), data,
+                OrigemMovimentacao.EXTERNA, new BigDecimal("50.00"), data.minusDays(1));
+
+        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
+        when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.of(local));
+
+        assertThrows(DataValidadeInvalidaException.class,
+                () -> movimentacaoService.registrarEntrada(request, responsavel()));
+
+        verify(movimentacaoRepository, never()).save(any());
     }
 }
