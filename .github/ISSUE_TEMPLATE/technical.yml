@@ -1,0 +1,113 @@
+name: Task / User Story
+description: Criar uma nova tarefa técnica, funcional ou de infraestrutura
+title: "[Área] "
+labels: []
+body:
+
+  - type: markdown
+    attributes:
+      value: |
+        Preencha as informações abaixo para facilitar o entendimento, desenvolvimento e validação da atividade.
+
+  - type: input
+    id: user-story
+    attributes:
+      label: User Story
+      description: Informe a User Story relacionada, caso exista.
+      placeholder: "Ex.: US24"
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Descrição
+      description: Descreva de forma objetiva o que deve ser implementado, corrigido ou configurado.
+      placeholder: |
+        Exemplo:
+        Configurar o Dependabot para monitorar as dependências do frontend, backend e imagens Docker.
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objetivo
+      description: Qual problema esta atividade resolve ou qual resultado deve ser alcançado?
+      placeholder: |
+        Exemplo:
+        Garantir monitoramento contínuo das dependências e identificação de vulnerabilidades conhecidas.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critérios de Aceite
+      description: Liste as condições necessárias para considerar a atividade concluída.
+      placeholder: |
+        - [ ] Dependabot configurado
+        - [ ] Frontend monitorado
+        - [ ] Backend monitorado
+        - [ ] Imagens Docker monitoradas
+        - [ ] Zero vulnerabilidades críticas abertas
+    validations:
+      required: true
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tarefas
+      description: Liste as atividades necessárias para concluir esta Issue.
+      placeholder: |
+        - [ ] Criar configuração
+        - [ ] Validar execução
+        - [ ] Documentar resultado
+    validations:
+      required: false
+
+  - type: input
+    id: epic
+    attributes:
+      label: Épico Relacionado
+      description: Informe o número da Issue do épico, caso exista.
+      placeholder: "Ex.: #14"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Frontend
+        - Backend
+        - Infraestrutura
+        - Segurança da Informação
+        - DevOps
+        - Banco de Dados
+        - Documentação
+        - Outra
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Prioridade
+      options:
+        - Baixa
+        - Média
+        - Alta
+        - Crítica
+    validations:
+      required: true
+
+  - type: textarea
+    id: observations
+    attributes:
+      label: Observações
+      description: Informações adicionais, restrições, dependências ou decisões relevantes.
+      placeholder: "Não se aplica."
+    validations:
+      required: false
