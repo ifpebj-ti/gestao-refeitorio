@@ -21,6 +21,7 @@ interface AuthContextType {
   menuMobileAberto: boolean;
   setMenuMobileAberto: (aberto: boolean) => void;
   totalAlertasPendentes: number;
+  setTotalAlertasPendentes: (total: number) => void;
   bannerAlertasVisivel: boolean;
   loginComGoogle: (idToken: string) => Promise<void>;
   validarPin: (pin: string) => boolean;
@@ -47,8 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [carregando, setCarregando] = useState(true);
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const [bannerAlertasVisivel, setBannerAlertasVisivel] = useState(true);
-
-  const totalAlertasPendentes = 4;
+  const [totalAlertasPendentes, setTotalAlertasPendentes] = useState<number>(0);
 
   useEffect(() => {
     try {
@@ -164,6 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         menuMobileAberto,
         setMenuMobileAberto,
         totalAlertasPendentes,
+        setTotalAlertasPendentes,
         bannerAlertasVisivel,
         loginComGoogle,
         validarPin,
