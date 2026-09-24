@@ -46,13 +46,21 @@ const CATEGORIAS_PADRAO = [
 const LOCAL_CONGELADOS = "e10aa4e1-9b74-4791-8b01-1a8efd93af8c";
 const LOCAL_DESPENSA = "eddeb319-7af8-4d68-bd88-8a739c968c74";
 
-const CARDAPIO_MOCK: Record<TipoRefeicao, string> = {
-  "Café da Manhã":
-    "Cuscuz nordestino com ovos mexidos ou queijo, banana prata, biscoito cream cracker, café e leite quente.",
-  "Almoço":
-    "Coxa de frango cozida, arroz, feijão macassar, macarrão, ovo cozido, farofa e cuscuz. Salada: tomate, beterraba crua, couve refogada e azeitona.",
-  "Jantar":
-    "Sopa nutritiva de carne desfiada com macarrão e legumes, torradas temperadas, café e leite.",
+const obterDiaSemanaNome = (dataIso: string): "Segunda" | "Terça" | "Quarta" | "Quinta" | "Sexta" => {
+  try {
+    const d = new Date(dataIso + "T12:00:00");
+    const dia = d.getDay();
+    switch (dia) {
+      case 1: return "Segunda";
+      case 2: return "Terça";
+      case 3: return "Quarta";
+      case 4: return "Quinta";
+      case 5: return "Sexta";
+      default: return "Segunda";
+    }
+  } catch {
+    return "Segunda";
+  }
 };
 
 const HORARIOS_ENCERRAMENTO_MOCK: Record<TipoRefeicao, { hora: string; status: boolean }> = {
@@ -116,33 +124,65 @@ export default function ConsumoDiarioPage() {
     carregarInsumos();
   }, []);
 
-  // Simulação de turno e observações para nutricionista
+  // Simulação de status do turno
   useEffect(() => {
     const turnoInfo = HORARIOS_ENCERRAMENTO_MOCK[tipoRefeicao];
 
     if (isNutricionista && turnoInfo.status) {
       setTurnoEncerradoPelaCozinha(true);
       setModoEdicaoNutri(false);
-
-      if (tipoRefeicao === "Almoço") {
-        setObservacao(
-          "Sobra estimada de aproximadamente 2,5 kg de arroz na bancada de distribuição. Sem intercorrências no cozimento."
-        );
-      } else if (tipoRefeicao === "Café da Manhã") {
-        setObservacao("Consumo regular. Ovos mexidos repostos 1x durante o pico da manhã.");
-      }
     } else if (isNutricionista && !turnoInfo.status) {
       setTurnoEncerradoPelaCozinha(false);
       setModoEdicaoNutri(false);
-      setObservacao("");
     } else {
       setTurnoEncerradoPelaCozinha(false);
       setModoEdicaoNutri(true);
-      setObservacao("");
     }
   }, [isNutricionista, tipoRefeicao]);
 
-  const cardapioAtual = CARDAPIO_MOCK[tipoRefeicao];
+  const cardapioAtual = useMemo(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const salvo = localStorage.getItem("@gestao_refeitorio:cardapio_semanal");
+        if (salvo) {
+          const semanal = JSON.parse(salvo);
+          const diaNome = obterDiaSemanaNome(dataRegistro);
+          const diaDados = semanal[diaNome];
+
+          if (diaDados) {
+            let info = "";
+            if (tipoRefeicao === "Café da Manhã" && diaDados.cafe) {
+              const partes = [
+                diaDados.cafe.pratoPrincipal,
+                diaDados.cafe.acompanhamentos ? `Acompanhamentos: ${diaDados.cafe.acompanhamentos}` : "",
+                diaDados.cafe.saladaSobremesa ? `Fruta: ${diaDados.cafe.saladaSobremesa}` : "",
+              ].filter(Boolean);
+              info = partes.join(" • ");
+            } else if (tipoRefeicao === "Almoço" && diaDados.almoco) {
+              const partes = [
+                diaDados.almoco.pratoPrincipal,
+                diaDados.almoco.acompanhamentos ? `Guarnições: ${diaDados.almoco.acompanhamentos}` : "",
+                diaDados.almoco.saladaSobremesa ? `Salada/Sobremesa: ${diaDados.almoco.saladaSobremesa}` : "",
+              ].filter(Boolean);
+              info = partes.join(" • ");
+            } else if (tipoRefeicao === "Jantar" && diaDados.jantar) {
+              const partes = [
+                diaDados.jantar.pratoPrincipal,
+                diaDados.jantar.acompanhamentos ? `Acompanhamentos: ${diaDados.jantar.acompanhamentos}` : "",
+                diaDados.jantar.saladaSobremesa ? `Sobremesa: ${diaDados.jantar.saladaSobremesa}` : "",
+              ].filter(Boolean);
+              info = partes.join(" • ");
+            }
+
+            if (info.trim()) return info;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao ler cardápio da semana:", e);
+    }
+    return "Nenhum cardápio cadastrado para esta refeição. O nutricionista pode definir no planejamento semanal.";
+  }, [dataRegistro, tipoRefeicao]);
 
   // US12: Controle com validação de saldo negativo e bloqueio do limite
   const alterarQuantidade = (id: string, delta: number) => {
