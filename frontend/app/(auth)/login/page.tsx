@@ -58,7 +58,7 @@ export default function LoginPage() {
           <GoogleLogin
             onSuccess={handleSucesso}
             onError={handleErro}
-            useOneTap
+            // useOneTap
             shape="pill"
             text="signin_with"
           />

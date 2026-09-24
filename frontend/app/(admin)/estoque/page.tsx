@@ -94,7 +94,7 @@ export default function EstoqueGeralPage() {
 
   useEffect(() => {
     if (!carregando && !autenticado) {
-      router.push("/login");
+      router.push("/consumo");
     }
   }, [autenticado, carregando, router]);
 
