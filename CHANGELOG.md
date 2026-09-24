@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.2.0...gestao-refeitorio-v0.3.0) (2026-09-24)
+
+
+### Features
+
+* **cardapio:** implementa interface de visualizacao e gestao de cardapio semanal ([c834741](https://github.com/ifpebj-ti/gestao-refeitorio/commit/c834741b2f2f455525e40dd3030fc96219dba081))
+* **cardapio:** interface de visualização e gestão de cardápio semanal ([#58](https://github.com/ifpebj-ti/gestao-refeitorio/issues/58)) ([086cd19](https://github.com/ifpebj-ti/gestao-refeitorio/commit/086cd1959ff76b5bcb00d5fb7c1dddee531401ac))
+* **cozinha:** implementa tela de recebimento e conferência de insumos ([6a21581](https://github.com/ifpebj-ti/gestao-refeitorio/commit/6a21581b1e621bd0fc049dbb0a05a181c6b8ebb9))
+* **cozinha:** tela de registro de consumo diário e validação de saldo ([#55](https://github.com/ifpebj-ti/gestao-refeitorio/issues/55)) ([3b7b3e9](https://github.com/ifpebj-ti/gestao-refeitorio/commit/3b7b3e9c8bd4b44337896446e5d0248a180d37e0))
+* **estoque:** central de alertas de estoque baixo e controle de validade ([#57](https://github.com/ifpebj-ti/gestao-refeitorio/issues/57)) ([a4ef314](https://github.com/ifpebj-ti/gestao-refeitorio/commit/a4ef3145ddb97249f443340773cc1c0396bf9b11))
+* implementa splash screen de seleção de perfil e corrige layout condicional ([50e716d](https://github.com/ifpebj-ti/gestao-refeitorio/commit/50e716ddaa088f3a6787678b7f11b9dd31c8e7d9))
+* melhorar responsividade mobile com cards e realizar limpeza de codigo ([cba868f](https://github.com/ifpebj-ti/gestao-refeitorio/commit/cba868f335bc773fc0429de979f075f46c0d2cf8))
+
+
+### Bug Fixes
+
+* ajustes de responsividade mobile com cards e limpeza geral de código ([1edaf4b](https://github.com/ifpebj-ti/gestao-refeitorio/commit/1edaf4b8db6a865621a6f8ae53ba2f8468277f7e))
+
 ## [0.2.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.1.0...gestao-refeitorio-v0.2.0) (2026-09-22)
 
 
