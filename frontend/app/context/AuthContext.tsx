@@ -27,6 +27,7 @@ interface AuthContextType {
   validarPin: (pin: string) => boolean;
   logout: () => void;
   voltarParaCozinha: () => void;
+  entrarComoCozinha: () => void;
   toggleMenuMobile: () => void;
   fecharMenuMobile: () => void;
   dispensarBannerAlertas: () => void;
@@ -148,6 +149,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/consumo");
   };
 
+  const entrarComoCozinha = () => {
+    try {
+      localStorage.setItem(STORAGE_PERFIL_KEY, "COZINHA");
+    } catch (e) {
+      console.error("Erro ao salvar perfil da cozinha:", e);
+    }
+    setPerfil("COZINHA");
+    setMenuMobileAberto(false);
+    router.push("/consumo");
+  };
+
   const dispensarBannerAlertas = () => {
     setBannerAlertasVisivel(false);
   };
@@ -170,6 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         validarPin,
         logout,
         voltarParaCozinha,
+        entrarComoCozinha,
         toggleMenuMobile,
         fecharMenuMobile,
         dispensarBannerAlertas,

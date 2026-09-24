@@ -152,6 +152,14 @@ export default function Sidebar() {
               <span>Voltar para a cozinha</span>
             </button>
           )}
+
+          <Link
+            href="/"
+            onClick={() => setMenuMobileAberto(false)}
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+          >
+            <span>Trocar de Perfil / Início</span>
+          </Link>
         </div>
       </aside>
     </>

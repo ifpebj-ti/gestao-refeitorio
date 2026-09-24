@@ -33,6 +33,7 @@ class RbacIntegrationTest {
 
     @Container
     @ServiceConnection
+    @SuppressWarnings("resource")
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
     private static final String PRODUTO_VALIDO = """
