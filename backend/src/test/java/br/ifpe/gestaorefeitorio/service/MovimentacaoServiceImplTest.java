@@ -5,6 +5,7 @@ import br.ifpe.gestaorefeitorio.dto.MovimentacaoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoSaidaRequestDTO;
 import br.ifpe.gestaorefeitorio.exception.LocalArmazenamentoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
+import br.ifpe.gestaorefeitorio.exception.SaldoInsuficienteException;
 import br.ifpe.gestaorefeitorio.model.LocalArmazenamento;
 import br.ifpe.gestaorefeitorio.model.Movimentacao;
 import br.ifpe.gestaorefeitorio.model.Produto;
@@ -204,5 +205,48 @@ class MovimentacaoServiceImplTest {
                 () -> movimentacaoService.registrarSaida(request, responsavel()));
 
         verifyNoInteractions(movimentacaoRepository);
+    }
+
+    @Test
+    void deveLancarSaldoInsuficienteQuandoSaidaMaiorQueSaldoDisponivel() {
+        UUID produtoId = UUID.randomUUID();
+        UUID localId = UUID.randomUUID();
+        Produto produto = produtoComId(produtoId);
+        LocalArmazenamento local = localComId(localId);
+        MovimentacaoSaidaRequestDTO request = new MovimentacaoSaidaRequestDTO(
+                produtoId, localId, new BigDecimal("5"), LocalDate.now(), TipoSaida.CONSUMO);
+
+        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
+        when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.of(local));
+        when(movimentacaoRepository.calcularSaldo(produtoId, localId)).thenReturn(new BigDecimal("2"));
+
+        assertThrows(SaldoInsuficienteException.class,
+                () -> movimentacaoService.registrarSaida(request, responsavel()));
+
+        verify(movimentacaoRepository, never()).save(any());
+    }
+
+    @Test
+    void devePermitirSaidaQuandoQuantidadeIgualAoSaldoDisponivel() {
+        UUID produtoId = UUID.randomUUID();
+        UUID localId = UUID.randomUUID();
+        Produto produto = produtoComId(produtoId);
+        LocalArmazenamento local = localComId(localId);
+        MovimentacaoSaidaRequestDTO request = new MovimentacaoSaidaRequestDTO(
+                produtoId, localId, new BigDecimal("2"), LocalDate.now(), TipoSaida.CONSUMO);
+
+        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
+        when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.of(local));
+        when(movimentacaoRepository.calcularSaldo(produtoId, localId)).thenReturn(new BigDecimal("2"));
+        when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(chamada -> {
+            Movimentacao salva = chamada.getArgument(0);
+            salva.setId(UUID.randomUUID());
+            return salva;
+        });
+
+        MovimentacaoResponseDTO resposta = movimentacaoService.registrarSaida(request, responsavel());
+
+        assertThat(resposta.tipo()).isEqualTo(TipoMovimentacao.SAIDA);
+        verify(movimentacaoRepository).save(any(Movimentacao.class));
     }
 }
