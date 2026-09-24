@@ -127,6 +127,7 @@ public class ProdutoServiceImpl implements ProdutoService {
                 movimentacao.getOrigem(),
                 movimentacao.getTipoSaida(),
                 movimentacao.getValor(),
+                movimentacao.getDataValidade(),
                 movimentacao.getResponsavel().getNome(),
                 movimentacao.getResponsavel().getEmail(),
                 producaoInterna != null ? producaoInterna.getSetor().getNome() : null,

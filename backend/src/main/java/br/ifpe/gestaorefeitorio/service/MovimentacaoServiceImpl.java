@@ -3,6 +3,7 @@ package br.ifpe.gestaorefeitorio.service;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoSaidaRequestDTO;
+import br.ifpe.gestaorefeitorio.exception.DataValidadeInvalidaException;
 import br.ifpe.gestaorefeitorio.exception.LocalArmazenamentoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.exception.SaldoInsuficienteException;
@@ -39,6 +40,11 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
         Produto produto = produtoELocal.produto();
         LocalArmazenamento local = produtoELocal.local();
 
+        // dataValidade é opcional (US14/#145) — nem todo produto tem controle de validade.
+        if (request.dataValidade() != null && request.dataValidade().isBefore(request.data())) {
+            throw new DataValidadeInvalidaException();
+        }
+
         Movimentacao movimentacao = new Movimentacao();
         movimentacao.setProduto(produto);
         movimentacao.setLocal(local);
@@ -47,6 +53,7 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
         movimentacao.setData(request.data());
         movimentacao.setOrigem(request.origem());
         movimentacao.setValor(request.valor());
+        movimentacao.setDataValidade(request.dataValidade());
         movimentacao.setResponsavel(responsavel);
         movimentacao = movimentacaoRepository.save(movimentacao);
 
@@ -125,6 +132,7 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
                 movimentacao.getOrigem(),
                 movimentacao.getTipoSaida(),
                 movimentacao.getValor(),
+                movimentacao.getDataValidade(),
                 saldo);
     }
 
@@ -145,6 +153,7 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
                 movimentacao.getOrigem(),
                 movimentacao.getTipoSaida(),
                 movimentacao.getValor(),
+                movimentacao.getDataValidade(),
                 BigDecimal.ZERO); // Mandamos ZERO no saldo, pois a tela de histórico não usa!
     }
 }
