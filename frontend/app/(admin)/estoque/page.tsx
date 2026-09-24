@@ -94,7 +94,7 @@ export default function EstoqueGeralPage() {
 
   useEffect(() => {
     if (!carregando && !autenticado) {
-      router.push("/login");
+      router.push("/consumo");
     }
   }, [autenticado, carregando, router]);
 
@@ -421,7 +421,66 @@ export default function EstoqueGeralPage() {
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-x-auto">
+          {/* 1. Visualização Mobile: Cards */}
+          <div className="block md:hidden space-y-3">
+            {carregandoProdutos ? (
+              <div className="p-8 text-center text-slate-400 font-medium bg-white rounded-2xl border border-slate-200">
+                Carregando produtos do estoque...
+              </div>
+            ) : erroCarregamento ? (
+              <div className="p-8 text-center text-rose-600 font-medium bg-white rounded-2xl border border-slate-200">
+                {erroCarregamento}
+              </div>
+            ) : itensFiltrados.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 font-medium bg-white rounded-2xl border border-slate-200">
+                Nenhum produto cadastrado no banco de dados.
+              </div>
+            ) : (
+              itensFiltrados.map((item) => {
+                const statusItem = calcularStatusItem(item);
+                const isAtencao = statusItem === "ATENCAO";
+
+                return (
+                  <div
+                    key={item.id}
+                    className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-slate-900 text-sm leading-snug">
+                          {item.nome}
+                        </h4>
+                        <span className="text-xs text-slate-500 font-medium">
+                          {item.categoria}
+                        </span>
+                      </div>
+                      <div>
+                        {isAtencao ? (
+                          <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 shrink-0">
+                            Atenção
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 shrink-0">
+                            Normal
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                      <span className="text-slate-500 font-medium">Saldo Atual:</span>
+                      <span className="text-base font-black text-slate-900">
+                        {item.saldoTotal ?? 0} <span className="text-xs font-semibold text-slate-600">{item.unidadeMedida}</span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* 2. Visualização Desktop: Tabela Completa */}
+          <div className="hidden md:block bg-white border border-slate-200 rounded-2xl shadow-xs overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[11px] font-bold">
                 <tr>

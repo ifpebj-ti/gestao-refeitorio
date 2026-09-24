@@ -20,7 +20,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const {
     perfil,
-    logout,
+    voltarParaCozinha,
     menuMobileAberto,
     setMenuMobileAberto,
     totalAlertasPendentes,
@@ -44,6 +44,10 @@ export default function Sidebar() {
 
   const linksAtuais = perfil === "COZINHA" ? linksCozinha : linksNutri;
 
+  const handleVoltarParaCozinha = () => {
+    voltarParaCozinha();
+  };
+
   return (
     <>
       {/* Overlay mobile */}
@@ -60,15 +64,15 @@ export default function Sidebar() {
         }`}
       >
         <div className="p-4 space-y-6">
-          {/* Apenas a Logo e botão fechar mobile */}
+          {/* Logo e botão fechar mobile */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div className="relative w-36 h-12">
               <Image
                 src="/ifpe_bjpng.png"
                 alt="Logo IFPE"
                 fill
+                sizes="144px"
                 className="object-contain object-left"
-                priority
               />
             </div>
 
@@ -120,7 +124,7 @@ export default function Sidebar() {
           </nav>
         </div>
 
-        {/* Rodapé: Controle de Acesso Seguro por PIN */}
+        {/* Rodapé: Alternância de Perfil */}
         <div className="p-4 border-t border-slate-100 bg-slate-50/50 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400 font-medium">Perfil Atual:</span>
@@ -141,16 +145,21 @@ export default function Sidebar() {
           ) : (
             <button
               type="button"
-              onClick={() => {
-                setMenuMobileAberto(false);
-                logout();
-              }}
-              className="w-full flex items-center justify-center gap-2 py-2 bg-white hover:bg-rose-50 hover:text-rose-800 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
+              onClick={handleVoltarParaCozinha}
+              className="w-full flex items-center justify-center gap-2 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Voltar para Cozinha</span>
+              <span>Voltar para a cozinha</span>
             </button>
           )}
+
+          <Link
+            href="/"
+            onClick={() => setMenuMobileAberto(false)}
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+          >
+            <span>Trocar de Perfil / Início</span>
+          </Link>
         </div>
       </aside>
     </>

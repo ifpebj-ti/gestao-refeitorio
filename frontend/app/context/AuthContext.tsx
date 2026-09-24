@@ -13,6 +13,7 @@ interface UsuarioAuth {
 
 interface AuthContextType {
   perfil: PerfilUsuario;
+  setPerfil: (perfil: PerfilUsuario) => void;
   usuario: UsuarioAuth | null;
   token: string | null;
   autenticado: boolean;
@@ -20,10 +21,13 @@ interface AuthContextType {
   menuMobileAberto: boolean;
   setMenuMobileAberto: (aberto: boolean) => void;
   totalAlertasPendentes: number;
+  setTotalAlertasPendentes: (total: number) => void;
   bannerAlertasVisivel: boolean;
   loginComGoogle: (idToken: string) => Promise<void>;
   validarPin: (pin: string) => boolean;
   logout: () => void;
+  voltarParaCozinha: () => void;
+  entrarComoCozinha: () => void;
   toggleMenuMobile: () => void;
   fecharMenuMobile: () => void;
   dispensarBannerAlertas: () => void;
@@ -32,6 +36,7 @@ interface AuthContextType {
 const PIN_MESTRE_NUTRI = "1234";
 const STORAGE_TOKEN_KEY = "@gestao_refeitorio:token";
 const STORAGE_USER_KEY = "@gestao_refeitorio:user";
+const STORAGE_PERFIL_KEY = "@gestao_refeitorio:perfil_ativo";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -44,20 +49,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [carregando, setCarregando] = useState(true);
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const [bannerAlertasVisivel, setBannerAlertasVisivel] = useState(true);
-
-  const totalAlertasPendentes = 4;
+  const [totalAlertasPendentes, setTotalAlertasPendentes] = useState<number>(0);
 
   useEffect(() => {
     try {
       const tokenSalvo = localStorage.getItem(STORAGE_TOKEN_KEY);
       const userSalvo = localStorage.getItem(STORAGE_USER_KEY);
+      const perfilSalvo = localStorage.getItem(STORAGE_PERFIL_KEY) as PerfilUsuario | null;
 
       if (tokenSalvo && userSalvo) {
         const dadosUser: UsuarioAuth = JSON.parse(userSalvo);
         setToken(tokenSalvo);
         setUsuario(dadosUser);
-        setPerfil(dadosUser.perfil);
+        setPerfil(perfilSalvo || dadosUser.perfil);
         setAutenticado(true);
+      } else if (perfilSalvo) {
+        setPerfil(perfilSalvo);
       }
     } catch (e) {
       console.error("Erro ao ler sessão local:", e);
@@ -98,6 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     localStorage.setItem(STORAGE_TOKEN_KEY, data.token);
     localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(dadosUsuario));
+    localStorage.setItem(STORAGE_PERFIL_KEY, data.perfil);
 
     if (data.perfil === "COZINHA") {
       router.push("/consumo");
@@ -116,13 +124,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem(STORAGE_TOKEN_KEY);
-    localStorage.removeItem(STORAGE_USER_KEY);
+    try {
+      localStorage.removeItem(STORAGE_TOKEN_KEY);
+      localStorage.removeItem(STORAGE_USER_KEY);
+      localStorage.removeItem(STORAGE_PERFIL_KEY);
+    } catch (e) {
+      console.error("Erro ao limpar sessão local no logout:", e);
+    }
     setToken(null);
     setUsuario(null);
     setPerfil("COZINHA");
     setAutenticado(false);
-    router.push("/login");
+    router.push("/consumo");
+  };
+
+  const voltarParaCozinha = () => {
+    try {
+      localStorage.setItem(STORAGE_PERFIL_KEY, "COZINHA");
+    } catch (e) {
+      console.error("Erro ao salvar perfil da cozinha:", e);
+    }
+    setPerfil("COZINHA");
+    setMenuMobileAberto(false);
+    router.push("/consumo");
+  };
+
+  const entrarComoCozinha = () => {
+    try {
+      localStorage.setItem(STORAGE_PERFIL_KEY, "COZINHA");
+    } catch (e) {
+      console.error("Erro ao salvar perfil da cozinha:", e);
+    }
+    setPerfil("COZINHA");
+    setMenuMobileAberto(false);
+    router.push("/consumo");
   };
 
   const dispensarBannerAlertas = () => {
@@ -133,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         perfil,
+        setPerfil,
         usuario,
         token,
         autenticado,
@@ -140,10 +176,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         menuMobileAberto,
         setMenuMobileAberto,
         totalAlertasPendentes,
+        setTotalAlertasPendentes,
         bannerAlertasVisivel,
         loginComGoogle,
         validarPin,
         logout,
+        voltarParaCozinha,
+        entrarComoCozinha,
         toggleMenuMobile,
         fecharMenuMobile,
         dispensarBannerAlertas,
