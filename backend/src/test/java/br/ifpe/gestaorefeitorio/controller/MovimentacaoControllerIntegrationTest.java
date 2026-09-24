@@ -36,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.hamcrest.Matchers.containsString;
 
 /**
  * Testes de integração ponta a ponta do registro de entrada de produto
@@ -116,9 +117,13 @@ class MovimentacaoControllerIntegrationTest {
     }
 
     private String corpoValido(UUID produtoId, UUID localId) {
+        return corpoValido(produtoId, localId, "10");
+    }
+
+    private String corpoValido(UUID produtoId, UUID localId, String quantidade) {
         return """
-                {"produtoId":"%s","localId":"%s","quantidade":10,"data":"2026-01-10","origem":"EXTERNA","valor":50.00}
-                """.formatted(produtoId, localId);
+                {"produtoId":"%s","localId":"%s","quantidade":%s,"data":"2026-01-10","origem":"EXTERNA","valor":50.00}
+                """.formatted(produtoId, localId, quantidade);
     }
 
     private String corpoSaidaValido(UUID produtoId, UUID localId, String quantidade) {
@@ -312,11 +317,101 @@ class MovimentacaoControllerIntegrationTest {
         Produto produto = criarProduto();
         LocalArmazenamento local = criarLocal();
 
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoValido(produto.getId(), local.getId(), "10")))
+                .andExpect(status().isCreated());
+
         mockMvc.perform(post("/api/movimentacoes/saida")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpoSaidaValido(produto.getId(), local.getId(), "4")))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void deveRetornar409QuandoSaidaMaiorQueSaldoDisponivel() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoValido(produto.getId(), local.getId(), "2")))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/movimentacoes/saida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoSaidaValido(produto.getId(), local.getId(), "5")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.mensagem").value(containsString("2")));
+    }
+
+    @Test
+    void devePermitirSaidaQuandoQuantidadeIgualAoSaldoDisponivel() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoValido(produto.getId(), local.getId(), "2")))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/movimentacoes/saida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoSaidaValido(produto.getId(), local.getId(), "2")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.saldoAtual").value(0));
+    }
+
+    @Test
+    void deveRetornar409QuandoSaldoSuficienteEmOutroLocalMasNaoNoLocalDaSaida() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto();
+        LocalArmazenamento localComEstoque = criarLocal();
+        LocalArmazenamento localSemEstoque = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoValido(produto.getId(), localComEstoque.getId(), "10")))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/movimentacoes/saida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoSaidaValido(produto.getId(), localSemEstoque.getId(), "1")))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void naoDevePersistirMovimentacaoQuandoSaidaBloqueadaPorSaldoInsuficiente() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoValido(produto.getId(), local.getId(), "2")))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/movimentacoes/saida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoSaidaValido(produto.getId(), local.getId(), "5")))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId() + "/movimentacoes")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
     }
 
     @Test
