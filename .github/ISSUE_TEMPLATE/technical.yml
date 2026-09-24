@@ -40,17 +40,14 @@ body:
     validations:
       required: true
 
-  - type: textarea
+- type: textarea
     id: acceptance
     attributes:
-      label: Critérios de Aceite
-      description: Liste as condições necessárias para considerar a atividade concluída.
+      label: Critério de Aceite
+      description: Descreva de forma objetiva a condição necessária para considerar a atividade concluída.
       placeholder: |
-        - [ ] Dependabot configurado
-        - [ ] Frontend monitorado
-        - [ ] Backend monitorado
-        - [ ] Imagens Docker monitoradas
-        - [ ] Zero vulnerabilidades críticas abertas
+        Exemplo:
+        O Dependabot deve estar configurado para monitorar as dependências do frontend, backend e as imagens utilizadas nos Dockerfiles, realizando verificações periódicas e gerando alertas ou atualizações quando forem identificadas dependências desatualizadas ou vulneráveis.
     validations:
       required: true
 
