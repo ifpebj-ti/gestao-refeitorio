@@ -14,6 +14,7 @@ import br.ifpe.gestaorefeitorio.model.enums.OrigemMovimentacao;
 import br.ifpe.gestaorefeitorio.model.enums.Perfil;
 import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
+import br.ifpe.gestaorefeitorio.repository.ProducaoInternaRepository;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +45,9 @@ class ProdutoServiceImplTest {
 
     @Mock
     private MovimentacaoRepository movimentacaoRepository;
+
+    @Mock
+    private ProducaoInternaRepository producaoInternaRepository;
 
     @InjectMocks
     private ProdutoServiceImpl produtoService;
@@ -223,6 +227,7 @@ class ProdutoServiceImplTest {
 
         when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
         when(movimentacaoRepository.findByProdutoIdOrderByDataDesc(produtoId)).thenReturn(List.of(entrada));
+        when(producaoInternaRepository.findByMovimentacaoIdIn(List.of(entrada.getId()))).thenReturn(List.of());
 
         List<MovimentacaoHistoricoDTO> resposta = produtoService.listarHistorico(produtoId);
 
@@ -234,6 +239,8 @@ class ProdutoServiceImplTest {
         assertThat(dto.origem()).isEqualTo(OrigemMovimentacao.EXTERNA);
         assertThat(dto.responsavelNome()).isEqualTo("Cozinha");
         assertThat(dto.responsavelEmail()).isEqualTo("cozinha@ifpe.edu.br");
+        assertThat(dto.setorOrigem()).isNull();
+        assertThat(dto.responsavelSetor()).isNull();
     }
 
     @Test
@@ -243,6 +250,7 @@ class ProdutoServiceImplTest {
 
         when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
         when(movimentacaoRepository.findByProdutoIdOrderByDataDesc(produtoId)).thenReturn(List.of());
+        when(producaoInternaRepository.findByMovimentacaoIdIn(List.of())).thenReturn(List.of());
 
         List<MovimentacaoHistoricoDTO> resposta = produtoService.listarHistorico(produtoId);
 
