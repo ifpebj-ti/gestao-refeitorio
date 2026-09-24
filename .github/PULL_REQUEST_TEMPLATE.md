@@ -74,18 +74,6 @@ Marque os itens aplicáveis:
 
 ---
 
-## Evidências
-
-Adicione prints, vídeos, logs ou outras evidências que auxiliem na validação da entrega.
-
-<!--
-Exemplo:
-
-![Tela de inventário](URL_DA_IMAGEM)
--->
-
----
-
 ## Observações
 
 Adicione aqui informações adicionais, limitações conhecidas, pendências ou pontos que devem ser considerados em entregas futuras.
