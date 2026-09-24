@@ -37,7 +37,6 @@ export default function LoginPage() {
               alt="Logo IFPE"
               width={72}
               height={72}
-              priority
             />
           </div>
           <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">

@@ -1,4 +1,3 @@
-import { Sparkles, Tv } from "lucide-react";
 
 interface CardapioCardProps {
   refeicao: string;

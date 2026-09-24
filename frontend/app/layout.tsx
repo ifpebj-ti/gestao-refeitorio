@@ -2,9 +2,11 @@
 
 import "./globals.css";
 import { useState, useRef, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Sidebar from "./components/Sidebar";
-import { Menu, Bell, ChevronRight } from "lucide-react";import Link from "next/link";
+import { Menu, Bell, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
 function HeaderComSininho() {
@@ -117,6 +119,25 @@ function HeaderComSininho() {
   );
 }
 
+function LayoutContent({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isSplash = pathname === "/";
+
+  if (isSplash) {
+    return <main className="w-full h-full min-h-screen overflow-y-auto">{children}</main>;
+  }
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        <HeaderComSininho />
+        <main className="flex-1 w-full overflow-y-auto">{children}</main>
+      </div>
+    </div>
+  );
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -129,13 +150,7 @@ export default function RootLayout({
       <body className="h-full antialiased text-slate-900 bg-slate-50 overflow-hidden">
         <GoogleOAuthProvider clientId={clientId}>
           <AuthProvider>
-            <div className="flex h-screen overflow-hidden">
-              <Sidebar />
-              <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-                <HeaderComSininho />
-                <main className="flex-1 w-full overflow-y-auto">{children}</main>
-              </div>
-            </div>
+            <LayoutContent>{children}</LayoutContent>
           </AuthProvider>
         </GoogleOAuthProvider>
       </body>
