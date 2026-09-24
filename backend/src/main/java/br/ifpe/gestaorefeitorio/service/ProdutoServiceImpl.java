@@ -1,6 +1,7 @@
 package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoHistoricoDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoQuantidadeMinimaDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -79,6 +81,20 @@ public class ProdutoServiceImpl implements ProdutoService {
     }
 
     @Override
+    public ProdutoResponseDTO atualizarQuantidadeMinima(UUID id, ProdutoQuantidadeMinimaDTO request, Usuario responsavel) {
+        Produto produto = buscarEntidade(id);
+        BigDecimal quantidadeAnterior = produto.getQuantidadeMinima();
+        produto.setQuantidadeMinima(request.quantidadeMinima());
+        produto = produtoRepository.save(produto);
+
+        log.info("Quantidade mínima alterada: produto {} ({}), {} -> {}, por {}",
+                produto.getId(), produto.getNome(), quantidadeAnterior, produto.getQuantidadeMinima(),
+                responsavel.getEmail());
+
+        return paraDTO(produto);
+    }
+
+    @Override
     public List<SaldoPorLocalDTO> listarSaldoPorLocal(UUID produtoId) {
         buscarEntidade(produtoId); // valida que o produto existe (404 se não)
         return movimentacaoRepository.listarSaldoPorLocal(produtoId);
@@ -113,6 +129,7 @@ public class ProdutoServiceImpl implements ProdutoService {
                 produto.getCategoria(),
                 produto.getUnidadeMedida(),
                 produto.getValorReferencia(),
+                produto.getQuantidadeMinima(),
                 movimentacaoRepository.calcularSaldoTotal(produto.getId()));
     }
 

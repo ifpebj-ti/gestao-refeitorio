@@ -1,6 +1,7 @@
 package br.ifpe.gestaorefeitorio.controller;
 
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoHistoricoDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoQuantidadeMinimaDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
@@ -67,5 +68,16 @@ public class ProdutoController {
             @Valid @RequestBody ProdutoUnidadeMedidaDTO request,
             @AuthenticationPrincipal Usuario responsavel) {
         return ResponseEntity.ok(produtoService.atualizarUnidadeMedida(id, request, responsavel));
+    }
+
+    // Quantidade mínima é definida manualmente pela NUTRICIONISTA (US15/#148) — base do alerta
+    // de estoque baixo.
+    @PatchMapping("/{id}/quantidade-minima")
+    @PreAuthorize("hasRole('NUTRICIONISTA')")
+    public ResponseEntity<ProdutoResponseDTO> atualizarQuantidadeMinima(
+            @PathVariable UUID id,
+            @Valid @RequestBody ProdutoQuantidadeMinimaDTO request,
+            @AuthenticationPrincipal Usuario responsavel) {
+        return ResponseEntity.ok(produtoService.atualizarQuantidadeMinima(id, request, responsavel));
     }
 }
