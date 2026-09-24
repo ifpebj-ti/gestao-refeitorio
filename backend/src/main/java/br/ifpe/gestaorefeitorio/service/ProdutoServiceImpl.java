@@ -8,15 +8,20 @@ import br.ifpe.gestaorefeitorio.dto.SaldoPorLocalDTO;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.Movimentacao;
 import br.ifpe.gestaorefeitorio.model.Produto;
+import br.ifpe.gestaorefeitorio.model.ProducaoInterna;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
+import br.ifpe.gestaorefeitorio.repository.ProducaoInternaRepository;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -25,6 +30,7 @@ public class ProdutoServiceImpl implements ProdutoService {
 
     private final ProdutoRepository produtoRepository;
     private final MovimentacaoRepository movimentacaoRepository;
+    private final ProducaoInternaRepository producaoInternaRepository;
 
     @Override
     public ProdutoResponseDTO cadastrar(ProdutoRequestDTO request) {
@@ -81,8 +87,17 @@ public class ProdutoServiceImpl implements ProdutoService {
     @Override
     public List<MovimentacaoHistoricoDTO> listarHistorico(UUID produtoId) {
         buscarEntidade(produtoId); // valida que o produto existe (404 se não)
-        return movimentacaoRepository.findByProdutoIdOrderByDataDesc(produtoId).stream()
-                .map(this::paraHistoricoDTO)
+        List<Movimentacao> movimentacoes = movimentacaoRepository.findByProdutoIdOrderByDataDesc(produtoId);
+
+        // Só movimentações de produção interna (US13) têm registro em ProducaoInterna —
+        // busca em lote pra não gerar uma query por linha do histórico.
+        Map<UUID, ProducaoInterna> producoesPorMovimentacao = producaoInternaRepository
+                .findByMovimentacaoIdIn(movimentacoes.stream().map(Movimentacao::getId).toList())
+                .stream()
+                .collect(Collectors.toMap(pi -> pi.getMovimentacao().getId(), Function.identity()));
+
+        return movimentacoes.stream()
+                .map(movimentacao -> paraHistoricoDTO(movimentacao, producoesPorMovimentacao.get(movimentacao.getId())))
                 .toList();
     }
 
@@ -101,7 +116,7 @@ public class ProdutoServiceImpl implements ProdutoService {
                 movimentacaoRepository.calcularSaldoTotal(produto.getId()));
     }
 
-    private MovimentacaoHistoricoDTO paraHistoricoDTO(Movimentacao movimentacao) {
+    private MovimentacaoHistoricoDTO paraHistoricoDTO(Movimentacao movimentacao, ProducaoInterna producaoInterna) {
         return new MovimentacaoHistoricoDTO(
                 movimentacao.getId(),
                 movimentacao.getTipo(),
@@ -113,6 +128,8 @@ public class ProdutoServiceImpl implements ProdutoService {
                 movimentacao.getTipoSaida(),
                 movimentacao.getValor(),
                 movimentacao.getResponsavel().getNome(),
-                movimentacao.getResponsavel().getEmail());
+                movimentacao.getResponsavel().getEmail(),
+                producaoInterna != null ? producaoInterna.getSetor().getNome() : null,
+                producaoInterna != null ? producaoInterna.getResponsavelSetor() : null);
     }
 }
