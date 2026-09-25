@@ -1,9 +1,12 @@
 package br.ifpe.gestaorefeitorio.service;
 
+import br.ifpe.gestaorefeitorio.dto.ConsumoDiarioDTO;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoAgregadaDTO;
 import br.ifpe.gestaorefeitorio.dto.RelatorioMensalItemDTO;
 import br.ifpe.gestaorefeitorio.exception.PeriodoInvalidoException;
+import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
+import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -22,18 +25,23 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Cobre os critérios de aceite da US19/#160 e da US20/#163 (exportação em
- * PDF/Excel) na camada de regra de negócio, mockando a persistência.
+ * Cobre os critérios de aceite da US19/#160, da US20/#163 (exportação em
+ * PDF/Excel) e da US21/#166 (gráfico de consumo) na camada de regra de
+ * negócio, mockando a persistência.
  */
 @ExtendWith(MockitoExtension.class)
 class RelatorioServiceImplTest {
 
     @Mock
     private MovimentacaoRepository movimentacaoRepository;
+
+    @Mock
+    private ProdutoRepository produtoRepository;
 
     @InjectMocks
     private RelatorioServiceImpl relatorioService;
@@ -189,5 +197,71 @@ class RelatorioServiceImplTest {
             assertThat(aba.getRow(2).getCell(0).getStringCellValue()).isEqualTo("Produto");
             assertThat(aba.getRow(3)).isNull();
         }
+    }
+
+    @Test
+    void deveGerarGraficoDeConsumoAgregandoPorDia() {
+        LocalDate dataInicio = LocalDate.of(2026, 1, 1);
+        LocalDate dataFim = LocalDate.of(2026, 1, 31);
+        List<ConsumoDiarioDTO> pontos = List.of(
+                new ConsumoDiarioDTO(LocalDate.of(2026, 1, 10), new BigDecimal("12")),
+                new ConsumoDiarioDTO(LocalDate.of(2026, 1, 15), new BigDecimal("7")));
+        when(movimentacaoRepository.listarConsumoDiario(dataInicio, dataFim)).thenReturn(pontos);
+
+        List<ConsumoDiarioDTO> resposta = relatorioService.gerarGraficoConsumo(dataInicio, dataFim, null);
+
+        assertThat(resposta).containsExactlyElementsOf(pontos);
+        verifyNoInteractions(produtoRepository);
+    }
+
+    @Test
+    void deveFiltrarGraficoDeConsumoPorProdutoQuandoInformado() {
+        UUID produtoId = UUID.randomUUID();
+        LocalDate dataInicio = LocalDate.of(2026, 1, 1);
+        LocalDate dataFim = LocalDate.of(2026, 1, 31);
+        List<ConsumoDiarioDTO> pontos = List.of(new ConsumoDiarioDTO(LocalDate.of(2026, 1, 10), new BigDecimal("5")));
+
+        when(produtoRepository.existsById(produtoId)).thenReturn(true);
+        when(movimentacaoRepository.listarConsumoDiarioPorProduto(produtoId, dataInicio, dataFim)).thenReturn(pontos);
+
+        List<ConsumoDiarioDTO> resposta = relatorioService.gerarGraficoConsumo(dataInicio, dataFim, produtoId);
+
+        assertThat(resposta).containsExactlyElementsOf(pontos);
+        verify(movimentacaoRepository).listarConsumoDiarioPorProduto(produtoId, dataInicio, dataFim);
+    }
+
+    @Test
+    void deveLancarProdutoNaoEncontradoQuandoProdutoIdInformadoNaoExiste() {
+        UUID produtoId = UUID.randomUUID();
+        LocalDate dataInicio = LocalDate.of(2026, 1, 1);
+        LocalDate dataFim = LocalDate.of(2026, 1, 31);
+        when(produtoRepository.existsById(produtoId)).thenReturn(false);
+
+        assertThrows(ProdutoNaoEncontradoException.class,
+                () -> relatorioService.gerarGraficoConsumo(dataInicio, dataFim, produtoId));
+
+        verifyNoInteractions(movimentacaoRepository);
+    }
+
+    @Test
+    void deveLancarPeriodoInvalidoNoGraficoDeConsumoQuandoDataFimAnteriorADataInicio() {
+        LocalDate dataInicio = LocalDate.of(2026, 1, 31);
+        LocalDate dataFim = LocalDate.of(2026, 1, 1);
+
+        assertThrows(PeriodoInvalidoException.class,
+                () -> relatorioService.gerarGraficoConsumo(dataInicio, dataFim, null));
+
+        verifyNoInteractions(movimentacaoRepository, produtoRepository);
+    }
+
+    @Test
+    void deveRetornarListaVaziaNoGraficoDeConsumoQuandoSemConsumoNoPeriodo() {
+        LocalDate dataInicio = LocalDate.of(2026, 1, 1);
+        LocalDate dataFim = LocalDate.of(2026, 1, 31);
+        when(movimentacaoRepository.listarConsumoDiario(dataInicio, dataFim)).thenReturn(List.of());
+
+        List<ConsumoDiarioDTO> resposta = relatorioService.gerarGraficoConsumo(dataInicio, dataFim, null);
+
+        assertThat(resposta).isEmpty();
     }
 }
