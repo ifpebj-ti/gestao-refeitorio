@@ -74,8 +74,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(mensagem));
     }
 
-    @ExceptionHandler(DataValidadeInvalidaException.class)
-    public ResponseEntity<Map<String, Object>> handleDataValidadeInvalida(DataValidadeInvalidaException ex) {
+    @ExceptionHandler({ DataValidadeInvalidaException.class, PeriodoInvalidoException.class })
+    public ResponseEntity<Map<String, Object>> handleDataValidadeInvalida(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(ex.getMessage()));
     }
 
