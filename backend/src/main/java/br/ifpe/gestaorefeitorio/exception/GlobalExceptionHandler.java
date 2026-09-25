@@ -9,6 +9,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -74,9 +75,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(mensagem));
     }
 
-    @ExceptionHandler(DataValidadeInvalidaException.class)
-    public ResponseEntity<Map<String, Object>> handleDataValidadeInvalida(DataValidadeInvalidaException ex) {
+    @ExceptionHandler({ DataValidadeInvalidaException.class, PeriodoInvalidoException.class })
+    public ResponseEntity<Map<String, Object>> handleDataValidadeInvalida(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(ex.getMessage()));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Map<String, Object>> handleParametroAusente(MissingServletRequestParameterException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(corpo("Parâmetro obrigatório ausente: " + ex.getParameterName()));
     }
 
     @ExceptionHandler(Exception.class)

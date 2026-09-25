@@ -3,7 +3,9 @@ package br.ifpe.gestaorefeitorio.service;
 import br.ifpe.gestaorefeitorio.dto.CardapioRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.CardapioResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ItemCardapioResponseDTO;
+import br.ifpe.gestaorefeitorio.dto.ProjecaoConsumoDTO;
 import br.ifpe.gestaorefeitorio.exception.CardapioNaoEncontradoException;
+import br.ifpe.gestaorefeitorio.exception.PeriodoInvalidoException;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.Cardapio;
 import br.ifpe.gestaorefeitorio.model.ItemCardapio;
@@ -17,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -78,6 +81,15 @@ public class CardapioServiceImpl implements CardapioService {
         Cardapio cardapio = cardapioRepository.findById(id)
                 .orElseThrow(() -> new CardapioNaoEncontradoException(id));
         return paraDTO(cardapio, itemCardapioRepository.findByCardapioId(id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProjecaoConsumoDTO> projetarConsumoPorPeriodo(LocalDate dataInicio, LocalDate dataFim) {
+        if (dataFim.isBefore(dataInicio)) {
+            throw new PeriodoInvalidoException();
+        }
+        return itemCardapioRepository.projetarConsumoPorPeriodo(dataInicio, dataFim);
     }
 
     private CardapioResponseDTO paraDTO(Cardapio cardapio, List<ItemCardapio> itens) {

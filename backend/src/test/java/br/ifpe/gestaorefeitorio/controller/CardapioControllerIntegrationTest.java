@@ -29,7 +29,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Testes de integração ponta a ponta do cadastro de cardápio com projeção de
- * consumo (US17/#154), cobrindo os critérios de aceite da #155.
+ * consumo (US17/#154, critérios de aceite da #155) e da projeção de consumo
+ * por período (US18/#157, critérios de aceite da #158).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -80,10 +81,23 @@ class CardapioControllerIntegrationTest {
     }
 
     private String corpoValido(UUID produtoId) {
+        return corpoComData(produtoId, "2026-01-10", "0.200", 50);
+    }
+
+    private String corpoComData(UUID produtoId, String data, String quantidadePorPessoa, int pessoasEstimadas) {
         return """
-                {"refeicao":"Almoço","data":"2026-01-10","pessoasEstimadas":50,
-                 "itens":[{"produtoId":"%s","quantidadePorPessoa":0.200}]}
-                """.formatted(produtoId);
+                {"refeicao":"Almoço","data":"%s","pessoasEstimadas":%d,
+                 "itens":[{"produtoId":"%s","quantidadePorPessoa":%s}]}
+                """.formatted(data, pessoasEstimadas, produtoId, quantidadePorPessoa);
+    }
+
+    private void registrarCardapio(String token, UUID produtoId, String data, String quantidadePorPessoa,
+            int pessoasEstimadas) throws Exception {
+        mockMvc.perform(post("/api/cardapios")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoComData(produtoId, data, quantidadePorPessoa, pessoasEstimadas)))
+                .andExpect(status().isCreated());
     }
 
     @Test
@@ -189,5 +203,85 @@ class CardapioControllerIntegrationTest {
         mockMvc.perform(get("/api/cardapios/" + UUID.randomUUID())
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveSomarProjecaoDeVariosCardapiosNoPeriodo() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto();
+
+        registrarCardapio(token, produto.getId(), "2026-01-05", "0.200", 50); // 10.000
+        registrarCardapio(token, produto.getId(), "2026-01-15", "0.100", 40); // 4.000
+
+        mockMvc.perform(get("/api/cardapios/projecao-consumo")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].produtoId").value(produto.getId().toString()))
+                .andExpect(jsonPath("$[0].quantidadeEstimada").value(14.0));
+    }
+
+    @Test
+    void deveExcluirCardapiosForaDoPeriodoInformado() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto();
+
+        registrarCardapio(token, produto.getId(), "2025-12-20", "0.200", 50); // antes do período
+        registrarCardapio(token, produto.getId(), "2026-01-15", "0.100", 40); // dentro do período
+        registrarCardapio(token, produto.getId(), "2026-02-05", "0.300", 30); // depois do período
+
+        mockMvc.perform(get("/api/cardapios/projecao-consumo")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].quantidadeEstimada").value(4.0));
+    }
+
+    @Test
+    void deveRetornarListaVaziaQuandoSemCardapioNoPeriodoInformado() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(get("/api/cardapios/projecao-consumo")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void deveRetornar400QuandoDataFimAnteriorADataInicioNaProjecao() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(get("/api/cardapios/projecao-consumo")
+                        .param("dataInicio", "2026-01-31")
+                        .param("dataFim", "2026-01-01")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar400QuandoParametrosDePeriodoAusentes() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(get("/api/cardapios/projecao-consumo")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveAutorizarConsultaDeProjecaoParaQualquerPerfilAutenticado() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+
+        mockMvc.perform(get("/api/cardapios/projecao-consumo")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
     }
 }
