@@ -27,6 +27,9 @@ public record MovimentacaoRequestDTO(
 
         @NotNull(message = "valor é obrigatório")
         @Positive(message = "valor deve ser positivo")
-        BigDecimal valor
+        BigDecimal valor,
+
+        // Opcional — nem todo produto tem controle de validade (CLAUDE.md, Produto.controlaValidade).
+        LocalDate dataValidade
 ) {
 }

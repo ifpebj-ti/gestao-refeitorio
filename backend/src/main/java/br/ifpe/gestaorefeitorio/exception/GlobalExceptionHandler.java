@@ -74,6 +74,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(mensagem));
     }
 
+    @ExceptionHandler(DataValidadeInvalidaException.class)
+    public ResponseEntity<Map<String, Object>> handleDataValidadeInvalida(DataValidadeInvalidaException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(corpo("Erro interno"));
