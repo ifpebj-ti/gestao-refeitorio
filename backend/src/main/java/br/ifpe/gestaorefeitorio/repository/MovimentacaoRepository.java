@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import br.ifpe.gestaorefeitorio.dto.ConsumoDiarioDTO;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoAgregadaDTO;
 import br.ifpe.gestaorefeitorio.dto.SaldoPorLocalDTO;
 import br.ifpe.gestaorefeitorio.model.Movimentacao;
@@ -80,4 +81,33 @@ public interface MovimentacaoRepository extends JpaRepository<Movimentacao, UUID
             """)
     List<MovimentacaoAgregadaDTO> agregarPorProdutoNoPeriodo(
             @Param("dataInicio") LocalDate dataInicio, @Param("dataFim") LocalDate dataFim);
+
+    // Gráfico de consumo (US21/#166): só saídas do tipo CONSUMO (não inclui PERDA/DESCARTE/
+    // OUTRO), somadas por dia — série temporal pra identificar padrões de uso.
+    @Query("""
+            select new br.ifpe.gestaorefeitorio.dto.ConsumoDiarioDTO(m.data, sum(m.quantidade))
+            from Movimentacao m
+            where m.tipo = br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao.SAIDA
+              and m.tipoSaida = br.ifpe.gestaorefeitorio.model.enums.TipoSaida.CONSUMO
+              and m.data between :dataInicio and :dataFim
+            group by m.data
+            order by m.data
+            """)
+    List<ConsumoDiarioDTO> listarConsumoDiario(
+            @Param("dataInicio") LocalDate dataInicio, @Param("dataFim") LocalDate dataFim);
+
+    // Mesmo cálculo, filtrado por produto (quando o gráfico é de um insumo específico).
+    @Query("""
+            select new br.ifpe.gestaorefeitorio.dto.ConsumoDiarioDTO(m.data, sum(m.quantidade))
+            from Movimentacao m
+            where m.produto.id = :produtoId
+              and m.tipo = br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao.SAIDA
+              and m.tipoSaida = br.ifpe.gestaorefeitorio.model.enums.TipoSaida.CONSUMO
+              and m.data between :dataInicio and :dataFim
+            group by m.data
+            order by m.data
+            """)
+    List<ConsumoDiarioDTO> listarConsumoDiarioPorProduto(
+            @Param("produtoId") UUID produtoId, @Param("dataInicio") LocalDate dataInicio,
+            @Param("dataFim") LocalDate dataFim);
 }
