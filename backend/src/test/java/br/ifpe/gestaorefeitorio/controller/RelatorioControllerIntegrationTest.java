@@ -22,14 +22,19 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Testes de integração ponta a ponta do relatório mensal consolidado de
- * estoque (US19/#160), cobrindo os critérios de aceite da #161.
+ * estoque (US19/#160, critérios de aceite da #161) e da exportação em
+ * PDF/Excel (US20/#163, critérios de aceite da #164).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -229,5 +234,97 @@ class RelatorioControllerIntegrationTest {
                         .param("dataFim", "2026-01-31")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void deveRetornar200ComPdfNaoVazio() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Arroz");
+        LocalArmazenamento local = criarLocal();
+        registrarEntrada(token, produto.getId(), local.getId(), "10", "2026-01-10", "50.00");
+
+        var resultado = mockMvc.perform(get("/api/relatorios/mensal/pdf")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string("Content-Disposition", containsString("attachment")))
+                .andExpect(header().string("Content-Disposition", containsString(".pdf")))
+                .andReturn();
+
+        assertThat(resultado.getResponse().getContentAsByteArray()).isNotEmpty();
+    }
+
+    @Test
+    void deveRetornar200ComExcelNaoVazio() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Arroz");
+        LocalArmazenamento local = criarLocal();
+        registrarEntrada(token, produto.getId(), local.getId(), "10", "2026-01-10", "50.00");
+
+        var resultado = mockMvc.perform(get("/api/relatorios/mensal/excel")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(header().string("Content-Disposition", containsString("attachment")))
+                .andExpect(header().string("Content-Disposition", containsString(".xlsx")))
+                .andReturn();
+
+        assertThat(resultado.getResponse().getContentAsByteArray()).isNotEmpty();
+    }
+
+    @Test
+    void deveRetornar400NaExportacaoQuandoDataFimAnteriorADataInicio() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(get("/api/relatorios/mensal/pdf")
+                        .param("dataInicio", "2026-01-31")
+                        .param("dataFim", "2026-01-01")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/relatorios/mensal/excel")
+                        .param("dataInicio", "2026-01-31")
+                        .param("dataFim", "2026-01-01")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar403NaExportacaoComPerfilCozinha() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+
+        mockMvc.perform(get("/api/relatorios/mensal/pdf")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/relatorios/mensal/excel")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveRetornar403NaExportacaoComPerfilAdmin() throws Exception {
+        String token = tokenPara(Perfil.ADMIN);
+
+        mockMvc.perform(get("/api/relatorios/mensal/pdf")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/relatorios/mensal/excel")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
     }
 }

@@ -4,12 +4,17 @@ import br.ifpe.gestaorefeitorio.dto.MovimentacaoAgregadaDTO;
 import br.ifpe.gestaorefeitorio.dto.RelatorioMensalItemDTO;
 import br.ifpe.gestaorefeitorio.exception.PeriodoInvalidoException;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -21,8 +26,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Cobre os critérios de aceite da US19/#160 na camada de regra de negócio,
- * mockando a persistência.
+ * Cobre os critérios de aceite da US19/#160 e da US20/#163 (exportação em
+ * PDF/Excel) na camada de regra de negócio, mockando a persistência.
  */
 @ExtendWith(MockitoExtension.class)
 class RelatorioServiceImplTest {
@@ -97,5 +102,92 @@ class RelatorioServiceImplTest {
         List<RelatorioMensalItemDTO> resposta = relatorioService.gerarRelatorioMensal(dataInicio, dataFim);
 
         assertThat(resposta).isEmpty();
+    }
+
+    @Test
+    void deveGerarPdfValidoNaoVazio() {
+        UUID produtoId = UUID.randomUUID();
+        LocalDate dataInicio = LocalDate.of(2026, 1, 1);
+        LocalDate dataFim = LocalDate.of(2026, 1, 31);
+        MovimentacaoAgregadaDTO agregado = new MovimentacaoAgregadaDTO(
+                produtoId, "Arroz", new BigDecimal("30"), new BigDecimal("10"),
+                new BigDecimal("5"), new BigDecimal("150.00"));
+
+        when(movimentacaoRepository.agregarPorProdutoNoPeriodo(dataInicio, dataFim)).thenReturn(List.of(agregado));
+        when(movimentacaoRepository.calcularSaldoTotalAteData(produtoId, dataFim)).thenReturn(new BigDecimal("45"));
+
+        byte[] pdf = relatorioService.exportarRelatorioMensalPdf(dataInicio, dataFim);
+
+        assertThat(pdf).isNotEmpty();
+        // Assinatura padrão de arquivos PDF, confirma que os bytes gerados são um PDF válido.
+        assertThat(new String(pdf, 0, 4)).isEqualTo("%PDF");
+    }
+
+    @Test
+    void deveGerarExcelComItensCorretos() throws IOException {
+        UUID produtoId = UUID.randomUUID();
+        LocalDate dataInicio = LocalDate.of(2026, 1, 1);
+        LocalDate dataFim = LocalDate.of(2026, 1, 31);
+        MovimentacaoAgregadaDTO agregado = new MovimentacaoAgregadaDTO(
+                produtoId, "Arroz", new BigDecimal("30"), new BigDecimal("10"),
+                new BigDecimal("5"), new BigDecimal("150.00"));
+
+        when(movimentacaoRepository.agregarPorProdutoNoPeriodo(dataInicio, dataFim)).thenReturn(List.of(agregado));
+        when(movimentacaoRepository.calcularSaldoTotalAteData(produtoId, dataFim)).thenReturn(new BigDecimal("45"));
+
+        byte[] excel = relatorioService.exportarRelatorioMensalExcel(dataInicio, dataFim);
+
+        try (XSSFWorkbook planilha = new XSSFWorkbook(new ByteArrayInputStream(excel))) {
+            Sheet aba = planilha.getSheetAt(0);
+            Row linhaCabecalho = aba.getRow(2);
+            Row linhaDado = aba.getRow(3);
+
+            assertThat(linhaCabecalho.getCell(0).getStringCellValue()).isEqualTo("Produto");
+            assertThat(linhaDado.getCell(0).getStringCellValue()).isEqualTo("Arroz");
+            assertThat(linhaDado.getCell(1).getNumericCellValue()).isEqualTo(30.0);
+            assertThat(linhaDado.getCell(2).getNumericCellValue()).isEqualTo(10.0);
+            assertThat(linhaDado.getCell(3).getNumericCellValue()).isEqualTo(5.0);
+            assertThat(linhaDado.getCell(4).getNumericCellValue()).isEqualTo(150.00);
+            assertThat(linhaDado.getCell(5).getNumericCellValue()).isEqualTo(45.0);
+        }
+    }
+
+    @Test
+    void deveLancarPeriodoInvalidoAoExportarPdfQuandoDataFimAnteriorADataInicio() {
+        LocalDate dataInicio = LocalDate.of(2026, 1, 31);
+        LocalDate dataFim = LocalDate.of(2026, 1, 1);
+
+        assertThrows(PeriodoInvalidoException.class,
+                () -> relatorioService.exportarRelatorioMensalPdf(dataInicio, dataFim));
+
+        verifyNoInteractions(movimentacaoRepository);
+    }
+
+    @Test
+    void deveLancarPeriodoInvalidoAoExportarExcelQuandoDataFimAnteriorADataInicio() {
+        LocalDate dataInicio = LocalDate.of(2026, 1, 31);
+        LocalDate dataFim = LocalDate.of(2026, 1, 1);
+
+        assertThrows(PeriodoInvalidoException.class,
+                () -> relatorioService.exportarRelatorioMensalExcel(dataInicio, dataFim));
+
+        verifyNoInteractions(movimentacaoRepository);
+    }
+
+    @Test
+    void deveGerarPdfEExcelValidosSemLinhasQuandoSemMovimentacaoNoPeriodo() throws IOException {
+        LocalDate dataInicio = LocalDate.of(2026, 1, 1);
+        LocalDate dataFim = LocalDate.of(2026, 1, 31);
+        when(movimentacaoRepository.agregarPorProdutoNoPeriodo(dataInicio, dataFim)).thenReturn(List.of());
+
+        byte[] pdf = relatorioService.exportarRelatorioMensalPdf(dataInicio, dataFim);
+        assertThat(new String(pdf, 0, 4)).isEqualTo("%PDF");
+
+        byte[] excel = relatorioService.exportarRelatorioMensalExcel(dataInicio, dataFim);
+        try (XSSFWorkbook planilha = new XSSFWorkbook(new ByteArrayInputStream(excel))) {
+            Sheet aba = planilha.getSheetAt(0);
+            assertThat(aba.getRow(2).getCell(0).getStringCellValue()).isEqualTo("Produto");
+            assertThat(aba.getRow(3)).isNull();
+        }
     }
 }
