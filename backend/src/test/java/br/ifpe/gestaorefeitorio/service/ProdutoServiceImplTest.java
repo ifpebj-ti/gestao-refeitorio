@@ -1,6 +1,7 @@
 package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoHistoricoDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoQuantidadeMinimaDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
@@ -173,6 +174,43 @@ class ProdutoServiceImplTest {
 
         assertThrows(ProdutoNaoEncontradoException.class,
                 () -> produtoService.atualizarUnidadeMedida(id, request, responsavel));
+    }
+
+    @Test
+    void deveAtualizarQuantidadeMinimaMapeandoParaDTO() {
+        UUID id = UUID.randomUUID();
+        Produto produto = produtoComId(id, "Arroz", "Secos", "kg");
+        Usuario responsavel = new Usuario();
+        responsavel.setNome("Nutri");
+        responsavel.setEmail("nutri@ifpe.edu.br");
+        responsavel.setPerfil(Perfil.NUTRICIONISTA);
+        responsavel.setAtivo(true);
+
+        when(produtoRepository.findById(id)).thenReturn(Optional.of(produto));
+        when(produtoRepository.save(any(Produto.class))).thenAnswer(chamada -> chamada.getArgument(0));
+        when(movimentacaoRepository.calcularSaldoTotal(id)).thenReturn(BigDecimal.ZERO);
+
+        ProdutoQuantidadeMinimaDTO request = new ProdutoQuantidadeMinimaDTO(new BigDecimal("5"));
+        ProdutoResponseDTO resposta = produtoService.atualizarQuantidadeMinima(id, request, responsavel);
+
+        assertThat(resposta.quantidadeMinima()).isEqualByComparingTo("5");
+    }
+
+    @Test
+    void deveLancarNaoEncontradoQuandoAtualizarQuantidadeMinimaDeIdInexistente() {
+        UUID id = UUID.randomUUID();
+        Usuario responsavel = new Usuario();
+        responsavel.setNome("Nutri");
+        responsavel.setEmail("nutri@ifpe.edu.br");
+        responsavel.setPerfil(Perfil.NUTRICIONISTA);
+        responsavel.setAtivo(true);
+
+        when(produtoRepository.findById(id)).thenReturn(Optional.empty());
+
+        ProdutoQuantidadeMinimaDTO request = new ProdutoQuantidadeMinimaDTO(new BigDecimal("5"));
+
+        assertThrows(ProdutoNaoEncontradoException.class,
+                () -> produtoService.atualizarQuantidadeMinima(id, request, responsavel));
     }
 
     @Test

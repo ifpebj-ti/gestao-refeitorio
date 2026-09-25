@@ -265,6 +265,88 @@ class ProdutoControllerIntegrationTest {
     }
 
     @Test
+    void deveRetornar200AoAtualizarQuantidadeMinima() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Arroz", "kg");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/quantidade-minima")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"quantidadeMinima":5}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.quantidadeMinima").value(5));
+    }
+
+    @Test
+    void deveRetornar400AoAtualizarQuantidadeMinimaNegativa() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Arroz", "kg");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/quantidade-minima")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"quantidadeMinima":-1}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar400AoAtualizarQuantidadeMinimaAusente() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Arroz", "kg");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/quantidade-minima")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar404AoAtualizarQuantidadeMinimaDeIdInexistente() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(patch("/api/produtos/" + UUID.randomUUID() + "/quantidade-minima")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"quantidadeMinima":5}
+                                """))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar403QuandoPerfilCozinhaAtualizaQuantidadeMinima() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto("Arroz", "kg");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/quantidade-minima")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"quantidadeMinima":5}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveRetornar403QuandoPerfilAdminAtualizaQuantidadeMinima() throws Exception {
+        String token = tokenPara(Perfil.ADMIN);
+        Produto produto = criarProduto("Arroz", "kg");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/quantidade-minima")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"quantidadeMinima":5}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void deveFiltrarListagemPorCategoria() throws Exception {
         String token = tokenPara(Perfil.NUTRICIONISTA);
         criarProduto("Leite", "Frios", "L");

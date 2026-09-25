@@ -22,4 +22,17 @@ public interface ProdutoRepository extends JpaRepository<Produto, UUID> {
               and m.dataValidade <= :limite
             """)
     List<Produto> buscarComValidadeProxima(LocalDate limite);
+
+    // Base para o job de alerta de estoque baixo (US15/#148): saldo total do produto (soma de
+    // todos os locais, CLAUDE.md seção 4 — quantidadeMinima é atributo do produto, não do local)
+    // menor ou igual à quantidade mínima configurada manualmente.
+    @org.springframework.data.jpa.repository.Query("""
+            select p from Produto p
+            where p.quantidadeMinima is not null
+              and coalesce((select sum(case when m.tipo = br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao.ENTRADA
+                                             then m.quantidade else -m.quantidade end)
+                            from Movimentacao m
+                            where m.produto = p), 0) <= p.quantidadeMinima
+            """)
+    List<Produto> buscarComEstoqueBaixo();
 }

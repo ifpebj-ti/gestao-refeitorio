@@ -9,6 +9,7 @@ public record ProdutoResponseDTO(
         String categoria,
         String unidadeMedida,
         BigDecimal valorReferencia,
+        BigDecimal quantidadeMinima,
         BigDecimal saldoTotal
 ) {
 }
