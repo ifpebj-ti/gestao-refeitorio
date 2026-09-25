@@ -347,6 +347,74 @@ class ProdutoControllerIntegrationTest {
     }
 
     @Test
+    void deveRetornar200AoAtualizarControleValidade() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Iogurte", "Frios", "un");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/controle-validade")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"controlaValidade":true}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.controlaValidade").value(true));
+    }
+
+    @Test
+    void deveRetornar400AoAtualizarControleValidadeAusente() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Iogurte", "Frios", "un");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/controle-validade")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar404AoAtualizarControleValidadeDeIdInexistente() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(patch("/api/produtos/" + UUID.randomUUID() + "/controle-validade")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"controlaValidade":true}
+                                """))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar403QuandoPerfilCozinhaAtualizaControleValidade() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto("Iogurte", "Frios", "un");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/controle-validade")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"controlaValidade":true}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveRetornar403QuandoPerfilAdminAtualizaControleValidade() throws Exception {
+        String token = tokenPara(Perfil.ADMIN);
+        Produto produto = criarProduto("Iogurte", "Frios", "un");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/controle-validade")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"controlaValidade":true}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void deveFiltrarListagemPorCategoria() throws Exception {
         String token = tokenPara(Perfil.NUTRICIONISTA);
         criarProduto("Leite", "Frios", "L");

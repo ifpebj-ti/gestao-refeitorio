@@ -1,6 +1,7 @@
 package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoHistoricoDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoControleValidadeDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoQuantidadeMinimaDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
@@ -211,6 +212,43 @@ class ProdutoServiceImplTest {
 
         assertThrows(ProdutoNaoEncontradoException.class,
                 () -> produtoService.atualizarQuantidadeMinima(id, request, responsavel));
+    }
+
+    @Test
+    void deveAtualizarControleValidadeMapeandoParaDTO() {
+        UUID id = UUID.randomUUID();
+        Produto produto = produtoComId(id, "Iogurte", "Frios", "un");
+        Usuario responsavel = new Usuario();
+        responsavel.setNome("Nutri");
+        responsavel.setEmail("nutri@ifpe.edu.br");
+        responsavel.setPerfil(Perfil.NUTRICIONISTA);
+        responsavel.setAtivo(true);
+
+        when(produtoRepository.findById(id)).thenReturn(Optional.of(produto));
+        when(produtoRepository.save(any(Produto.class))).thenAnswer(chamada -> chamada.getArgument(0));
+        when(movimentacaoRepository.calcularSaldoTotal(id)).thenReturn(BigDecimal.ZERO);
+
+        ProdutoControleValidadeDTO request = new ProdutoControleValidadeDTO(true);
+        ProdutoResponseDTO resposta = produtoService.atualizarControleValidade(id, request, responsavel);
+
+        assertThat(resposta.controlaValidade()).isTrue();
+    }
+
+    @Test
+    void deveLancarNaoEncontradoQuandoAtualizarControleValidadeDeIdInexistente() {
+        UUID id = UUID.randomUUID();
+        Usuario responsavel = new Usuario();
+        responsavel.setNome("Nutri");
+        responsavel.setEmail("nutri@ifpe.edu.br");
+        responsavel.setPerfil(Perfil.NUTRICIONISTA);
+        responsavel.setAtivo(true);
+
+        when(produtoRepository.findById(id)).thenReturn(Optional.empty());
+
+        ProdutoControleValidadeDTO request = new ProdutoControleValidadeDTO(true);
+
+        assertThrows(ProdutoNaoEncontradoException.class,
+                () -> produtoService.atualizarControleValidade(id, request, responsavel));
     }
 
     @Test

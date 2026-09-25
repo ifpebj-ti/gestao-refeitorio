@@ -25,8 +25,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
 
 /**
- * Cobre os critérios de aceite da #148 (US15 — alerta de estoque baixo) na
- * query de saldo baixo do ProdutoRepository, base do AlertaEstoqueBaixoJob.
+ * Cobre os critérios de aceite da #148 (US15 — alerta de estoque baixo) e da
+ * #151 (US16 — alerta de validade com prioridade para frios) nas queries de
+ * saldo baixo e validade próxima do ProdutoRepository.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = Replace.NONE)
@@ -59,6 +60,15 @@ class ProdutoRepositoryTest {
         return produtoRepository.save(produto);
     }
 
+    private Produto criarProdutoComControlaValidade(String nome, boolean controlaValidade) {
+        Produto produto = new Produto();
+        produto.setNome(nome);
+        produto.setCategoria("Frios");
+        produto.setUnidadeMedida("un");
+        produto.setControlaValidade(controlaValidade);
+        return produtoRepository.save(produto);
+    }
+
     private LocalArmazenamento criarLocal() {
         LocalArmazenamento local = new LocalArmazenamento();
         local.setNome("Local " + UUID.randomUUID());
@@ -75,6 +85,11 @@ class ProdutoRepositoryTest {
     }
 
     private void registrarEntrada(Produto produto, LocalArmazenamento local, Usuario responsavel, String quantidade) {
+        registrarEntrada(produto, local, responsavel, quantidade, null);
+    }
+
+    private void registrarEntrada(Produto produto, LocalArmazenamento local, Usuario responsavel, String quantidade,
+            LocalDate dataValidade) {
         Movimentacao movimentacao = new Movimentacao();
         movimentacao.setProduto(produto);
         movimentacao.setLocal(local);
@@ -83,6 +98,7 @@ class ProdutoRepositoryTest {
         movimentacao.setQuantidade(new BigDecimal(quantidade));
         movimentacao.setValor(new BigDecimal("10.00"));
         movimentacao.setData(LocalDate.now());
+        movimentacao.setDataValidade(dataValidade);
         movimentacao.setResponsavel(responsavel);
         movimentacaoRepository.save(movimentacao);
     }
@@ -119,5 +135,44 @@ class ProdutoRepositoryTest {
         List<Produto> resultado = produtoRepository.buscarComEstoqueBaixo();
 
         assertThat(resultado).extracting(Produto::getId).doesNotContain(produto.getId());
+    }
+
+    @Test
+    void deveEncontrarProdutoComValidadeProximaMesmoSemControlarValidade() {
+        Produto produto = criarProdutoComControlaValidade("Alface", false);
+        LocalArmazenamento local = criarLocal();
+        Usuario responsavel = criarUsuario();
+        registrarEntrada(produto, local, responsavel, "10", LocalDate.now().plusDays(1));
+
+        List<Produto> resultado = produtoRepository.buscarComValidadeProxima(LocalDate.now().plusDays(3));
+
+        assertThat(resultado).extracting(Produto::getId).contains(produto.getId());
+    }
+
+    @Test
+    void deveEncontrarProdutoComValidadeProximaQuandoControlaValidade() {
+        Produto produto = criarProdutoComControlaValidade("Iogurte", true);
+        LocalArmazenamento local = criarLocal();
+        Usuario responsavel = criarUsuario();
+        registrarEntrada(produto, local, responsavel, "10", LocalDate.now().plusDays(1));
+
+        List<Produto> resultado = produtoRepository.buscarComValidadeProxima(LocalDate.now().plusDays(3));
+
+        assertThat(resultado).extracting(Produto::getId).contains(produto.getId());
+    }
+
+    @Test
+    void naoDeveEncontrarProdutoSemDataValidadeOuForaDaJanela() {
+        Produto semValidade = criarProdutoComControlaValidade("Queijo", true);
+        Produto validadeDistante = criarProdutoComControlaValidade("Carne", true);
+        LocalArmazenamento local = criarLocal();
+        Usuario responsavel = criarUsuario();
+        registrarEntrada(semValidade, local, responsavel, "10");
+        registrarEntrada(validadeDistante, local, responsavel, "10", LocalDate.now().plusDays(30));
+
+        List<Produto> resultado = produtoRepository.buscarComValidadeProxima(LocalDate.now().plusDays(3));
+
+        assertThat(resultado).extracting(Produto::getId)
+                .doesNotContain(semValidade.getId(), validadeDistante.getId());
     }
 }
