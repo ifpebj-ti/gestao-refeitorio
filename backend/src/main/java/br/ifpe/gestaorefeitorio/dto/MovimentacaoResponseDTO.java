@@ -20,6 +20,7 @@ public record MovimentacaoResponseDTO(
         OrigemMovimentacao origem,
         TipoSaida tipoSaida,
         BigDecimal valor,
+        LocalDate dataValidade,
         BigDecimal saldoAtual
 ) {
 }

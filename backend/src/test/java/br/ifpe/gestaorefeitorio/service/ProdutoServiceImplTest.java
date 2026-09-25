@@ -1,6 +1,8 @@
 package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoHistoricoDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoControleValidadeDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoQuantidadeMinimaDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
@@ -14,6 +16,7 @@ import br.ifpe.gestaorefeitorio.model.enums.OrigemMovimentacao;
 import br.ifpe.gestaorefeitorio.model.enums.Perfil;
 import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
+import br.ifpe.gestaorefeitorio.repository.ProducaoInternaRepository;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +47,9 @@ class ProdutoServiceImplTest {
 
     @Mock
     private MovimentacaoRepository movimentacaoRepository;
+
+    @Mock
+    private ProducaoInternaRepository producaoInternaRepository;
 
     @InjectMocks
     private ProdutoServiceImpl produtoService;
@@ -172,6 +178,80 @@ class ProdutoServiceImplTest {
     }
 
     @Test
+    void deveAtualizarQuantidadeMinimaMapeandoParaDTO() {
+        UUID id = UUID.randomUUID();
+        Produto produto = produtoComId(id, "Arroz", "Secos", "kg");
+        Usuario responsavel = new Usuario();
+        responsavel.setNome("Nutri");
+        responsavel.setEmail("nutri@ifpe.edu.br");
+        responsavel.setPerfil(Perfil.NUTRICIONISTA);
+        responsavel.setAtivo(true);
+
+        when(produtoRepository.findById(id)).thenReturn(Optional.of(produto));
+        when(produtoRepository.save(any(Produto.class))).thenAnswer(chamada -> chamada.getArgument(0));
+        when(movimentacaoRepository.calcularSaldoTotal(id)).thenReturn(BigDecimal.ZERO);
+
+        ProdutoQuantidadeMinimaDTO request = new ProdutoQuantidadeMinimaDTO(new BigDecimal("5"));
+        ProdutoResponseDTO resposta = produtoService.atualizarQuantidadeMinima(id, request, responsavel);
+
+        assertThat(resposta.quantidadeMinima()).isEqualByComparingTo("5");
+    }
+
+    @Test
+    void deveLancarNaoEncontradoQuandoAtualizarQuantidadeMinimaDeIdInexistente() {
+        UUID id = UUID.randomUUID();
+        Usuario responsavel = new Usuario();
+        responsavel.setNome("Nutri");
+        responsavel.setEmail("nutri@ifpe.edu.br");
+        responsavel.setPerfil(Perfil.NUTRICIONISTA);
+        responsavel.setAtivo(true);
+
+        when(produtoRepository.findById(id)).thenReturn(Optional.empty());
+
+        ProdutoQuantidadeMinimaDTO request = new ProdutoQuantidadeMinimaDTO(new BigDecimal("5"));
+
+        assertThrows(ProdutoNaoEncontradoException.class,
+                () -> produtoService.atualizarQuantidadeMinima(id, request, responsavel));
+    }
+
+    @Test
+    void deveAtualizarControleValidadeMapeandoParaDTO() {
+        UUID id = UUID.randomUUID();
+        Produto produto = produtoComId(id, "Iogurte", "Frios", "un");
+        Usuario responsavel = new Usuario();
+        responsavel.setNome("Nutri");
+        responsavel.setEmail("nutri@ifpe.edu.br");
+        responsavel.setPerfil(Perfil.NUTRICIONISTA);
+        responsavel.setAtivo(true);
+
+        when(produtoRepository.findById(id)).thenReturn(Optional.of(produto));
+        when(produtoRepository.save(any(Produto.class))).thenAnswer(chamada -> chamada.getArgument(0));
+        when(movimentacaoRepository.calcularSaldoTotal(id)).thenReturn(BigDecimal.ZERO);
+
+        ProdutoControleValidadeDTO request = new ProdutoControleValidadeDTO(true);
+        ProdutoResponseDTO resposta = produtoService.atualizarControleValidade(id, request, responsavel);
+
+        assertThat(resposta.controlaValidade()).isTrue();
+    }
+
+    @Test
+    void deveLancarNaoEncontradoQuandoAtualizarControleValidadeDeIdInexistente() {
+        UUID id = UUID.randomUUID();
+        Usuario responsavel = new Usuario();
+        responsavel.setNome("Nutri");
+        responsavel.setEmail("nutri@ifpe.edu.br");
+        responsavel.setPerfil(Perfil.NUTRICIONISTA);
+        responsavel.setAtivo(true);
+
+        when(produtoRepository.findById(id)).thenReturn(Optional.empty());
+
+        ProdutoControleValidadeDTO request = new ProdutoControleValidadeDTO(true);
+
+        assertThrows(ProdutoNaoEncontradoException.class,
+                () -> produtoService.atualizarControleValidade(id, request, responsavel));
+    }
+
+    @Test
     void deveListarSaldoPorLocal() {
         UUID produtoId = UUID.randomUUID();
         Produto produto = produtoComId(produtoId, "Arroz", "Secos", "kg");
@@ -223,6 +303,7 @@ class ProdutoServiceImplTest {
 
         when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
         when(movimentacaoRepository.findByProdutoIdOrderByDataDesc(produtoId)).thenReturn(List.of(entrada));
+        when(producaoInternaRepository.findByMovimentacaoIdIn(List.of(entrada.getId()))).thenReturn(List.of());
 
         List<MovimentacaoHistoricoDTO> resposta = produtoService.listarHistorico(produtoId);
 
@@ -234,6 +315,8 @@ class ProdutoServiceImplTest {
         assertThat(dto.origem()).isEqualTo(OrigemMovimentacao.EXTERNA);
         assertThat(dto.responsavelNome()).isEqualTo("Cozinha");
         assertThat(dto.responsavelEmail()).isEqualTo("cozinha@ifpe.edu.br");
+        assertThat(dto.setorOrigem()).isNull();
+        assertThat(dto.responsavelSetor()).isNull();
     }
 
     @Test
@@ -243,6 +326,7 @@ class ProdutoServiceImplTest {
 
         when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
         when(movimentacaoRepository.findByProdutoIdOrderByDataDesc(produtoId)).thenReturn(List.of());
+        when(producaoInternaRepository.findByMovimentacaoIdIn(List.of())).thenReturn(List.of());
 
         List<MovimentacaoHistoricoDTO> resposta = produtoService.listarHistorico(produtoId);
 

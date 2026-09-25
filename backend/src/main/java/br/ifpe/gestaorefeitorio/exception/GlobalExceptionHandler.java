@@ -9,6 +9,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -55,12 +56,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({ UsuarioNaoEncontradoPorIdException.class, ProdutoNaoEncontradoException.class,
             LocalArmazenamentoNaoEncontradoException.class, MovimentacaoNaoEncontradaException.class,
-            MovimentacaoFotoNaoEncontradaException.class })
+            MovimentacaoFotoNaoEncontradaException.class, CardapioNaoEncontradoException.class })
     public ResponseEntity<Map<String, Object>> handleNaoEncontradoPorId(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(corpo(ex.getMessage()));
     }
 
-    @ExceptionHandler({ EmailJaCadastradoException.class, AutoDesativacaoNaoPermitidaException.class })
+    @ExceptionHandler({ EmailJaCadastradoException.class, AutoDesativacaoNaoPermitidaException.class,
+            SaldoInsuficienteException.class })
     public ResponseEntity<Map<String, Object>> handleConflito(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo(ex.getMessage()));
     }
@@ -71,6 +73,17 @@ public class GlobalExceptionHandler {
                 ? "Arquivo excede o tamanho máximo permitido"
                 : ex.getMessage();
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(mensagem));
+    }
+
+    @ExceptionHandler({ DataValidadeInvalidaException.class, PeriodoInvalidoException.class })
+    public ResponseEntity<Map<String, Object>> handleDataValidadeInvalida(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(ex.getMessage()));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Map<String, Object>> handleParametroAusente(MissingServletRequestParameterException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(corpo("Parâmetro obrigatório ausente: " + ex.getParameterName()));
     }
 
     @ExceptionHandler(Exception.class)

@@ -1,6 +1,6 @@
 package br.ifpe.gestaorefeitorio.dto;
 
-import br.ifpe.gestaorefeitorio.model.enums.OrigemMovimentacao;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
-public record MovimentacaoRequestDTO(
+public record ProducaoInternaRequestDTO(
         @NotNull(message = "produtoId é obrigatório")
         UUID produtoId,
 
@@ -22,14 +22,10 @@ public record MovimentacaoRequestDTO(
         @NotNull(message = "data é obrigatória")
         LocalDate data,
 
-        @NotNull(message = "origem é obrigatória")
-        OrigemMovimentacao origem,
+        @NotBlank(message = "setorOrigem é obrigatório")
+        String setorOrigem,
 
-        @NotNull(message = "valor é obrigatório")
-        @Positive(message = "valor deve ser positivo")
-        BigDecimal valor,
-
-        // Opcional — nem todo produto tem controle de validade (CLAUDE.md, Produto.controlaValidade).
-        LocalDate dataValidade
+        @NotBlank(message = "responsavelSetor é obrigatório")
+        String responsavelSetor
 ) {
 }

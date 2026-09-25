@@ -265,6 +265,156 @@ class ProdutoControllerIntegrationTest {
     }
 
     @Test
+    void deveRetornar200AoAtualizarQuantidadeMinima() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Arroz", "kg");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/quantidade-minima")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"quantidadeMinima":5}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.quantidadeMinima").value(5));
+    }
+
+    @Test
+    void deveRetornar400AoAtualizarQuantidadeMinimaNegativa() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Arroz", "kg");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/quantidade-minima")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"quantidadeMinima":-1}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar400AoAtualizarQuantidadeMinimaAusente() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Arroz", "kg");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/quantidade-minima")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar404AoAtualizarQuantidadeMinimaDeIdInexistente() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(patch("/api/produtos/" + UUID.randomUUID() + "/quantidade-minima")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"quantidadeMinima":5}
+                                """))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar403QuandoPerfilCozinhaAtualizaQuantidadeMinima() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto("Arroz", "kg");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/quantidade-minima")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"quantidadeMinima":5}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveRetornar403QuandoPerfilAdminAtualizaQuantidadeMinima() throws Exception {
+        String token = tokenPara(Perfil.ADMIN);
+        Produto produto = criarProduto("Arroz", "kg");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/quantidade-minima")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"quantidadeMinima":5}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveRetornar200AoAtualizarControleValidade() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Iogurte", "Frios", "un");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/controle-validade")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"controlaValidade":true}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.controlaValidade").value(true));
+    }
+
+    @Test
+    void deveRetornar400AoAtualizarControleValidadeAusente() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Iogurte", "Frios", "un");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/controle-validade")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar404AoAtualizarControleValidadeDeIdInexistente() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(patch("/api/produtos/" + UUID.randomUUID() + "/controle-validade")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"controlaValidade":true}
+                                """))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar403QuandoPerfilCozinhaAtualizaControleValidade() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto("Iogurte", "Frios", "un");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/controle-validade")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"controlaValidade":true}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveRetornar403QuandoPerfilAdminAtualizaControleValidade() throws Exception {
+        String token = tokenPara(Perfil.ADMIN);
+        Produto produto = criarProduto("Iogurte", "Frios", "un");
+
+        mockMvc.perform(patch("/api/produtos/" + produto.getId() + "/controle-validade")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"controlaValidade":true}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void deveFiltrarListagemPorCategoria() throws Exception {
         String token = tokenPara(Perfil.NUTRICIONISTA);
         criarProduto("Leite", "Frios", "L");
@@ -436,5 +586,25 @@ class ProdutoControllerIntegrationTest {
         mockMvc.perform(get("/api/produtos/" + produto.getId() + "/movimentacoes")
                         .header("Authorization", "Bearer " + tokenAdmin))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void deveExibirDataValidadeNoHistoricoQuandoInformada() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto("Iogurte", "Frios", "un");
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"produtoId":"%s","localId":"%s","quantidade":10,"data":"2026-01-10","origem":"EXTERNA","valor":10.00,"dataValidade":"2026-02-10"}
+                                """.formatted(produto.getId(), local.getId())))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId() + "/movimentacoes")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].dataValidade").value("2026-02-10"));
     }
 }
