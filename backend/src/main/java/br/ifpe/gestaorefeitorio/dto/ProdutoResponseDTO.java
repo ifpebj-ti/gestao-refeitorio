@@ -10,6 +10,7 @@ public record ProdutoResponseDTO(
         String unidadeMedida,
         BigDecimal valorReferencia,
         BigDecimal quantidadeMinima,
+        Boolean controlaValidade,
         BigDecimal saldoTotal
 ) {
 }

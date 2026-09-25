@@ -1,6 +1,7 @@
 package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoHistoricoDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoControleValidadeDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoQuantidadeMinimaDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
@@ -95,6 +96,20 @@ public class ProdutoServiceImpl implements ProdutoService {
     }
 
     @Override
+    public ProdutoResponseDTO atualizarControleValidade(UUID id, ProdutoControleValidadeDTO request, Usuario responsavel) {
+        Produto produto = buscarEntidade(id);
+        Boolean controlaValidadeAnterior = produto.getControlaValidade();
+        produto.setControlaValidade(request.controlaValidade());
+        produto = produtoRepository.save(produto);
+
+        log.info("Controle de validade alterado: produto {} ({}), {} -> {}, por {}",
+                produto.getId(), produto.getNome(), controlaValidadeAnterior, produto.getControlaValidade(),
+                responsavel.getEmail());
+
+        return paraDTO(produto);
+    }
+
+    @Override
     public List<SaldoPorLocalDTO> listarSaldoPorLocal(UUID produtoId) {
         buscarEntidade(produtoId); // valida que o produto existe (404 se não)
         return movimentacaoRepository.listarSaldoPorLocal(produtoId);
@@ -130,6 +145,7 @@ public class ProdutoServiceImpl implements ProdutoService {
                 produto.getUnidadeMedida(),
                 produto.getValorReferencia(),
                 produto.getQuantidadeMinima(),
+                produto.getControlaValidade(),
                 movimentacaoRepository.calcularSaldoTotal(produto.getId()));
     }
 

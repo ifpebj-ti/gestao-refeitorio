@@ -1,6 +1,7 @@
 package br.ifpe.gestaorefeitorio.controller;
 
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoHistoricoDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoControleValidadeDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoQuantidadeMinimaDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
@@ -79,5 +80,16 @@ public class ProdutoController {
             @Valid @RequestBody ProdutoQuantidadeMinimaDTO request,
             @AuthenticationPrincipal Usuario responsavel) {
         return ResponseEntity.ok(produtoService.atualizarQuantidadeMinima(id, request, responsavel));
+    }
+
+    // Marca o produto como "frio" (validade controlada, alerta com destaque/prioridade
+    // maior — US16/#151), definido manualmente pela NUTRICIONISTA.
+    @PatchMapping("/{id}/controle-validade")
+    @PreAuthorize("hasRole('NUTRICIONISTA')")
+    public ResponseEntity<ProdutoResponseDTO> atualizarControleValidade(
+            @PathVariable UUID id,
+            @Valid @RequestBody ProdutoControleValidadeDTO request,
+            @AuthenticationPrincipal Usuario responsavel) {
+        return ResponseEntity.ok(produtoService.atualizarControleValidade(id, request, responsavel));
     }
 }

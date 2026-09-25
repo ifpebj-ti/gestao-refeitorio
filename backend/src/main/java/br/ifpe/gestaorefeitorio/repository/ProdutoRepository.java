@@ -12,13 +12,13 @@ public interface ProdutoRepository extends JpaRepository<Produto, UUID> {
 
     List<Produto> findByCategoriaIgnoreCase(String categoria);
 
-    // Base para o job de alerta: produtos cujas movimentações de entrada
-    // tenham validade dentro da janela de alerta configurada.
+    // Base para o job de alerta (US16/#151): todo produto com validade próxima entra no
+    // alerta, independente da categoria — controlaValidade só define destaque/prioridade
+    // maior (produtos "frio"), não é mais um filtro de exclusão.
     @org.springframework.data.jpa.repository.Query("""
             select distinct p from Produto p
             join Movimentacao m on m.produto = p
-            where p.controlaValidade = true
-              and m.dataValidade is not null
+            where m.dataValidade is not null
               and m.dataValidade <= :limite
             """)
     List<Produto> buscarComValidadeProxima(LocalDate limite);
