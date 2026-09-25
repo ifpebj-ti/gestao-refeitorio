@@ -1,9 +1,12 @@
 package br.ifpe.gestaorefeitorio.service;
 
+import br.ifpe.gestaorefeitorio.dto.ConsumoDiarioDTO;
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoAgregadaDTO;
 import br.ifpe.gestaorefeitorio.dto.RelatorioMensalItemDTO;
 import br.ifpe.gestaorefeitorio.exception.PeriodoInvalidoException;
+import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
+import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -23,6 +26,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -30,6 +34,7 @@ import java.util.List;
 public class RelatorioServiceImpl implements RelatorioService {
 
     private final MovimentacaoRepository movimentacaoRepository;
+    private final ProdutoRepository produtoRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -167,5 +172,22 @@ public class RelatorioServiceImpl implements RelatorioService {
         } catch (IOException e) {
             throw new UncheckedIOException("Falha ao gerar Excel do relatório mensal", e);
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ConsumoDiarioDTO> gerarGraficoConsumo(LocalDate dataInicio, LocalDate dataFim, UUID produtoId) {
+        if (dataFim.isBefore(dataInicio)) {
+            throw new PeriodoInvalidoException();
+        }
+
+        if (produtoId != null) {
+            if (!produtoRepository.existsById(produtoId)) {
+                throw new ProdutoNaoEncontradoException(produtoId);
+            }
+            return movimentacaoRepository.listarConsumoDiarioPorProduto(produtoId, dataInicio, dataFim);
+        }
+
+        return movimentacaoRepository.listarConsumoDiario(dataInicio, dataFim);
     }
 }

@@ -1,5 +1,6 @@
 package br.ifpe.gestaorefeitorio.controller;
 
+import br.ifpe.gestaorefeitorio.dto.ConsumoDiarioDTO;
 import br.ifpe.gestaorefeitorio.dto.RelatorioMensalItemDTO;
 import br.ifpe.gestaorefeitorio.service.RelatorioService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/relatorios")
@@ -58,5 +60,16 @@ public class RelatorioController {
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + nomeArquivo)
                 .body(excel);
+    }
+
+    // Dados agregados por dia pro gráfico de consumo (US21/#166) — produtoId opcional filtra
+    // um insumo específico; sem ele, soma o consumo de todos os produtos por dia.
+    @GetMapping("/consumo")
+    @PreAuthorize("hasRole('NUTRICIONISTA')")
+    public List<ConsumoDiarioDTO> graficoConsumo(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
+            @RequestParam(required = false) UUID produtoId) {
+        return relatorioService.gerarGraficoConsumo(dataInicio, dataFim, produtoId);
     }
 }
