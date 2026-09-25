@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({ UsuarioNaoEncontradoPorIdException.class, ProdutoNaoEncontradoException.class,
             LocalArmazenamentoNaoEncontradoException.class, MovimentacaoNaoEncontradaException.class,
-            MovimentacaoFotoNaoEncontradaException.class })
+            MovimentacaoFotoNaoEncontradaException.class, CardapioNaoEncontradoException.class })
     public ResponseEntity<Map<String, Object>> handleNaoEncontradoPorId(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(corpo(ex.getMessage()));
     }
