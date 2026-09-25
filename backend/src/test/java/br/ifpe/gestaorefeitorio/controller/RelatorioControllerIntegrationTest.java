@@ -33,8 +33,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Testes de integração ponta a ponta do relatório mensal consolidado de
- * estoque (US19/#160, critérios de aceite da #161) e da exportação em
- * PDF/Excel (US20/#163, critérios de aceite da #164).
+ * estoque (US19/#160, critérios de aceite da #161), da exportação em
+ * PDF/Excel (US20/#163, critérios de aceite da #164) e do gráfico de consumo
+ * por período (US21/#166, critérios de aceite da #168).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -326,5 +327,133 @@ class RelatorioControllerIntegrationTest {
                         .param("dataFim", "2026-01-31")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveRetornar200ComConsumoAgregadoPorDiaSomandoProdutosDiferentes() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto arroz = criarProduto("Arroz");
+        Produto feijao = criarProduto("Feijão");
+        LocalArmazenamento local = criarLocal();
+
+        registrarEntrada(token, arroz.getId(), local.getId(), "20", "2026-01-01", "50.00");
+        registrarEntrada(token, feijao.getId(), local.getId(), "10", "2026-01-01", "30.00");
+        registrarSaida(token, arroz.getId(), local.getId(), "10", "2026-01-10");
+        registrarSaida(token, feijao.getId(), local.getId(), "4", "2026-01-10");
+        registrarSaida(token, arroz.getId(), local.getId(), "3", "2026-01-20");
+
+        mockMvc.perform(get("/api/relatorios/consumo")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].data").value("2026-01-10"))
+                .andExpect(jsonPath("$[0].quantidade").value(14))
+                .andExpect(jsonPath("$[1].data").value("2026-01-20"))
+                .andExpect(jsonPath("$[1].quantidade").value(3));
+    }
+
+    @Test
+    void deveRetornar200ComConsumoFiltradoPorProduto() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto arroz = criarProduto("Arroz");
+        Produto feijao = criarProduto("Feijão");
+        LocalArmazenamento local = criarLocal();
+
+        registrarEntrada(token, arroz.getId(), local.getId(), "20", "2026-01-01", "50.00");
+        registrarEntrada(token, feijao.getId(), local.getId(), "10", "2026-01-01", "30.00");
+        registrarSaida(token, arroz.getId(), local.getId(), "10", "2026-01-10");
+        registrarSaida(token, feijao.getId(), local.getId(), "4", "2026-01-10");
+
+        mockMvc.perform(get("/api/relatorios/consumo")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .param("produtoId", arroz.getId().toString())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].quantidade").value(10));
+    }
+
+    @Test
+    void deveExcluirSaidasQueNaoSaoConsumoDoGrafico() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Arroz");
+        LocalArmazenamento local = criarLocal();
+
+        registrarEntrada(token, produto.getId(), local.getId(), "20", "2026-01-01", "50.00");
+        registrarSaida(token, produto.getId(), local.getId(), "10", "2026-01-10");
+        mockMvc.perform(post("/api/movimentacoes/saida")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"produtoId":"%s","localId":"%s","quantidade":6,"data":"2026-01-10","tipoSaida":"PERDA"}
+                                """.formatted(produto.getId(), local.getId())))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/relatorios/consumo")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].quantidade").value(10));
+    }
+
+    @Test
+    void deveRetornar404NoGraficoQuandoProdutoIdInexistente() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(get("/api/relatorios/consumo")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .param("produtoId", UUID.randomUUID().toString())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar400NoGraficoQuandoDataFimAnteriorADataInicio() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(get("/api/relatorios/consumo")
+                        .param("dataInicio", "2026-01-31")
+                        .param("dataFim", "2026-01-01")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar403NoGraficoComPerfilCozinha() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+
+        mockMvc.perform(get("/api/relatorios/consumo")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveRetornar403NoGraficoComPerfilAdmin() throws Exception {
+        String token = tokenPara(Perfil.ADMIN);
+
+        mockMvc.perform(get("/api/relatorios/consumo")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveAutorizarGraficoDeConsumoComPerfilNutricionista() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+
+        mockMvc.perform(get("/api/relatorios/consumo")
+                        .param("dataInicio", "2026-01-01")
+                        .param("dataFim", "2026-01-31")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
     }
 }
