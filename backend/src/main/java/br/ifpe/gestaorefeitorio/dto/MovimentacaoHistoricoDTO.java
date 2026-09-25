@@ -21,6 +21,9 @@ public record MovimentacaoHistoricoDTO(
         TipoSaida tipoSaida,
         BigDecimal valor,
         String responsavelNome,
-        String responsavelEmail
+        String responsavelEmail,
+        // Preenchidos só quando a movimentação é um recebimento de produção interna (US13).
+        String setorOrigem,
+        String responsavelSetor
 ) {
 }
