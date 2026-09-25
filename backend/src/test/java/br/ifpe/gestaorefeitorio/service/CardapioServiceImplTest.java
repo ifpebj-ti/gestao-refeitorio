@@ -3,7 +3,9 @@ package br.ifpe.gestaorefeitorio.service;
 import br.ifpe.gestaorefeitorio.dto.CardapioRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.CardapioResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ItemCardapioRequestDTO;
+import br.ifpe.gestaorefeitorio.dto.ProjecaoConsumoDTO;
 import br.ifpe.gestaorefeitorio.exception.CardapioNaoEncontradoException;
+import br.ifpe.gestaorefeitorio.exception.PeriodoInvalidoException;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.Cardapio;
 import br.ifpe.gestaorefeitorio.model.ItemCardapio;
@@ -30,8 +32,8 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
 /**
- * Cobre os critérios de aceite da US17/#154 na camada de regra de negócio,
- * mockando a persistência.
+ * Cobre os critérios de aceite da US17/#154 e da US18/#157 (projeção de
+ * consumo por período) na camada de regra de negócio, mockando a persistência.
  */
 @ExtendWith(MockitoExtension.class)
 class CardapioServiceImplTest {
@@ -116,5 +118,40 @@ class CardapioServiceImplTest {
         assertThrows(CardapioNaoEncontradoException.class, () -> cardapioService.buscarPorId(id));
 
         verifyNoInteractions(itemCardapioRepository);
+    }
+
+    @Test
+    void deveConsolidarProjecaoPorProdutoDentroDoPeriodo() {
+        LocalDate dataInicio = LocalDate.of(2026, 1, 1);
+        LocalDate dataFim = LocalDate.of(2026, 1, 31);
+        ProjecaoConsumoDTO projecaoArroz = new ProjecaoConsumoDTO(UUID.randomUUID(), "Arroz", new BigDecimal("30.000"));
+        when(itemCardapioRepository.projetarConsumoPorPeriodo(dataInicio, dataFim))
+                .thenReturn(List.of(projecaoArroz));
+
+        List<ProjecaoConsumoDTO> resposta = cardapioService.projetarConsumoPorPeriodo(dataInicio, dataFim);
+
+        assertThat(resposta).containsExactly(projecaoArroz);
+    }
+
+    @Test
+    void deveLancarPeriodoInvalidoQuandoDataFimAnteriorADataInicio() {
+        LocalDate dataInicio = LocalDate.of(2026, 1, 31);
+        LocalDate dataFim = LocalDate.of(2026, 1, 1);
+
+        assertThrows(PeriodoInvalidoException.class,
+                () -> cardapioService.projetarConsumoPorPeriodo(dataInicio, dataFim));
+
+        verifyNoInteractions(itemCardapioRepository);
+    }
+
+    @Test
+    void deveRetornarListaVaziaQuandoSemCardapioNoPeriodo() {
+        LocalDate dataInicio = LocalDate.of(2026, 1, 1);
+        LocalDate dataFim = LocalDate.of(2026, 1, 31);
+        when(itemCardapioRepository.projetarConsumoPorPeriodo(dataInicio, dataFim)).thenReturn(List.of());
+
+        List<ProjecaoConsumoDTO> resposta = cardapioService.projetarConsumoPorPeriodo(dataInicio, dataFim);
+
+        assertThat(resposta).isEmpty();
     }
 }
