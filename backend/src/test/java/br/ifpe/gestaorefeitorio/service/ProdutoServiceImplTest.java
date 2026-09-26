@@ -100,7 +100,7 @@ class ProdutoServiceImplTest {
     @Test
     void deveListarPorCategoriaMapeandoParaDTO() {
         Produto p1 = produtoComId(UUID.randomUUID(), "Leite", "Frios", "L");
-        when(produtoRepository.findByCategoriaIgnoreCase("Frios")).thenReturn(List.of(p1));
+        when(produtoRepository.findByCategoriaIgnoreCaseOrderByNomeAsc("Frios")).thenReturn(List.of(p1));
         when(movimentacaoRepository.calcularSaldoTotal(any())).thenReturn(BigDecimal.ZERO);
 
         List<ProdutoResponseDTO> resposta = produtoService.listarPorCategoria("Frios");
@@ -111,7 +111,7 @@ class ProdutoServiceImplTest {
 
     @Test
     void deveListarPorCategoriaRetornandoListaVaziaQuandoSemCorrespondencia() {
-        when(produtoRepository.findByCategoriaIgnoreCase("Bebidas")).thenReturn(List.of());
+        when(produtoRepository.findByCategoriaIgnoreCaseOrderByNomeAsc("Bebidas")).thenReturn(List.of());
 
         List<ProdutoResponseDTO> resposta = produtoService.listarPorCategoria("Bebidas");
 

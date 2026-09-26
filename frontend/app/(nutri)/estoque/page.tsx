@@ -90,8 +90,8 @@ export default function EstoqueGeralPage() {
   const [buscaEntrada, setBuscaEntrada] = useState("");
   const [buscaEntradaFocada, setBuscaEntradaFocada] = useState(false);
   const [itemEntradaId, setItemEntradaId] = useState<string>("");
-  const [origemEntrada, setOrigemEntrada] = useState<"EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" | "">("");
-  const [fornecedorEntrada, setFornecedorEntrada] = useState("");
+  const [origemEntrada, setOrigemEntrada] = useState<"EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA">("AGROPECUARIA");
+  const [fornecedorEntrada, setFornecedorEntrada] = useState("Agropecuária (Fazenda IFPE)");
   const [quantidadeEntrada, setQuantidadeEntrada] = useState("");
   const [validadeEntrada, setValidadeEntrada] = useState("");
   const [loteEntrada, setLoteEntrada] = useState("");
@@ -107,8 +107,8 @@ export default function EstoqueGeralPage() {
   const [novoInsumoCategoria, setNovoInsumoCategoria] = useState("Proteínas & Frios");
   const [novoInsumoUnidade, setNovoInsumoUnidade] = useState("KG");
   const [novoInsumoValor, setNovoInsumoValor] = useState("");
-  const [novoInsumoOrigem, setNovoInsumoOrigem] = useState<"EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" | "">("");
-  const [novoInsumoFornecedor, setNovoInsumoFornecedor] = useState("");
+  const [novoInsumoOrigem, setNovoInsumoOrigem] = useState<"EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA">("AGROPECUARIA");
+  const [novoInsumoFornecedor, setNovoInsumoFornecedor] = useState("Agropecuária (Fazenda IFPE)");
   const [novoInsumoDarEntradaInicial, setNovoInsumoDarEntradaInicial] = useState(false);
   const [novoInsumoQtdInicial, setNovoInsumoQtdInicial] = useState("");
   const [novoInsumoValidadeInicial, setNovoInsumoValidadeInicial] = useState("");
@@ -135,8 +135,8 @@ export default function EstoqueGeralPage() {
     setNovoInsumoCategoria("Proteínas & Frios");
     setNovoInsumoUnidade("KG");
     setNovoInsumoValor("");
-    setNovoInsumoOrigem("");
-    setNovoInsumoFornecedor("");
+    setNovoInsumoOrigem("AGROPECUARIA");
+    setNovoInsumoFornecedor("Agropecuária (Fazenda IFPE)");
     setNovoInsumoDarEntradaInicial(false);
     setNovoInsumoQtdInicial("");
     setNovoInsumoValidadeInicial("");
@@ -180,7 +180,7 @@ export default function EstoqueGeralPage() {
             localId,
             quantidade: qtdInicialNum,
             data: hojeIso,
-            origem: (novoInsumoOrigem || "EXTERNA") as "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA",
+            origem: novoInsumoOrigem,
             valor: Number((qtdInicialNum * valorNumerico).toFixed(2)),
             dataValidade: novoInsumoValidadeInicial || undefined,
             fornecedor: novoInsumoFornecedor.trim() || undefined,
@@ -484,8 +484,8 @@ export default function EstoqueGeralPage() {
     setItemEntradaId("");
     setBuscaEntrada("");
     setBuscaEntradaFocada(false);
-    setOrigemEntrada("");
-    setFornecedorEntrada("");
+    setOrigemEntrada("AGROPECUARIA");
+    setFornecedorEntrada("Agropecuária (Fazenda IFPE)");
     setQuantidadeEntrada("");
     setValidadeEntrada("");
     setLoteEntrada("");
@@ -514,11 +514,6 @@ export default function EstoqueGeralPage() {
       return;
     }
 
-    if (!origemEntrada) {
-      alert("Selecione o canal / origem da mercadoria!");
-      return;
-    }
-
     if (!fornecedorEntrada.trim()) {
       alert("Informe o fornecedor!");
       return;
@@ -537,7 +532,7 @@ export default function EstoqueGeralPage() {
       ? "AGROPECUARIA"
       : ehAgroind
       ? "AGROINDUSTRIA"
-      : (origemEntrada || "EXTERNA");
+      : origemEntrada;
 
     const precoUnitario =
       insumoEntradaSelecionado.valorReferencia && insumoEntradaSelecionado.valorReferencia > 0
@@ -916,19 +911,18 @@ export default function EstoqueGeralPage() {
                   <select
                     value={origemEntrada}
                     onChange={(e) => {
-                      const novaOrigem = e.target.value as any;
+                      const novaOrigem = e.target.value as "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA";
                       setOrigemEntrada(novaOrigem);
                       if (novaOrigem === "AGROPECUARIA") {
                         setFornecedorEntrada("Agropecuária (Fazenda IFPE)");
                       } else if (novaOrigem === "AGROINDUSTRIA") {
                         setFornecedorEntrada("Agroindústria (IFPE)");
-                      } else if (novaOrigem === "EXTERNA" && (!fornecedorEntrada || fornecedorEntrada.includes("IFPE"))) {
-                        setFornecedorEntrada("");
+                      } else if (novaOrigem === "EXTERNA") {
+                        setFornecedorEntrada("Fornecedor Externo");
                       }
                     }}
                     className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
                   >
-                    <option value="">Selecione o canal / origem...</option>
                     <option value="AGROPECUARIA">Agropecuária / Fazenda (IFPE)</option>
                     <option value="AGROINDUSTRIA">Agroindústria (IFPE)</option>
                     <option value="EXTERNA">Fornecedor Externo (Compras/Licitação)</option>
@@ -1067,7 +1061,7 @@ export default function EstoqueGeralPage() {
                 <button
                   type="button"
                   onClick={handleSalvarEntrada}
-                  disabled={salvandoEntrada || !itemEntradaId || !origemEntrada}
+                  disabled={salvandoEntrada || !itemEntradaId || !quantidadeEntrada || parseFloat(quantidadeEntrada) <= 0}
                   className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {salvandoEntrada ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
@@ -1415,19 +1409,18 @@ export default function EstoqueGeralPage() {
                   <select
                     value={novoInsumoOrigem}
                     onChange={(e) => {
-                      const novaOrigem = e.target.value as any;
+                      const novaOrigem = e.target.value as "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA";
                       setNovoInsumoOrigem(novaOrigem);
                       if (novaOrigem === "AGROPECUARIA") {
                         setNovoInsumoFornecedor("Agropecuária (Fazenda IFPE)");
                       } else if (novaOrigem === "AGROINDUSTRIA") {
                         setNovoInsumoFornecedor("Agroindústria (IFPE)");
-                      } else if (novaOrigem === "EXTERNA" && (!novoInsumoFornecedor || novoInsumoFornecedor.includes("IFPE"))) {
-                        setNovoInsumoFornecedor("");
+                      } else if (novaOrigem === "EXTERNA") {
+                        setNovoInsumoFornecedor("Fornecedor Externo");
                       }
                     }}
                     className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
                   >
-                    <option value="">Selecione a origem / fornecimento...</option>
                     <option value="AGROPECUARIA">Agropecuária / Fazenda (IFPE)</option>
                     <option value="AGROINDUSTRIA">Agroindústria (IFPE)</option>
                     <option value="EXTERNA">Fornecedor Externo</option>

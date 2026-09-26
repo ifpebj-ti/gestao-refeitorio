@@ -10,6 +10,8 @@ import java.util.UUID;
 
 public interface ProdutoRepository extends JpaRepository<Produto, UUID> {
 
+    List<Produto> findByCategoriaIgnoreCase(String categoria);
+
     List<Produto> findAllByOrderByNomeAsc();
 
     List<Produto> findByCategoriaIgnoreCaseOrderByNomeAsc(String categoria);

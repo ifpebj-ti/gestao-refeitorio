@@ -20,8 +20,8 @@ export default function RecebimentoCozinhaPage() {
 
   // Formulário de entrada
   const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoResponse | null>(null);
-  const [origemEntrada, setOrigemEntrada] = useState<"EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" | "">("");
-  const [fornecedor, setFornecedor] = useState("");
+  const [origemEntrada, setOrigemEntrada] = useState<"EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA">("AGROPECUARIA");
+  const [fornecedor, setFornecedor] = useState("Agropecuária (Fazenda IFPE)");
   const [quantidade, setQuantidade] = useState<string>("");
   const [dataValidade, setDataValidade] = useState("");
   const [lote, setLote] = useState("");
@@ -75,8 +75,8 @@ export default function RecebimentoCozinhaPage() {
 
   const limparSelecao = () => {
     setProdutoSelecionado(null);
-    setOrigemEntrada("");
-    setFornecedor("");
+    setOrigemEntrada("AGROPECUARIA");
+    setFornecedor("Agropecuária (Fazenda IFPE)");
     setQuantidade("");
     setDataValidade("");
     setLote("");
@@ -88,10 +88,6 @@ export default function RecebimentoCozinhaPage() {
     const qtdNum = parseFloat(quantidade);
     if (isNaN(qtdNum) || qtdNum <= 0) {
       alert("Informe uma quantidade válida!");
-      return;
-    }
-    if (!origemEntrada) {
-      alert("Selecione o canal / origem da mercadoria!");
       return;
     }
     if (!fornecedor.trim()) {
@@ -127,7 +123,7 @@ export default function RecebimentoCozinhaPage() {
           localId,
           quantidade: qtdNum,
           data: hojeIso,
-          origem: (origemEntrada || "EXTERNA") as "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA",
+          origem: origemEntrada,
           valor: valorTotal,
           dataValidade: dataValidade || undefined,
           fornecedor: fornecedor.trim() || undefined,
@@ -240,19 +236,18 @@ export default function RecebimentoCozinhaPage() {
               <select
                 value={origemEntrada}
                 onChange={(e) => {
-                  const novaOrigem = e.target.value as any;
+                  const novaOrigem = e.target.value as "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA";
                   setOrigemEntrada(novaOrigem);
                   if (novaOrigem === "AGROPECUARIA") {
                     setFornecedor("Agropecuária (Fazenda IFPE)");
                   } else if (novaOrigem === "AGROINDUSTRIA") {
                     setFornecedor("Agroindústria (IFPE)");
-                  } else if (novaOrigem === "EXTERNA" && (!fornecedor || fornecedor.includes("IFPE"))) {
-                    setFornecedor("");
+                  } else if (novaOrigem === "EXTERNA") {
+                    setFornecedor("Fornecedor Externo");
                   }
                 }}
                 className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
               >
-                <option value="">Selecione o canal / origem...</option>
                 <option value="AGROPECUARIA">Agropecuária / Fazenda (IFPE)</option>
                 <option value="AGROINDUSTRIA">Agroindústria (IFPE)</option>
                 <option value="EXTERNA">Fornecedor Externo (Compras/Licitação)</option>
@@ -385,7 +380,7 @@ export default function RecebimentoCozinhaPage() {
             <button
               type="button"
               onClick={handleSalvarEntrada}
-              disabled={salvando || !produtoSelecionado || !origemEntrada || !quantidade || parseFloat(quantidade) <= 0}
+              disabled={salvando || !produtoSelecionado || !quantidade || parseFloat(quantidade) <= 0}
               className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}

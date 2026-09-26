@@ -35,4 +35,7 @@ public record MovimentacaoRequestDTO(
         // Opcional — nome do fornecedor/cooperativa informado no recebimento
         String fornecedor
 ) {
+    public MovimentacaoRequestDTO(UUID produtoId, UUID localId, BigDecimal quantidade, LocalDate data, OrigemMovimentacao origem, BigDecimal valor, LocalDate dataValidade) {
+        this(produtoId, localId, quantidade, data, origem, valor, dataValidade, null);
+    }
 }
