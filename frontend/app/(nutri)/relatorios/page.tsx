@@ -95,7 +95,7 @@ export default function RelatoriosPage() {
   useEffect(() => {
     if (!carregando) {
       if (!autenticado) {
-        router.push("/login");
+        router.push("/");
       } else if (perfil === "ADMIN") {
         router.push("/usuarios");
       }

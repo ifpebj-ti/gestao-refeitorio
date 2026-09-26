@@ -59,7 +59,7 @@ const CARDAPIO_INICIAL: Record<DiaSemana, DiaCardapio> = {
 const STORAGE_KEY = "@gestao_refeitorio:cardapio_semanal";
 
 export default function CardapioSemanalPage() {
-  const { perfil } = useAuth();
+  const { perfil, usuario } = useAuth();
   const isNutricionista = perfil === "NUTRICIONISTA";
 
   const [diaSelecionado, setDiaSelecionado] = useState<DiaSemana>("Segunda");
@@ -99,6 +99,9 @@ export default function CardapioSemanalPage() {
   const handleSalvarCardapio = () => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cardapio));
+      if (usuario?.nome) {
+        localStorage.setItem("@gestao_refeitorio:cardapio_nutricionista", `Nutricionista ${usuario.nome}`);
+      }
       setFeedbackSalvo(true);
       setModoEdicao(false);
       setTimeout(() => setFeedbackSalvo(false), 3500);
