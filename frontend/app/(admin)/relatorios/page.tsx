@@ -866,7 +866,7 @@ export default function RelatoriosPage() {
 
               {relatorio.filter((i) => Number(i.quantidadeSaidas) === 0 && Number(i.saldoFinal) > 0).length === 0 ? (
                 <p className="text-xs text-slate-400 text-center py-4">
-                  Todos os itens tiveram movimentação no período. ✅
+                  Todos os itens tiveram movimentação no período.
                 </p>
               ) : (
                 <div className="divide-y divide-slate-100 text-xs">
