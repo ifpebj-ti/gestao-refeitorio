@@ -180,7 +180,7 @@ export default function EstoqueGeralPage() {
             localId,
             quantidade: qtdInicialNum,
             data: hojeIso,
-            origem: novoInsumoOrigem,
+            origem: (novoInsumoOrigem || "EXTERNA") as "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA",
             valor: Number((qtdInicialNum * valorNumerico).toFixed(2)),
             dataValidade: novoInsumoValidadeInicial || undefined,
             fornecedor: novoInsumoFornecedor.trim() || undefined,
@@ -533,7 +533,11 @@ export default function EstoqueGeralPage() {
 
     const ehAgropec = origemEntrada === "AGROPECUARIA" || fornecedorEntrada.toLowerCase().includes("agropec");
     const ehAgroind = origemEntrada === "AGROINDUSTRIA" || fornecedorEntrada.toLowerCase().includes("agroind");
-    const origemFinal = ehAgropec ? "AGROPECUARIA" : ehAgroind ? "AGROINDUSTRIA" : origemEntrada;
+    const origemFinal: "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" = ehAgropec
+      ? "AGROPECUARIA"
+      : ehAgroind
+      ? "AGROINDUSTRIA"
+      : (origemEntrada || "EXTERNA");
 
     const precoUnitario =
       insumoEntradaSelecionado.valorReferencia && insumoEntradaSelecionado.valorReferencia > 0

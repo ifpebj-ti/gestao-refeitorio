@@ -127,7 +127,7 @@ export default function RecebimentoCozinhaPage() {
           localId,
           quantidade: qtdNum,
           data: hojeIso,
-          origem: origemEntrada,
+          origem: (origemEntrada || "EXTERNA") as "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA",
           valor: valorTotal,
           dataValidade: dataValidade || undefined,
           fornecedor: fornecedor.trim() || undefined,
