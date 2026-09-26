@@ -87,7 +87,7 @@ class ProdutoServiceImplTest {
     void deveListarTodosMapeandoParaDTO() {
         Produto p1 = produtoComId(UUID.randomUUID(), "Arroz", "Secos", "kg");
         Produto p2 = produtoComId(UUID.randomUUID(), "Leite", "Frios", "L");
-        when(produtoRepository.findAll()).thenReturn(List.of(p1, p2));
+        when(produtoRepository.findAllByOrderByNomeAsc()).thenReturn(List.of(p1, p2));
         when(movimentacaoRepository.calcularSaldoTotal(any())).thenReturn(BigDecimal.ZERO);
 
         List<ProdutoResponseDTO> resposta = produtoService.listarTodos();
