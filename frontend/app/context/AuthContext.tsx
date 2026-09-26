@@ -38,6 +38,9 @@ const STORAGE_TOKEN_KEY = "@gestao_refeitorio:token";
 const STORAGE_USER_KEY = "@gestao_refeitorio:user";
 const STORAGE_PERFIL_KEY = "@gestao_refeitorio:perfil_ativo";
 
+import { produtoService } from "@/lib/produtos";
+import { calcularTotalAlertas } from "@/lib/alertasCount";
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -49,7 +52,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [carregando, setCarregando] = useState(true);
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const [bannerAlertasVisivel, setBannerAlertasVisivel] = useState(true);
-  const [totalAlertasPendentes, setTotalAlertasPendentes] = useState<number>(0);
+
+  // Inicializa com o total persistido para aparecer imediatamente sem atraso
+  const [totalAlertasPendentes, setTotalAlertasPendentesState] = useState<number>(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const salvo = localStorage.getItem("@gestao_refeitorio:total_alertas");
+        if (salvo !== null) return parseInt(salvo, 10) || 0;
+      }
+    } catch {}
+    return 0;
+  });
+
+  const setTotalAlertasPendentes = (total: number) => {
+    setTotalAlertasPendentesState(total);
+    try {
+      localStorage.setItem("@gestao_refeitorio:total_alertas", String(total));
+    } catch {}
+  };
+
+  // Carrega e atualiza a contagem de alertas automaticamente na inicializacao
+  useEffect(() => {
+    let montado = true;
+    async function carregarAlertasGlobais() {
+      try {
+        const prods = await produtoService.listar();
+        if (montado && prods && prods.length > 0) {
+          const total = calcularTotalAlertas(prods);
+          setTotalAlertasPendentes(total);
+        }
+      } catch (err) {
+        // ignora se offline
+      }
+    }
+    carregarAlertasGlobais();
+    return () => {
+      montado = false;
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -112,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else if (data.perfil === "ADMIN") {
       router.push("/usuarios");
     } else {
-      router.push("/estoque");
+      router.push("/consumo");
     }
   };
 
@@ -137,7 +177,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUsuario(null);
     setPerfil("COZINHA");
     setAutenticado(false);
-    router.push("/consumo");
+    setMenuMobileAberto(false);
+    router.push("/");
   };
 
   const voltarParaCozinha = () => {

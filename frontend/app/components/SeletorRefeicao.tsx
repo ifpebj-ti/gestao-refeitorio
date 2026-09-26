@@ -5,6 +5,17 @@ import { Coffee, SunMedium, Moon, ChevronDown, Check } from "lucide-react";
 
 export type TipoRefeicao = "Café da Manhã" | "Almoço" | "Jantar";
 
+export function obterRefeicaoPorHorario(): TipoRefeicao {
+  const hora = new Date().getHours();
+  if (hora >= 5 && hora < 11) {
+    return "Café da Manhã";
+  }
+  if (hora >= 11 && hora < 16) {
+    return "Almoço";
+  }
+  return "Jantar";
+}
+
 interface SeletorRefeicaoProps {
   valor: TipoRefeicao;
   onChange: (refeicao: TipoRefeicao) => void;

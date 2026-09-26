@@ -62,9 +62,9 @@ export default function GestaoUsuariosPage() {
   useEffect(() => {
     if (!carregando) {
       if (!autenticado) {
-        router.push("/login");
+        router.push("/");
       } else if (perfilLogado !== "ADMIN") {
-        router.push(perfilLogado === "COZINHA" ? "/consumo" : "/estoque");
+        router.push("/consumo");
       }
     }
   }, [autenticado, carregando, perfilLogado, router]);

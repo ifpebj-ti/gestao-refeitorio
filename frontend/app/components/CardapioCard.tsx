@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 
 interface CardapioCardProps {
   refeicao: string;
@@ -8,14 +11,32 @@ interface CardapioCardProps {
 export default function CardapioCard({
   refeicao,
   descricao,
-  responsavel = "Nutricionista Hítalo",
+  responsavel,
 }: CardapioCardProps) {
+  const [nomeResponsavel, setNomeResponsavel] = useState(responsavel || "Nutricionista");
+
+  useEffect(() => {
+    if (responsavel) {
+      setNomeResponsavel(responsavel);
+      return;
+    }
+    try {
+      const salvo = typeof window !== "undefined" ? localStorage.getItem("@gestao_refeitorio:cardapio_nutricionista") : null;
+      if (salvo && salvo.trim()) {
+        setNomeResponsavel(salvo);
+      } else {
+        setNomeResponsavel("Nutricionista");
+      }
+    } catch {
+      setNomeResponsavel("Nutricionista");
+    }
+  }, [responsavel]);
+
   return (
     <div className="bg-gradient-to-r from-emerald-50 via-white to-emerald-50/40 border-2 border-emerald-200/90 rounded-2xl p-5 sm:p-6 shadow-xs">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2 max-w-4xl">
           <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs sm:text-sm tracking-wide uppercase">
-            {/* <Tv className="w-4 h-4 text-emerald-600 shrink-0" /> */}
             <span>Cardápio do Dia • {refeicao}</span>
           </div>
 
@@ -30,7 +51,7 @@ export default function CardapioCard({
             Planejamento Semanal
           </span>
           <span className="text-xs font-bold text-slate-700 mt-0.5">
-            {responsavel}
+            {nomeResponsavel}
           </span>
         </div>
       </div>

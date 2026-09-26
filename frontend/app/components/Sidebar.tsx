@@ -12,7 +12,7 @@ import {
   CalendarDays,
   BarChart3,
   Users,
-  Lock,
+  ArrowLeft,
   LogOut,
   X,
 } from "lucide-react";
@@ -21,7 +21,6 @@ export default function Sidebar() {
   const pathname = usePathname();
   const {
     perfil,
-    voltarParaCozinha,
     logout,
     menuMobileAberto,
     setMenuMobileAberto,
@@ -56,9 +55,6 @@ export default function Sidebar() {
       ? linksCozinha
       : linksNutri;
 
-  const handleVoltarParaCozinha = () => {
-    voltarParaCozinha();
-  };
 
   return (
     <>
@@ -149,42 +145,25 @@ export default function Sidebar() {
             </span>
           </div>
 
-          {perfil === "ADMIN" ? (
+          {perfil === "ADMIN" || perfil === "NUTRICIONISTA" ? (
             <button
               type="button"
               onClick={logout}
-              className="w-full flex items-center justify-center gap-2 py-2 bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Encerrar Sessão</span>
             </button>
-          ) : perfil === "COZINHA" ? (
-            <Link
-              href="/login"
-              onClick={() => setMenuMobileAberto(false)}
-              className="w-full flex items-center justify-center gap-2 py-2 bg-white hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Área do Nutricionista</span>
-            </Link>
           ) : (
-            <button
-              type="button"
-              onClick={handleVoltarParaCozinha}
-              className="w-full flex items-center justify-center gap-2 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
+            <Link
+              href="/"
+              onClick={() => setMenuMobileAberto(false)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Voltar para a cozinha</span>
-            </button>
+              <ArrowLeft className="w-3.5 h-3.5 text-slate-500" />
+              <span>Trocar de Perfil / Início</span>
+            </Link>
           )}
-
-          <Link
-            href="/"
-            onClick={() => setMenuMobileAberto(false)}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors"
-          >
-            <span>Trocar de Perfil / Início</span>
-          </Link>
         </div>
       </aside>
     </>
