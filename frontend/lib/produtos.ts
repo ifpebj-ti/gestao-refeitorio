@@ -6,6 +6,8 @@ export interface ProdutoResponse {
   categoria: string;
   unidadeMedida: string;
   valorReferencia: number;
+  quantidadeMinima?: number;
+  controlaValidade?: boolean;
   saldoTotal: number;
 }
 
@@ -19,7 +21,6 @@ export interface ProdutoRequest {
 export const produtoService = {
   listar: async (categoria?: string): Promise<ProdutoResponse[]> => {
     const params = categoria && categoria !== "Todos" ? { categoria } : {};
-    // Alterado de /api/produtos para /produtos pois baseURL ja tem /api
     const response = await api.get<ProdutoResponse[]>("/produtos", { params });
     return response.data;
   },
@@ -37,6 +38,20 @@ export const produtoService = {
   atualizarUnidadeMedida: async (id: string, unidadeMedida: string): Promise<ProdutoResponse> => {
     const response = await api.patch<ProdutoResponse>(`/produtos/${id}/unidade-medida`, {
       unidadeMedida,
+    });
+    return response.data;
+  },
+
+  atualizarQuantidadeMinima: async (id: string, quantidadeMinima: number): Promise<ProdutoResponse> => {
+    const response = await api.patch<ProdutoResponse>(`/produtos/${id}/quantidade-minima`, {
+      quantidadeMinima,
+    });
+    return response.data;
+  },
+
+  atualizarControleValidade: async (id: string, controlaValidade: boolean): Promise<ProdutoResponse> => {
+    const response = await api.patch<ProdutoResponse>(`/produtos/${id}/controle-validade`, {
+      controlaValidade,
     });
     return response.data;
   },

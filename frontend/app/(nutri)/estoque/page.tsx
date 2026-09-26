@@ -16,6 +16,14 @@ import {
   Eye,
   X,
   ImageIcon,
+  Plus,
+  Edit2,
+  Loader2,
+  AlertCircle,
+  SlidersHorizontal,
+  DollarSign,
+  Calendar,
+  MapPin,
 } from "lucide-react";
 import { verificarStatusEstoque, CategoriaAlimento } from "@/app/utils/estoqueRules";
 import { produtoService, ProdutoResponse } from "@/lib/produtos";
@@ -36,8 +44,11 @@ interface MovimentacaoExtrato {
   itensResumo: string;
   detalhesItens: ItemMovimentadoDetalhe[];
   fornecedor?: string;
+  localArmazenamento?: string;
   lote?: string;
   validade?: string;
+  valor?: number;
+  saldoAtual?: number;
   observacao?: string;
   fotoAnexada?: string;
 }
@@ -90,7 +101,120 @@ export default function EstoqueGeralPage() {
   const [erroEntrada, setErroEntrada] = useState<string | null>(null);
   const [sucessoFeedback, setSucessoFeedback] = useState(false);
 
+  // Estados para Novo Insumo (US04 / #174)
+  const [modalNovoInsumoAberto, setModalNovoInsumoAberto] = useState(false);
+  const [novoInsumoNome, setNovoInsumoNome] = useState("");
+  const [novoInsumoCategoria, setNovoInsumoCategoria] = useState("Proteínas & Frios");
+  const [novoInsumoUnidade, setNovoInsumoUnidade] = useState("KG");
+  const [novoInsumoValor, setNovoInsumoValor] = useState("");
+  const [salvandoNovoInsumo, setSalvandoNovoInsumo] = useState(false);
+  const [erroNovoInsumo, setErroNovoInsumo] = useState<string | null>(null);
+
+  // Estados para Edição de Insumo (US05 / #174)
+  const [modalEdicaoInsumoAberto, setModalEdicaoInsumoAberto] = useState(false);
+  const [insumoEmEdicao, setInsumoEmEdicao] = useState<ProdutoResponse | null>(null);
+  const [edicaoUnidade, setEdicaoUnidade] = useState("KG");
+  const [edicaoQtdMinima, setEdicaoQtdMinima] = useState("");
+  const [edicaoValidadeControlada, setEdicaoValidadeControlada] = useState(false);
+  const [salvandoEdicaoInsumo, setSalvandoEdicaoInsumo] = useState(false);
+  const [erroEdicaoInsumo, setErroEdicaoInsumo] = useState<string | null>(null);
+
+  // Feedback geral de sucesso
+  const [sucessoGeral, setSucessoGeral] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const abrirModalNovoInsumo = () => {
+    setNovoInsumoNome("");
+    setNovoInsumoCategoria("Proteínas & Frios");
+    setNovoInsumoUnidade("KG");
+    setNovoInsumoValor("");
+    setErroNovoInsumo(null);
+    setModalNovoInsumoAberto(true);
+  };
+
+  const handleSalvarNovoInsumo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!novoInsumoNome.trim()) {
+      setErroNovoInsumo("O nome do insumo é obrigatório.");
+      return;
+    }
+    const valorNumerico = parseFloat(novoInsumoValor.replace(",", "."));
+    if (isNaN(valorNumerico) || valorNumerico <= 0) {
+      setErroNovoInsumo("Informe um valor de referência positivo (ex: 25.50).");
+      return;
+    }
+
+    setSalvandoNovoInsumo(true);
+    setErroNovoInsumo(null);
+    try {
+      await produtoService.cadastrar({
+        nome: novoInsumoNome.trim(),
+        categoria: novoInsumoCategoria,
+        unidadeMedida: novoInsumoUnidade,
+        valorReferencia: valorNumerico,
+      });
+      setModalNovoInsumoAberto(false);
+      setSucessoGeral(`Insumo "${novoInsumoNome}" cadastrado com sucesso no estoque!`);
+      setTimeout(() => setSucessoGeral(null), 4000);
+      await carregarProdutos();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao cadastrar insumo.";
+      setErroNovoInsumo(msg);
+    } finally {
+      setSalvandoNovoInsumo(false);
+    }
+  };
+
+  const abrirModalEdicaoInsumo = (item: ProdutoResponse) => {
+    setInsumoEmEdicao(item);
+    setEdicaoUnidade(item.unidadeMedida || "KG");
+    setEdicaoQtdMinima(
+      item.quantidadeMinima !== undefined && item.quantidadeMinima !== null
+        ? String(item.quantidadeMinima)
+        : ""
+    );
+    setEdicaoValidadeControlada(Boolean(item.controlaValidade));
+    setErroEdicaoInsumo(null);
+    setModalEdicaoInsumoAberto(true);
+  };
+
+  const handleSalvarEdicaoInsumo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!insumoEmEdicao) return;
+
+    setSalvandoEdicaoInsumo(true);
+    setErroEdicaoInsumo(null);
+    try {
+      if (edicaoUnidade !== insumoEmEdicao.unidadeMedida) {
+        await produtoService.atualizarUnidadeMedida(insumoEmEdicao.id, edicaoUnidade);
+      }
+
+      if (edicaoQtdMinima.trim() !== "") {
+        const qtdMin = parseFloat(edicaoQtdMinima.replace(",", "."));
+        if (!isNaN(qtdMin) && qtdMin >= 0) {
+          await produtoService.atualizarQuantidadeMinima(insumoEmEdicao.id, qtdMin);
+        }
+      }
+
+      if (edicaoValidadeControlada !== Boolean(insumoEmEdicao.controlaValidade)) {
+        await produtoService.atualizarControleValidade(
+          insumoEmEdicao.id,
+          edicaoValidadeControlada
+        );
+      }
+
+      setModalEdicaoInsumoAberto(false);
+      setSucessoGeral(`Insumo "${insumoEmEdicao.nome}" atualizado com sucesso!`);
+      setTimeout(() => setSucessoGeral(null), 4000);
+      await carregarProdutos();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao atualizar insumo.";
+      setErroEdicaoInsumo(msg);
+    } finally {
+      setSalvandoEdicaoInsumo(false);
+    }
+  };
 
   useEffect(() => {
     if (!carregando) {
@@ -162,25 +286,49 @@ export default function EstoqueGeralPage() {
         let dataFormatada = mov.data;
         try {
           if (mov.data) {
-            const dataObj = new Date(mov.data);
+            const dataObj = new Date(mov.data + "T00:00:00");
             if (!isNaN(dataObj.getTime())) {
-               dataFormatada = dataObj.toLocaleString("pt-BR", {
-                day: "2-digit", month: "2-digit", year: "numeric"
-              });
+              dataFormatada = dataObj.toLocaleDateString("pt-BR");
             }
           }
         } catch (e) {}
 
-        const nomeInsumo = listaEstoque.find(p => p.id === mov.produtoId)?.nome || "Produto Desconhecido";
+        const nomeInsumo = mov.produtoNome || listaEstoque.find(p => p.id === mov.produtoId)?.nome || "Insumo";
         const unidade = listaEstoque.find(p => p.id === mov.produtoId)?.unidadeMedida || "un";
+        const localNome = mov.localNome || "Despensa Geral";
+
+        let origemFormatada = "IFPE";
+        if (mov.origem === "EXTERNA") origemFormatada = "Fornecedor Externo";
+        else if (mov.origem === "AGROINDUSTRIA") origemFormatada = "Agroindústria (IFPE)";
+        else if (mov.origem === "INTERNA") origemFormatada = "Produção Interna";
+
+        let saidaFormatada = "Consumo";
+        if (mov.tipoSaida === "CONSUMO") saidaFormatada = "Consumo das Refeições";
+        else if (mov.tipoSaida === "PERDA") saidaFormatada = "Perda Registrada";
+        else if (mov.tipoSaida === "DESCARTE") saidaFormatada = "Descarte por Validade";
+        else if (mov.tipoSaida === "OUTRO") saidaFormatada = "Outra Saída";
+
+        let validadeFormatada: string | undefined = undefined;
+        if (mov.dataValidade) {
+          try {
+            const vObj = new Date(mov.dataValidade + "T00:00:00");
+            validadeFormatada = vObj.toLocaleDateString("pt-BR");
+          } catch {
+            validadeFormatada = mov.dataValidade;
+          }
+        }
 
         return {
           id: mov.id,
           tipo: mov.tipo,
           dataHora: dataFormatada,
-          origemTurno: mov.tipo === "ENTRADA" ? "Recebimento • Entrada" : `Saída • ${mov.tipoSaida || 'Consumo'}`,
+          origemTurno: mov.tipo === "ENTRADA" ? `Entrada • ${origemFormatada}` : `Saída • ${saidaFormatada}`,
           responsavel: "Equipe (Cozinha/Nutrição)", 
-          fornecedor: mov.origem === "EXTERNA" ? "Fornecedor Externo Comum" : "Agroindústria (IFPE)",
+          fornecedor: mov.tipo === "ENTRADA" ? origemFormatada : undefined,
+          localArmazenamento: localNome,
+          validade: validadeFormatada,
+          valor: mov.valor,
+          saldoAtual: mov.saldoAtual,
           itensResumo: `${nomeInsumo} (${mov.tipo === 'ENTRADA' ? '+' : '-'}${mov.quantidade} ${unidade})`,
           detalhesItens: [
             {
@@ -190,8 +338,8 @@ export default function EstoqueGeralPage() {
             },
           ],
           observacao: mov.tipo === "ENTRADA" 
-            ? "Entrada de insumos conferida e registrada via sistema." 
-            : "Saída de insumos registrada via sistema.",
+            ? `Entrada armazenada em ${localNome}.` 
+            : `Saída de insumos registrada via sistema (${saidaFormatada}).`,
         };
       });
 
@@ -353,7 +501,23 @@ export default function EstoqueGeralPage() {
             {listaEstoque.length} insumos catalogados • {totalAtencao} itens em atenção de reposição
           </p>
         </div>
+
+        <button
+          type="button"
+          onClick={abrirModalNovoInsumo}
+          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Novo Insumo</span>
+        </button>
       </div>
+
+      {sucessoGeral && (
+        <div className="flex items-center gap-2 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs sm:text-sm font-bold text-emerald-800 animate-in fade-in">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          <span>{sucessoGeral}</span>
+        </div>
+      )}
 
       <div className="flex items-center gap-4 border-b border-slate-200 text-xs sm:text-sm font-bold">
         <button
@@ -458,7 +622,7 @@ export default function EstoqueGeralPage() {
                           {item.categoria}
                         </span>
                       </div>
-                      <div>
+                      <div className="flex items-center gap-2">
                         {isAtencao ? (
                           <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 shrink-0">
                             Atenção
@@ -468,14 +632,30 @@ export default function EstoqueGeralPage() {
                             Normal
                           </span>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => abrirModalEdicaoInsumo(item)}
+                          className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                          title="Editar parâmetros do insumo"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                      <span className="text-slate-500 font-medium">Saldo Atual:</span>
-                      <span className="text-base font-black text-slate-900">
-                        {item.saldoTotal ?? 0} <span className="text-xs font-semibold text-slate-600">{item.unidadeMedida}</span>
-                      </span>
+                      <div>
+                        <span className="text-slate-500 font-medium">Qtd. Mínima: </span>
+                        <span className="font-bold text-slate-700">
+                          {item.quantidadeMinima ?? 0} {item.unidadeMedida}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-slate-500 font-medium">Saldo Atual: </span>
+                        <span className="text-base font-black text-slate-900">
+                          {item.saldoTotal ?? 0} <span className="text-xs font-semibold text-slate-600">{item.unidadeMedida}</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -490,27 +670,28 @@ export default function EstoqueGeralPage() {
                 <tr>
                   <th className="px-4 py-3">Insumo</th>
                   <th className="px-4 py-3">Categoria</th>
+                  <th className="px-4 py-3 text-right">Qtd. Mínima</th>
                   <th className="px-4 py-3 text-right">Saldo Atual</th>
                   <th className="px-4 py-3 text-center">Status</th>
-                  <th className="px-4 py-3 text-right">Validade</th>
+                  <th className="px-4 py-3 text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800">
                 {carregandoProdutos ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400 font-medium">
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-medium">
                       Carregando produtos do estoque...
                     </td>
                   </tr>
                 ) : erroCarregamento ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-rose-600 font-medium">
+                    <td colSpan={6} className="px-4 py-8 text-center text-rose-600 font-medium">
                       {erroCarregamento}
                     </td>
                   </tr>
                 ) : itensFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400 font-medium">
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-medium">
                       Nenhum produto cadastrado no banco de dados.
                     </td>
                   </tr>
@@ -523,6 +704,9 @@ export default function EstoqueGeralPage() {
                       <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="px-4 py-3 font-semibold text-slate-900">{item.nome}</td>
                         <td className="px-4 py-3 text-slate-500 text-xs">{item.categoria}</td>
+                        <td className="px-4 py-3 text-right text-slate-600 font-medium">
+                          {item.quantidadeMinima ?? 0} {item.unidadeMedida}
+                        </td>
                         <td className="px-4 py-3 text-right font-extrabold text-slate-900">
                           {item.saldoTotal ?? 0} {item.unidadeMedida}
                         </td>
@@ -537,7 +721,17 @@ export default function EstoqueGeralPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-right text-slate-400 text-xs">-</td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => abrirModalEdicaoInsumo(item)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-lg transition-colors cursor-pointer"
+                            title="Editar parâmetros do insumo"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span>Editar</span>
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
@@ -949,9 +1143,9 @@ export default function EstoqueGeralPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-2xl text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-2xl text-xs">
               <div>
-                <span className="text-slate-400 font-bold block text-[10px] uppercase">Tipo / Turno</span>
+                <span className="text-slate-400 font-bold block text-[10px] uppercase">Tipo / Operação</span>
                 <span className="font-extrabold text-slate-800">{itemAuditoriaSelecionado.origemTurno}</span>
               </div>
 
@@ -967,10 +1161,38 @@ export default function EstoqueGeralPage() {
                 </div>
               )}
 
+              {itemAuditoriaSelecionado.localArmazenamento && (
+                <div>
+                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Armazenamento</span>
+                  <span className="font-medium text-slate-700">{itemAuditoriaSelecionado.localArmazenamento}</span>
+                </div>
+              )}
+
+              {itemAuditoriaSelecionado.validade && (
+                <div>
+                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Validade</span>
+                  <span className="font-semibold text-slate-800">{itemAuditoriaSelecionado.validade}</span>
+                </div>
+              )}
+
               {itemAuditoriaSelecionado.lote && (
                 <div>
-                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Lote / Validade</span>
+                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Lote</span>
                   <span className="font-medium text-slate-700">{itemAuditoriaSelecionado.lote}</span>
+                </div>
+              )}
+
+              {itemAuditoriaSelecionado.valor !== undefined && itemAuditoriaSelecionado.valor !== null && (
+                <div>
+                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Valor Total</span>
+                  <span className="font-semibold text-emerald-700">R$ {Number(itemAuditoriaSelecionado.valor).toFixed(2)}</span>
+                </div>
+              )}
+
+              {itemAuditoriaSelecionado.saldoAtual !== undefined && itemAuditoriaSelecionado.saldoAtual !== null && (
+                <div>
+                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Saldo Resultante</span>
+                  <span className="font-bold text-slate-900">{itemAuditoriaSelecionado.saldoAtual}</span>
                 </div>
               )}
             </div>
@@ -1047,6 +1269,238 @@ export default function EstoqueGeralPage() {
                 Fechar Auditoria
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Cadastro de Novo Insumo */}
+      {modalNovoInsumoAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                  <PackagePlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 leading-tight">
+                    Cadastrar Novo Insumo
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Adicione ao catálogo de estoque do refeitório</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalNovoInsumoAberto(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSalvarNovoInsumo} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 uppercase">
+                  Nome do Insumo *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={novoInsumoNome}
+                  onChange={(e) => setNovoInsumoNome(e.target.value)}
+                  placeholder="Ex: Carne de Porco, Arroz Parboilizado..."
+                  className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Categoria *
+                  </label>
+                  <select
+                    value={novoInsumoCategoria}
+                    onChange={(e) => setNovoInsumoCategoria(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
+                  >
+                    {CATEGORIAS.filter((c) => c !== "Todos").map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Unidade de Medida *
+                  </label>
+                  <select
+                    value={novoInsumoUnidade}
+                    onChange={(e) => setNovoInsumoUnidade(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
+                  >
+                    <option value="KG">Quilograma (KG)</option>
+                    <option value="L">Litro (L)</option>
+                    <option value="UN">Unidade (UN)</option>
+                    <option value="PACOTE">Pacote</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 uppercase">
+                  Preço Referência Unitário (R$) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={novoInsumoValor}
+                    onChange={(e) => setNovoInsumoValor(e.target.value)}
+                    placeholder="25.00"
+                    className="w-full pl-8 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              {erroNovoInsumo && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{erroNovoInsumo}</span>
+                </div>
+              )}
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setModalNovoInsumoAberto(false)}
+                  disabled={salvandoNovoInsumo}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={salvandoNovoInsumo}
+                  className="flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {salvandoNovoInsumo && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{salvandoNovoInsumo ? "Cadastrando..." : "Cadastrar Insumo"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edição de Insumo */}
+      {modalEdicaoInsumoAberto && insumoEmEdicao && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center">
+                  <SlidersHorizontal className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 leading-tight">
+                    Editar Parâmetros
+                  </h3>
+                  <p className="text-[11px] text-slate-400 truncate max-w-[220px]">
+                    {insumoEmEdicao.nome} ({insumoEmEdicao.categoria})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalEdicaoInsumoAberto(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSalvarEdicaoInsumo} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 uppercase">
+                  Unidade de Medida
+                </label>
+                <select
+                  value={edicaoUnidade}
+                  onChange={(e) => setEdicaoUnidade(e.target.value)}
+                  className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
+                >
+                  <option value="KG">Quilograma (KG)</option>
+                  <option value="L">Litro (L)</option>
+                  <option value="UN">Unidade (UN)</option>
+                  <option value="PACOTE">Pacote</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 uppercase">
+                  Quantidade Mínima de Segurança ({edicaoUnidade})
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={edicaoQtdMinima}
+                  onChange={(e) => setEdicaoQtdMinima(e.target.value)}
+                  placeholder="Ex: 10"
+                  className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600"
+                />
+                <p className="text-[10px] text-slate-400">
+                  O sistema alertará quando o saldo total estiver abaixo deste valor.
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-slate-800 block">
+                    Controle Rigoroso de Validade
+                  </span>
+                  <span className="text-[10px] text-slate-400 block leading-tight">
+                    Exigido para proteínas, frios e laticínios perecíveis.
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={edicaoValidadeControlada}
+                  onChange={(e) => setEdicaoValidadeControlada(e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                />
+              </div>
+
+              {erroEdicaoInsumo && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{erroEdicaoInsumo}</span>
+                </div>
+              )}
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setModalEdicaoInsumoAberto(false)}
+                  disabled={salvandoEdicaoInsumo}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={salvandoEdicaoInsumo}
+                  className="flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {salvandoEdicaoInsumo && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{salvandoEdicaoInsumo ? "Salvando..." : "Salvar Alterações"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

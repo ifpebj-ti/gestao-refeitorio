@@ -20,13 +20,17 @@ export interface MovimentacaoSaidaRequest {
 export interface MovimentacaoResponse {
   id: string;
   produtoId: string;
+  produtoNome?: string;
   localId: string;
+  localNome?: string;
   tipo: "ENTRADA" | "SAIDA";
   quantidade: number;
   data: string;
-  origem: string;
+  origem: "EXTERNA" | "AGROINDUSTRIA" | "INTERNA" | string;
   valor: number;
-  tipoSaida?: string;
+  tipoSaida?: "CONSUMO" | "PERDA" | "DESCARTE" | "OUTRO" | string;
+  dataValidade?: string;
+  saldoAtual?: number;
 }
 
 export const registrarEntradaApi = async (
