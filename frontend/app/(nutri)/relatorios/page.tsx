@@ -73,7 +73,7 @@ const CORES_STROKE: Record<string, string> = {
 
 export default function RelatoriosPage() {
   const router = useRouter();
-  const { autenticado, carregando } = useAuth();
+  const { autenticado, carregando, perfil } = useAuth();
 
   // ── Filtro de período ──
   const agora = new Date();
@@ -93,10 +93,14 @@ export default function RelatoriosPage() {
   const [exportandoExcel, setExportandoExcel] = useState(false);
 
   useEffect(() => {
-    if (!carregando && !autenticado) {
-      router.push("/login");
+    if (!carregando) {
+      if (!autenticado) {
+        router.push("/login");
+      } else if (perfil === "ADMIN") {
+        router.push("/usuarios");
+      }
     }
-  }, [autenticado, carregando, router]);
+  }, [autenticado, carregando, perfil, router]);
 
   const carregarDados = useCallback(async () => {
     if (!autenticado) return;
