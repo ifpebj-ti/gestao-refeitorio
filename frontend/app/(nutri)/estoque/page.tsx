@@ -90,7 +90,7 @@ export default function EstoqueGeralPage() {
   const [buscaEntrada, setBuscaEntrada] = useState("");
   const [buscaEntradaFocada, setBuscaEntradaFocada] = useState(false);
   const [itemEntradaId, setItemEntradaId] = useState<string>("");
-
+  const [origemEntrada, setOrigemEntrada] = useState<"EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" | "">("");
   const [fornecedorEntrada, setFornecedorEntrada] = useState("");
   const [quantidadeEntrada, setQuantidadeEntrada] = useState("");
   const [validadeEntrada, setValidadeEntrada] = useState("");
@@ -107,7 +107,7 @@ export default function EstoqueGeralPage() {
   const [novoInsumoCategoria, setNovoInsumoCategoria] = useState("Proteínas & Frios");
   const [novoInsumoUnidade, setNovoInsumoUnidade] = useState("KG");
   const [novoInsumoValor, setNovoInsumoValor] = useState("");
-  const [novoInsumoOrigem, setNovoInsumoOrigem] = useState<"EXTERNA" | "AGROINDUSTRIA" | "INTERNA">("EXTERNA");
+  const [novoInsumoOrigem, setNovoInsumoOrigem] = useState<"EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" | "">("");
   const [novoInsumoFornecedor, setNovoInsumoFornecedor] = useState("");
   const [novoInsumoDarEntradaInicial, setNovoInsumoDarEntradaInicial] = useState(false);
   const [novoInsumoQtdInicial, setNovoInsumoQtdInicial] = useState("");
@@ -135,7 +135,7 @@ export default function EstoqueGeralPage() {
     setNovoInsumoCategoria("Proteínas & Frios");
     setNovoInsumoUnidade("KG");
     setNovoInsumoValor("");
-    setNovoInsumoOrigem("EXTERNA");
+    setNovoInsumoOrigem("");
     setNovoInsumoFornecedor("");
     setNovoInsumoDarEntradaInicial(false);
     setNovoInsumoQtdInicial("");
@@ -356,6 +356,7 @@ export default function EstoqueGeralPage() {
         let origemFormatada = "IFPE";
         if (mov.origem === "EXTERNA") origemFormatada = "Fornecedor Externo";
         else if (mov.origem === "AGROINDUSTRIA") origemFormatada = "Agroindústria (IFPE)";
+        else if (mov.origem === "AGROPECUARIA") origemFormatada = "Agropecuária (IFPE)";
         else if (mov.origem === "INTERNA") origemFormatada = "Produção Interna";
 
         // Recupera fornecedor personalizado se foi digitado no momento do registro
@@ -483,8 +484,9 @@ export default function EstoqueGeralPage() {
     setItemEntradaId("");
     setBuscaEntrada("");
     setBuscaEntradaFocada(false);
-    setQuantidadeEntrada("");
+    setOrigemEntrada("");
     setFornecedorEntrada("");
+    setQuantidadeEntrada("");
     setValidadeEntrada("");
     setLoteEntrada("");
     setFotoMercadoria(null);
@@ -512,6 +514,11 @@ export default function EstoqueGeralPage() {
       return;
     }
 
+    if (!origemEntrada) {
+      alert("Selecione o canal / origem da mercadoria!");
+      return;
+    }
+
     if (!fornecedorEntrada.trim()) {
       alert("Informe o fornecedor!");
       return;
@@ -524,8 +531,9 @@ export default function EstoqueGeralPage() {
         ? LOCAL_CONGELADOS
         : LOCAL_DESPENSA;
 
-    const ehAgro = fornecedorEntrada.toLowerCase().includes("agro");
-    const origem = ehAgro ? "AGROINDUSTRIA" : "EXTERNA";
+    const ehAgropec = origemEntrada === "AGROPECUARIA" || fornecedorEntrada.toLowerCase().includes("agropec");
+    const ehAgroind = origemEntrada === "AGROINDUSTRIA" || fornecedorEntrada.toLowerCase().includes("agroind");
+    const origemFinal = ehAgropec ? "AGROPECUARIA" : ehAgroind ? "AGROINDUSTRIA" : origemEntrada;
 
     const precoUnitario =
       insumoEntradaSelecionado.valorReferencia && insumoEntradaSelecionado.valorReferencia > 0
@@ -545,7 +553,7 @@ export default function EstoqueGeralPage() {
           localId,
           quantidade: qtdNum,
           data: hojeIso,
-          origem,
+          origem: origemFinal,
           valor: valorTotal,
           dataValidade: validadeEntrada || undefined,
           fornecedor: fornecedorEntrada.trim() || undefined,
@@ -845,296 +853,223 @@ export default function EstoqueGeralPage() {
       )}
 
       {abaAtiva === "registrar" && (
-        <div className="w-full space-y-6">
+        <div className="w-full max-w-5xl mx-auto space-y-6">
           {sucessoFeedback ? (
-            <div className="p-8 text-center space-y-2 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div className="p-8 text-center space-y-2 bg-white border border-slate-200 rounded-3xl shadow-xs animate-in zoom-in-95">
               <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-              <p className="text-base font-extrabold text-slate-900">Entrada Confirmada!</p>
-              <p className="text-xs text-slate-500">O saldo foi somado ao inventário e registrado no histórico.</p>
+              <p className="text-base font-extrabold text-slate-900">Entrada Confirmada com Sucesso!</p>
+              <p className="text-xs text-slate-500">O saldo foi somado ao inventário e registrado na auditoria.</p>
             </div>
           ) : (
-            <div className="w-full space-y-5">
-              <div className="bg-emerald-50/50 border-2 border-emerald-200/80 rounded-2xl p-4 sm:p-6 space-y-4 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm sm:text-base font-extrabold text-emerald-950 uppercase tracking-wide flex items-center gap-2">
-                    <PackagePlus className="w-5 h-5 text-emerald-600" />
-                    <span>Selecionar Insumo ({insumosEntradaFiltrados.length} encontrados)</span>
-                  </h2>
-
-                  {insumoEntradaSelecionado && (
-                    <div className="flex items-center gap-1.5 bg-white border border-emerald-300 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold shadow-2xs">
-                      <span>Selecionado: {insumoEntradaSelecionado.nome}</span>
-                      <button
-                        type="button"
-                        onClick={limparSelecao}
-                        className="hover:bg-emerald-100 rounded-full p-0.5 text-emerald-700 cursor-pointer"
-                        title="Desmarcar seleção"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-                  {CATEGORIAS.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setCategoriaEntradaAtiva(cat)}
-                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                        categoriaEntradaAtiva === cat
-                          ? "bg-emerald-600 text-white shadow-xs"
-                          : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="relative">
-                  <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={buscaEntrada}
-                    onFocus={() => setBuscaEntradaFocada(true)}
-                    onChange={(e) => {
-                      setBuscaEntrada(e.target.value);
-                      setBuscaEntradaFocada(true);
-                    }}
-                    placeholder="Digite o nome do insumo ou escolha abaixo..."
-                    className="w-full pl-11 pr-10 py-3 bg-white border-2 border-slate-300 rounded-xl text-sm sm:text-base font-semibold text-slate-900 focus:outline-none focus:border-emerald-600 shadow-2xs"
-                  />
-
-                  {buscaEntrada.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={limparSelecao}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full cursor-pointer"
-                      title="Limpar busca"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-
-                  {buscaEntradaFocada && buscaEntrada.trim().length > 0 && (
-                    <div className="absolute left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border-2 border-emerald-400 rounded-xl shadow-xl z-30 divide-y divide-slate-100">
-                      {insumosEntradaFiltrados.length === 0 ? (
-                        <div className="p-3 text-xs text-slate-400 text-center font-medium">
-                          Nenhum insumo encontrado com &quot;{buscaEntrada}&quot;
-                        </div>
-                      ) : (
-                        insumosEntradaFiltrados.map((item) => (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onMouseDown={() => alternarSelecaoInsumo(item)}
-                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-emerald-50 hover:text-emerald-900 flex items-center justify-between cursor-pointer"
-                          >
-                            <span>{item.nome}</span>
-                            <span className="text-xs text-slate-400 font-normal">
-                              {item.categoria} • {item.unidadeMedida}
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-2 max-h-44 overflow-y-auto pr-1">
-                  {insumosEntradaFiltrados.map((item) => {
-                    const selecionado = itemEntradaId === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => alternarSelecaoInsumo(item)}
-                        className={`text-xs px-3 py-2 rounded-xl border font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                          selecionado
-                            ? "bg-emerald-700 text-white border-emerald-700 shadow-xs scale-105"
-                            : "bg-white text-slate-700 border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/50"
-                        }`}
-                      >
-                        <span>{item.nome}</span>
-                        {selecionado && <X className="w-3 h-3 text-white/80 hover:text-white" />}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {!insumoEntradaSelecionado && (
-                  <div className="pt-3 border-t border-emerald-200/80 animate-in fade-in duration-150">
-                    <label className="text-[11px] font-bold text-emerald-950 uppercase block mb-1">
-                      Ou selecione diretamente no seletor completo:
-                    </label>
-                    <select
-                      value={itemEntradaId}
-                      onChange={(e) => {
-                        const item = listaEstoque.find((i) => i.id === e.target.value);
-                        if (item) {
-                          alternarSelecaoInsumo(item);
-                        } else {
-                          limparSelecao();
-                        }
-                      }}
-                      className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
-                    >
-                      <option value="">-- Nenhum insumo selecionado --</option>
-                      {listaEstoque.map((i) => (
-                        <option key={i.id} value={i.id}>
-                          {i.nome} ({i.categoria} • {i.unidadeMedida})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
+              <div className="pb-4 border-b border-slate-100">
+                <h2 className="text-lg font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                  <PackagePlus className="w-5 h-5 text-emerald-600" />
+                  <span>Lançar Entrada no Estoque</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Selecione o insumo já existente no catálogo e informe a quantidade recebida para somar ao saldo.
+                </p>
               </div>
 
-              {insumoEntradaSelecionado ? (
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-xs animate-in fade-in duration-200">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">
-                      Dados do Recebimento: {insumoEntradaSelecionado.nome}
-                    </h3>
-                    <span className="text-xs font-semibold text-slate-500">
-                      Unidade: <strong className="text-emerald-700">{insumoEntradaSelecionado.unidadeMedida}</strong>
+              {/* 1. Seleção do Insumo */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
+                  <span>Insumo a Receber *</span>
+                  {insumoEntradaSelecionado && (
+                    <span className="text-[11px] font-semibold text-emerald-700 lowercase">
+                      Saldo em estoque: {insumoEntradaSelecionado.saldoTotal ?? 0} {insumoEntradaSelecionado.unidadeMedida}
                     </span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Fornecedor / Origem da Entrega *</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={fornecedorEntrada}
-                      onChange={(e) => setFornecedorEntrada(e.target.value)}
-                      placeholder="Ex.: Distribuidora Agreste, Cooperativa..."
-                      className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-600"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 uppercase">
-                      Quantidade Recebida ({insumoEntradaSelecionado.unidadeMedida}) *
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.1"
-                      value={quantidadeEntrada}
-                      onChange={(e) => setQuantidadeEntrada(e.target.value)}
-                      placeholder="Ex.: 30"
-                      className="w-full p-2.5 border-2 border-slate-300 rounded-xl text-sm sm:text-base font-black text-slate-900 focus:outline-none focus:border-emerald-600"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-700 uppercase">
-                        Data de Validade (opcional)
-                      </label>
-                      <input
-                        type="date"
-                        value={validadeEntrada}
-                        onChange={(e) => setValidadeEntrada(e.target.value)}
-                        className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-600"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-700 uppercase">
-                        Número do Lote (opcional)
-                      </label>
-                      <input
-                        type="text"
-                        value={loteEntrada}
-                        onChange={(e) => setLoteEntrada(e.target.value)}
-                        placeholder="LT-2026"
-                        className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-600"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 pt-1">
-                    <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
-                      <Camera className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Foto do Produto / Canhoto (Opcional)</span>
-                    </label>
-                    <div className="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center hover:bg-slate-50/50 transition-colors">
-                      {fotoMercadoria ? (
-                        <div className="flex items-center justify-between text-xs text-emerald-800 font-bold bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
-                          <div className="flex items-center gap-2">
-                            <ImageIcon className="w-4 h-4 text-emerald-600" />
-                            <span>Foto anexada com sucesso</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={removerFoto}
-                            className="text-slate-400 hover:text-slate-700 underline font-normal cursor-pointer"
-                          >
-                            Remover
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="cursor-pointer space-y-1 block">
-                          <Upload className="w-6 h-6 mx-auto text-slate-400" />
-                          <p className="text-xs font-semibold text-slate-700">
-                            Fotografar os produtos descarregados ou canhoto
-                          </p>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            ref={fileInputRef}
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                setArquivoFotoReal(file);
-                                setFotoMercadoria(URL.createObjectURL(file));
-                              }
-                            }}
-                          />
-                        </label>
-                      )}
-                    </div>
-                  </div>
-
-                  {erroEntrada && (
-                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700">
-                      {erroEntrada}
-                    </div>
                   )}
+                </label>
+                <select
+                  value={itemEntradaId}
+                  onChange={(e) => {
+                    const item = listaEstoque.find((i) => i.id === e.target.value);
+                    if (item) {
+                      setItemEntradaId(item.id);
+                    } else {
+                      limparSelecao();
+                    }
+                  }}
+                  className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:border-emerald-600 cursor-pointer shadow-2xs"
+                >
+                  <option value="">Selecione o insumo recebido...</option>
+                  {listaEstoque.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.nome} — {i.categoria} [{i.unidadeMedida}]
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                  <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={limparSelecao}
-                      disabled={salvandoEntrada}
-                      className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer disabled:opacity-50"
-                    >
-                      Limpar
-                    </button>
+              {/* 2. Origem e Fornecedor */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Canal / Origem da Mercadoria *
+                  </label>
+                  <select
+                    value={origemEntrada}
+                    onChange={(e) => {
+                      const novaOrigem = e.target.value as any;
+                      setOrigemEntrada(novaOrigem);
+                      if (novaOrigem === "AGROPECUARIA") {
+                        setFornecedorEntrada("Agropecuária (Fazenda IFPE)");
+                      } else if (novaOrigem === "AGROINDUSTRIA") {
+                        setFornecedorEntrada("Agroindústria (IFPE)");
+                      } else if (novaOrigem === "EXTERNA" && (!fornecedorEntrada || fornecedorEntrada.includes("IFPE"))) {
+                        setFornecedorEntrada("");
+                      }
+                    }}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
+                  >
+                    <option value="">Selecione o canal / origem...</option>
+                    <option value="AGROPECUARIA">Agropecuária / Fazenda (IFPE)</option>
+                    <option value="AGROINDUSTRIA">Agroindústria (IFPE)</option>
+                    <option value="EXTERNA">Fornecedor Externo (Compras/Licitação)</option>
+                    <option value="INTERNA">Produção Interna</option>
+                  </select>
+                </div>
 
-                    <button
-                      type="button"
-                      onClick={handleSalvarEntrada}
-                      disabled={salvandoEntrada}
-                      className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>{salvandoEntrada ? "Registrando no estoque..." : "Salvar Entrada no Estoque"}</span>
-                    </button>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Nome do Fornecedor / Setor *</span>
+                  </label>
+                  <input
+                    type="text"
+                    list="sugestoes-fornecedor-nutri"
+                    value={fornecedorEntrada}
+                    onChange={(e) => setFornecedorEntrada(e.target.value)}
+                    placeholder="Ex.: Agropecuária IFPE, Cooperativa, Distribuidora..."
+                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600"
+                  />
+                  <datalist id="sugestoes-fornecedor-nutri">
+                    <option value="Agropecuária (Fazenda IFPE)" />
+                    <option value="Agroindústria (IFPE)" />
+                    <option value="Distribuidora Agreste" />
+                    <option value="Cooperativa da Agricultura Familiar" />
+                    <option value="Fornecedor Externo / Licitação" />
+                  </datalist>
+                </div>
+              </div>
+
+              {/* 3. Quantidade e Validade */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Quantidade Recebida {insumoEntradaSelecionado ? `(${insumoEntradaSelecionado.unidadeMedida})` : ""} *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    value={quantidadeEntrada}
+                    onChange={(e) => setQuantidadeEntrada(e.target.value)}
+                    placeholder="Ex.: 30"
+                    className="w-full p-2.5 border-2 border-slate-300 rounded-xl text-sm sm:text-base font-black text-slate-900 focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Data de Validade (opcional)
+                  </label>
+                  <input
+                    type="date"
+                    value={validadeEntrada}
+                    onChange={(e) => setValidadeEntrada(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              {/* 4. Lote e Foto */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Número do Lote (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={loteEntrada}
+                    onChange={(e) => setLoteEntrada(e.target.value)}
+                    placeholder="Ex: LT-2026-04"
+                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Foto / Canhoto (Opcional)</span>
+                  </label>
+                  <div className="border border-slate-300 rounded-xl p-2 text-center hover:bg-slate-50 transition-colors">
+                    {fotoMercadoria ? (
+                      <div className="flex items-center justify-between text-xs text-emerald-800 font-bold bg-emerald-50 p-1.5 rounded-lg border border-emerald-200">
+                        <div className="flex items-center gap-2 truncate">
+                          <ImageIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="truncate">Foto anexada</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={removerFoto}
+                          className="text-slate-400 hover:text-slate-700 underline text-[11px] cursor-pointer ml-2"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer flex items-center justify-center gap-2 text-xs font-semibold text-slate-600 py-0.5">
+                        <Upload className="w-4 h-4 text-slate-400" />
+                        <span>Fotografar ou anexar canhoto</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          ref={fileInputRef}
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setArquivoFotoReal(file);
+                              setFotoMercadoria(URL.createObjectURL(file));
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
                   </div>
                 </div>
-              ) : (
-                <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 border border-slate-200/80 rounded-xl">
-                  Selecione um insumo acima para abrir os campos de registro.
+              </div>
+
+              {erroEntrada && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700">
+                  {erroEntrada}
                 </div>
               )}
+
+              {/* Botões de Ação */}
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={limparSelecao}
+                  disabled={salvandoEntrada}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer disabled:opacity-50"
+                >
+                  Limpar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSalvarEntrada}
+                  disabled={salvandoEntrada || !itemEntradaId || !origemEntrada}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {salvandoEntrada ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  <span>{salvandoEntrada ? "Registrando no estoque..." : "Salvar Entrada no Estoque"}</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -1214,7 +1149,7 @@ export default function EstoqueGeralPage() {
 
       {itemAuditoriaSelecionado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-lg w-full p-5 sm:p-6 space-y-4">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-2xl w-full p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div
@@ -1377,7 +1312,7 @@ export default function EstoqueGeralPage() {
       {/* Modal de Cadastro de Novo Insumo */}
       {modalNovoInsumoAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-xl w-full p-6 sm:p-7 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
@@ -1468,18 +1403,30 @@ export default function EstoqueGeralPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700 uppercase">
                     Origem / Fornecimento
                   </label>
                   <select
                     value={novoInsumoOrigem}
-                    onChange={(e) => setNovoInsumoOrigem(e.target.value as any)}
+                    onChange={(e) => {
+                      const novaOrigem = e.target.value as any;
+                      setNovoInsumoOrigem(novaOrigem);
+                      if (novaOrigem === "AGROPECUARIA") {
+                        setNovoInsumoFornecedor("Agropecuária (Fazenda IFPE)");
+                      } else if (novaOrigem === "AGROINDUSTRIA") {
+                        setNovoInsumoFornecedor("Agroindústria (IFPE)");
+                      } else if (novaOrigem === "EXTERNA" && (!novoInsumoFornecedor || novoInsumoFornecedor.includes("IFPE"))) {
+                        setNovoInsumoFornecedor("");
+                      }
+                    }}
                     className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
                   >
-                    <option value="EXTERNA">Fornecedor Externo</option>
+                    <option value="">Selecione a origem / fornecimento...</option>
+                    <option value="AGROPECUARIA">Agropecuária / Fazenda (IFPE)</option>
                     <option value="AGROINDUSTRIA">Agroindústria (IFPE)</option>
+                    <option value="EXTERNA">Fornecedor Externo</option>
                     <option value="INTERNA">Produção Interna</option>
                   </select>
                 </div>
@@ -1490,11 +1437,19 @@ export default function EstoqueGeralPage() {
                   </label>
                   <input
                     type="text"
+                    list="sugestoes-fornecedor-novo-insumo"
                     value={novoInsumoFornecedor}
                     onChange={(e) => setNovoInsumoFornecedor(e.target.value)}
-                    placeholder="Ex: agropecuorio, Cooperativa..."
+                    placeholder="Ex: Agropecuária IFPE, Cooperativa..."
                     className="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-semibold focus:outline-none focus:border-emerald-600"
                   />
+                  <datalist id="sugestoes-fornecedor-novo-insumo">
+                    <option value="Agropecuária (Fazenda IFPE)" />
+                    <option value="Agroindústria (IFPE)" />
+                    <option value="Distribuidora Agreste" />
+                    <option value="Cooperativa da Agricultura Familiar" />
+                    <option value="Fornecedor Externo / Licitação" />
+                  </datalist>
                 </div>
               </div>
 
@@ -1581,7 +1536,7 @@ export default function EstoqueGeralPage() {
       {/* Modal de Edição de Insumo */}
       {modalEdicaoInsumoAberto && insumoEmEdicao && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-7 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center">

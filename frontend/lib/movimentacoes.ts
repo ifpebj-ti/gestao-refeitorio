@@ -5,7 +5,7 @@ export interface MovimentacaoEntradaRequest {
   localId: string;
   quantidade: number;
   data: string; // YYYY-MM-DD
-  origem: "EXTERNA" | "AGROINDUSTRIA" | "INTERNA";
+  origem: "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA";
   valor: number;
   dataValidade?: string;
   fornecedor?: string;
@@ -28,7 +28,7 @@ export interface MovimentacaoResponse {
   tipo: "ENTRADA" | "SAIDA";
   quantidade: number;
   data: string;
-  origem: "EXTERNA" | "AGROINDUSTRIA" | "INTERNA" | string;
+  origem: "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" | string;
   valor: number;
   tipoSaida?: "CONSUMO" | "PERDA" | "DESCARTE" | "OUTRO" | string;
   dataValidade?: string;
