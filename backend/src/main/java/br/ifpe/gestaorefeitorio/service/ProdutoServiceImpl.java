@@ -6,6 +6,7 @@ import br.ifpe.gestaorefeitorio.dto.ProdutoQuantidadeMinimaDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoValorReferenciaDTO;
 import br.ifpe.gestaorefeitorio.dto.SaldoPorLocalDTO;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.Movimentacao;
@@ -90,6 +91,20 @@ public class ProdutoServiceImpl implements ProdutoService {
 
         log.info("Quantidade mínima alterada: produto {} ({}), {} -> {}, por {}",
                 produto.getId(), produto.getNome(), quantidadeAnterior, produto.getQuantidadeMinima(),
+                responsavel.getEmail());
+
+        return paraDTO(produto);
+    }
+
+    @Override
+    public ProdutoResponseDTO atualizarValorReferencia(UUID id, ProdutoValorReferenciaDTO request, Usuario responsavel) {
+        Produto produto = buscarEntidade(id);
+        BigDecimal valorAnterior = produto.getValorReferencia();
+        produto.setValorReferencia(request.valorReferencia());
+        produto = produtoRepository.save(produto);
+
+        log.info("Valor de referência alterado: produto {} ({}), {} -> {}, por {}",
+                produto.getId(), produto.getNome(), valorAnterior, produto.getValorReferencia(),
                 responsavel.getEmail());
 
         return paraDTO(produto);

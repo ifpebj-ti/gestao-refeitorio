@@ -25,6 +25,8 @@ public interface ProdutoService {
 
     ProdutoResponseDTO atualizarQuantidadeMinima(UUID id, ProdutoQuantidadeMinimaDTO request, Usuario responsavel);
 
+    ProdutoResponseDTO atualizarValorReferencia(UUID id, ProdutoValorReferenciaDTO request, Usuario responsavel);
+
     ProdutoResponseDTO atualizarControleValidade(UUID id, ProdutoControleValidadeDTO request, Usuario responsavel);
 
     List<SaldoPorLocalDTO> listarSaldoPorLocal(UUID produtoId);

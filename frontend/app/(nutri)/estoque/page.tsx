@@ -115,6 +115,7 @@ export default function EstoqueGeralPage() {
   const [insumoEmEdicao, setInsumoEmEdicao] = useState<ProdutoResponse | null>(null);
   const [edicaoUnidade, setEdicaoUnidade] = useState("KG");
   const [edicaoQtdMinima, setEdicaoQtdMinima] = useState("");
+  const [edicaoValorReferencia, setEdicaoValorReferencia] = useState("");
   const [edicaoValidadeControlada, setEdicaoValidadeControlada] = useState(false);
   const [salvandoEdicaoInsumo, setSalvandoEdicaoInsumo] = useState(false);
   const [erroEdicaoInsumo, setErroEdicaoInsumo] = useState<string | null>(null);
@@ -174,6 +175,11 @@ export default function EstoqueGeralPage() {
         ? String(item.quantidadeMinima)
         : ""
     );
+    setEdicaoValorReferencia(
+      item.valorReferencia !== undefined && item.valorReferencia !== null
+        ? String(item.valorReferencia)
+        : ""
+    );
     setEdicaoValidadeControlada(Boolean(item.controlaValidade));
     setErroEdicaoInsumo(null);
     setModalEdicaoInsumoAberto(true);
@@ -194,6 +200,13 @@ export default function EstoqueGeralPage() {
         const qtdMin = parseFloat(edicaoQtdMinima.replace(",", "."));
         if (!isNaN(qtdMin) && qtdMin >= 0) {
           await produtoService.atualizarQuantidadeMinima(insumoEmEdicao.id, qtdMin);
+        }
+      }
+
+      if (edicaoValorReferencia.trim() !== "") {
+        const valRef = parseFloat(edicaoValorReferencia.replace(",", "."));
+        if (!isNaN(valRef) && valRef > 0 && valRef !== insumoEmEdicao.valorReferencia) {
+          await produtoService.atualizarValorReferencia(insumoEmEdicao.id, valRef);
         }
       }
 
@@ -643,17 +656,23 @@ export default function EstoqueGeralPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs gap-2 flex-wrap">
                       <div>
-                        <span className="text-slate-500 font-medium">Qtd. Mínima: </span>
+                        <span className="text-slate-500 font-medium">Preço Ref.: </span>
+                        <span className="font-bold text-emerald-800">
+                          R$ {Number(item.valorReferencia || 0).toFixed(2)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-medium">Qtd. Mín: </span>
                         <span className="font-bold text-slate-700">
                           {item.quantidadeMinima ?? 0} {item.unidadeMedida}
                         </span>
                       </div>
                       <div className="text-right">
-                        <span className="text-slate-500 font-medium">Saldo Atual: </span>
-                        <span className="text-base font-black text-slate-900">
-                          {item.saldoTotal ?? 0} <span className="text-xs font-semibold text-slate-600">{item.unidadeMedida}</span>
+                        <span className="text-slate-500 font-medium">Saldo: </span>
+                        <span className="text-sm font-black text-slate-900">
+                          {item.saldoTotal ?? 0} <span className="text-[11px] font-semibold text-slate-600">{item.unidadeMedida}</span>
                         </span>
                       </div>
                     </div>
@@ -670,6 +689,7 @@ export default function EstoqueGeralPage() {
                 <tr>
                   <th className="px-4 py-3">Insumo</th>
                   <th className="px-4 py-3">Categoria</th>
+                  <th className="px-4 py-3 text-right">Preço Ref.</th>
                   <th className="px-4 py-3 text-right">Qtd. Mínima</th>
                   <th className="px-4 py-3 text-right">Saldo Atual</th>
                   <th className="px-4 py-3 text-center">Status</th>
@@ -679,19 +699,19 @@ export default function EstoqueGeralPage() {
               <tbody className="divide-y divide-slate-100 text-slate-800">
                 {carregandoProdutos ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-medium">
+                    <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-medium">
                       Carregando produtos do estoque...
                     </td>
                   </tr>
                 ) : erroCarregamento ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-rose-600 font-medium">
+                    <td colSpan={7} className="px-4 py-8 text-center text-rose-600 font-medium">
                       {erroCarregamento}
                     </td>
                   </tr>
                 ) : itensFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-medium">
+                    <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-medium">
                       Nenhum produto cadastrado no banco de dados.
                     </td>
                   </tr>
@@ -704,6 +724,9 @@ export default function EstoqueGeralPage() {
                       <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="px-4 py-3 font-semibold text-slate-900">{item.nome}</td>
                         <td className="px-4 py-3 text-slate-500 text-xs">{item.categoria}</td>
+                        <td className="px-4 py-3 text-right text-emerald-800 font-bold">
+                          R$ {Number(item.valorReferencia || 0).toFixed(2)}
+                        </td>
                         <td className="px-4 py-3 text-right text-slate-600 font-medium">
                           {item.quantidadeMinima ?? 0} {item.unidadeMedida}
                         </td>
@@ -1438,6 +1461,27 @@ export default function EstoqueGeralPage() {
                   <option value="UN">Unidade (UN)</option>
                   <option value="PACOTE">Pacote</option>
                 </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 uppercase">
+                  Preço de Referência Unitário (R$)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={edicaoValorReferencia}
+                    onChange={(e) => setEdicaoValorReferencia(e.target.value)}
+                    placeholder="Ex: 25.00"
+                    className="w-full pl-8 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Preço médio de mercado por {edicaoUnidade} para cálculo de custo de entradas e relatórios.
+                </p>
               </div>
 
               <div className="space-y-1">

@@ -55,4 +55,11 @@ export const produtoService = {
     });
     return response.data;
   },
+
+  atualizarValorReferencia: async (id: string, valorReferencia: number): Promise<ProdutoResponse> => {
+    const response = await api.patch<ProdutoResponse>(`/produtos/${id}/valor-referencia`, {
+      valorReferencia,
+    });
+    return response.data;
+  },
 };
