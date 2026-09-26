@@ -11,6 +11,7 @@ import {
   Boxes,
   CalendarDays,
   BarChart3,
+  Users,
   Lock,
   LogOut,
   X,
@@ -21,10 +22,16 @@ export default function Sidebar() {
   const {
     perfil,
     voltarParaCozinha,
+    logout,
     menuMobileAberto,
     setMenuMobileAberto,
     totalAlertasPendentes,
   } = useAuth();
+
+  // Links do Admin (gestão restrita de usuários)
+  const linksAdmin = [
+    { href: "/usuarios", label: "Gestão de Usuários", icon: Users },
+  ];
 
   // Links da Cozinha (operacionais)
   const linksCozinha = [
@@ -42,7 +49,12 @@ export default function Sidebar() {
     { href: "/alertas", label: "Central de Alertas", icon: Bell },
   ];
 
-  const linksAtuais = perfil === "COZINHA" ? linksCozinha : linksNutri;
+  const linksAtuais =
+    perfil === "ADMIN"
+      ? linksAdmin
+      : perfil === "COZINHA"
+      ? linksCozinha
+      : linksNutri;
 
   const handleVoltarParaCozinha = () => {
     voltarParaCozinha();
@@ -129,11 +141,24 @@ export default function Sidebar() {
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400 font-medium">Perfil Atual:</span>
             <span className="font-bold text-slate-800 uppercase text-[11px] bg-white border border-slate-200 px-2 py-0.5 rounded-md">
-              {perfil === "COZINHA" ? "Cozinha" : "Nutricionista"}
+              {perfil === "ADMIN"
+                ? "Administrador"
+                : perfil === "COZINHA"
+                ? "Cozinha"
+                : "Nutricionista"}
             </span>
           </div>
 
-          {perfil === "COZINHA" ? (
+          {perfil === "ADMIN" ? (
+            <button
+              type="button"
+              onClick={logout}
+              className="w-full flex items-center justify-center gap-2 py-2 bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Encerrar Sessão</span>
+            </button>
+          ) : perfil === "COZINHA" ? (
             <Link
               href="/login"
               onClick={() => setMenuMobileAberto(false)}

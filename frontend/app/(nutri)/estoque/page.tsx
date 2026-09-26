@@ -53,7 +53,7 @@ const CATEGORIAS = [
 
 export default function EstoqueGeralPage() {
   const router = useRouter();
-  const { autenticado, carregando } = useAuth();
+  const { autenticado, carregando, perfil } = useAuth();
 
   // Abas e filtros
   const [abaAtiva, setAbaAtiva] = useState<"inventario" | "registrar" | "extrato">("inventario");
@@ -93,10 +93,14 @@ export default function EstoqueGeralPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!carregando && !autenticado) {
-      router.push("/consumo");
+    if (!carregando) {
+      if (!autenticado) {
+        router.push("/consumo");
+      } else if (perfil === "ADMIN") {
+        router.push("/usuarios");
+      }
     }
-  }, [autenticado, carregando, router]);
+  }, [autenticado, carregando, perfil, router]);
 
   const carregarProdutos = async () => {
     try {

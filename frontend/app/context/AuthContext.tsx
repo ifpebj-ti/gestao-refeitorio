@@ -109,6 +109,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (data.perfil === "COZINHA") {
       router.push("/consumo");
+    } else if (data.perfil === "ADMIN") {
+      router.push("/usuarios");
     } else {
       router.push("/estoque");
     }

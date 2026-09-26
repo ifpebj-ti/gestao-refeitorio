@@ -10,7 +10,7 @@ import Link from "next/link";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
 function HeaderComSininho() {
-  const { toggleMenuMobile, totalAlertasPendentes, dispensarBannerAlertas } = useAuth();
+  const { toggleMenuMobile, totalAlertasPendentes, dispensarBannerAlertas, perfil, usuario } = useAuth();
   const [dropdownAberto, setDropdownAberto] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -42,22 +42,28 @@ function HeaderComSininho() {
         </span>
       </div>
 
-      {/* Lado Direito: Sininho */}
+      {/* Lado Direito: Sininho para Cozinha/Nutri OU Badge para Admin */}
       <div className="flex items-center gap-3">
-        <div className="relative" ref={containerRef}>
-          <button
-            type="button"
-            onClick={() => setDropdownAberto(!dropdownAberto)}
-            className="relative p-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer focus:outline-none"
-            aria-label="Ver Alertas"
-          >
-            <Bell className="w-5 h-5 text-slate-700" />
-            {totalAlertasPendentes > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-600 text-white rounded-full text-[11px] font-black flex items-center justify-center shadow-xs border-2 border-white leading-none z-10">
-                {totalAlertasPendentes}
-              </span>
-            )}
-          </button>
+        {perfil === "ADMIN" ? (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 border border-purple-200/60 rounded-xl text-xs font-bold text-purple-800">
+            <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+            <span>Painel Administrativo</span>
+          </div>
+        ) : (
+          <div className="relative" ref={containerRef}>
+            <button
+              type="button"
+              onClick={() => setDropdownAberto(!dropdownAberto)}
+              className="relative p-2.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer focus:outline-none"
+              aria-label="Ver Alertas"
+            >
+              <Bell className="w-5 h-5 text-slate-700" />
+              {totalAlertasPendentes > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-600 text-white rounded-full text-[11px] font-black flex items-center justify-center shadow-xs border-2 border-white leading-none z-10">
+                  {totalAlertasPendentes}
+                </span>
+              )}
+            </button>
 
           {dropdownAberto && (
             <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-3 space-y-2 animate-in fade-in zoom-in-95 duration-150">
@@ -114,6 +120,7 @@ function HeaderComSininho() {
             </div>
           )}
         </div>
+      )}
       </div>
     </header>
   );

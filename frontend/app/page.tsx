@@ -129,8 +129,16 @@ export default function WelcomeSplashPage() {
       </main>
 
       {/* Footer da Página */}
-      <footer className="max-w-4xl w-full mx-auto text-center pb-2 text-xs text-slate-400">
-        Instituto Federal de Pernambuco — Campus Belo Jardim
+      <footer className="max-w-4xl w-full mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 pb-2 text-xs text-slate-400">
+        <span>Instituto Federal de Pernambuco — Campus Belo Jardim</span>
+        <button
+          type="button"
+          onClick={() => router.push("/login")}
+          className="text-slate-400 hover:text-slate-700 hover:underline transition-colors flex items-center gap-1 text-[11px] cursor-pointer"
+        >
+          <Shield className="w-3 h-3" />
+          <span>Acesso Administrativo</span>
+        </button>
       </footer>
     </div>
   );
