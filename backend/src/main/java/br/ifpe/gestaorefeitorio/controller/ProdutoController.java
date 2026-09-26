@@ -6,6 +6,7 @@ import br.ifpe.gestaorefeitorio.dto.ProdutoQuantidadeMinimaDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoValorReferenciaDTO;
 import br.ifpe.gestaorefeitorio.dto.SaldoPorLocalDTO;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.service.ProdutoService;
@@ -80,6 +81,16 @@ public class ProdutoController {
             @Valid @RequestBody ProdutoQuantidadeMinimaDTO request,
             @AuthenticationPrincipal Usuario responsavel) {
         return ResponseEntity.ok(produtoService.atualizarQuantidadeMinima(id, request, responsavel));
+    }
+
+    // Atualização de valor de referência de mercado pela NUTRICIONISTA
+    @PatchMapping("/{id}/valor-referencia")
+    @PreAuthorize("hasRole('NUTRICIONISTA')")
+    public ResponseEntity<ProdutoResponseDTO> atualizarValorReferencia(
+            @PathVariable UUID id,
+            @Valid @RequestBody ProdutoValorReferenciaDTO request,
+            @AuthenticationPrincipal Usuario responsavel) {
+        return ResponseEntity.ok(produtoService.atualizarValorReferencia(id, request, responsavel));
     }
 
     // Marca o produto como "frio" (validade controlada, alerta com destaque/prioridade

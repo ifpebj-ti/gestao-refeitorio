@@ -12,6 +12,10 @@ public interface ProdutoRepository extends JpaRepository<Produto, UUID> {
 
     List<Produto> findByCategoriaIgnoreCase(String categoria);
 
+    List<Produto> findAllByOrderByNomeAsc();
+
+    List<Produto> findByCategoriaIgnoreCaseOrderByNomeAsc(String categoria);
+
     // Base para o job de alerta (US16/#151): todo produto com validade próxima entra no
     // alerta, independente da categoria — controlaValidade só define destaque/prioridade
     // maior (produtos "frio"), não é mais um filtro de exclusão.

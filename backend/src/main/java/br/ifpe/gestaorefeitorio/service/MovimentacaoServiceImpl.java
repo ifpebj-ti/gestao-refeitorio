@@ -54,6 +54,7 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
         movimentacao.setOrigem(request.origem());
         movimentacao.setValor(request.valor());
         movimentacao.setDataValidade(request.dataValidade());
+        movimentacao.setFornecedor(request.fornecedor());
         movimentacao.setResponsavel(responsavel);
         movimentacao = movimentacaoRepository.save(movimentacao);
 
@@ -118,6 +119,7 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
     private MovimentacaoResponseDTO paraDTO(Movimentacao movimentacao) {
         Produto produto = movimentacao.getProduto();
         LocalArmazenamento local = movimentacao.getLocal();
+        Usuario responsavel = movimentacao.getResponsavel();
         BigDecimal saldo = movimentacaoRepository.calcularSaldo(produto.getId(), local.getId());
 
         return new MovimentacaoResponseDTO(
@@ -133,13 +135,18 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
                 movimentacao.getTipoSaida(),
                 movimentacao.getValor(),
                 movimentacao.getDataValidade(),
-                saldo);
+                saldo,
+                responsavel != null ? responsavel.getNome() : null,
+                responsavel != null ? responsavel.getEmail() : null,
+                responsavel != null && responsavel.getPerfil() != null ? responsavel.getPerfil().name() : null,
+                movimentacao.getFornecedor());
     }
 
-    // NOVO MÉTODO: Cria o DTO sem tentar calcular o saldo no banco de dados!
     private MovimentacaoResponseDTO paraDTOHistorico(Movimentacao movimentacao) {
         Produto produto = movimentacao.getProduto();
         LocalArmazenamento local = movimentacao.getLocal();
+        Usuario responsavel = movimentacao.getResponsavel();
+        BigDecimal saldo = movimentacaoRepository.calcularSaldo(produto.getId(), local.getId());
 
         return new MovimentacaoResponseDTO(
                 movimentacao.getId(),
@@ -154,6 +161,10 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
                 movimentacao.getTipoSaida(),
                 movimentacao.getValor(),
                 movimentacao.getDataValidade(),
-                BigDecimal.ZERO); // Mandamos ZERO no saldo, pois a tela de histórico não usa!
+                saldo,
+                responsavel != null ? responsavel.getNome() : null,
+                responsavel != null ? responsavel.getEmail() : null,
+                responsavel != null && responsavel.getPerfil() != null ? responsavel.getPerfil().name() : null,
+                movimentacao.getFornecedor());
     }
 }

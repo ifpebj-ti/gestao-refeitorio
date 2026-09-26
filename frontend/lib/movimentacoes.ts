@@ -5,8 +5,10 @@ export interface MovimentacaoEntradaRequest {
   localId: string;
   quantidade: number;
   data: string; // YYYY-MM-DD
-  origem: "EXTERNA" | "AGROINDUSTRIA" | "INTERNA";
+  origem: "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA";
   valor: number;
+  dataValidade?: string;
+  fornecedor?: string;
 }
 
 export interface MovimentacaoSaidaRequest {
@@ -20,13 +22,21 @@ export interface MovimentacaoSaidaRequest {
 export interface MovimentacaoResponse {
   id: string;
   produtoId: string;
+  produtoNome?: string;
   localId: string;
+  localNome?: string;
   tipo: "ENTRADA" | "SAIDA";
   quantidade: number;
   data: string;
-  origem: string;
+  origem: "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" | string;
   valor: number;
-  tipoSaida?: string;
+  tipoSaida?: "CONSUMO" | "PERDA" | "DESCARTE" | "OUTRO" | string;
+  dataValidade?: string;
+  saldoAtual?: number;
+  responsavelNome?: string;
+  responsavelEmail?: string;
+  responsavelPerfil?: string;
+  fornecedor?: string;
 }
 
 export const registrarEntradaApi = async (
