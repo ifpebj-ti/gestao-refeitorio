@@ -64,7 +64,7 @@ const CATEGORIAS = [
 
 export default function EstoqueGeralPage() {
   const router = useRouter();
-  const { autenticado, carregando, perfil } = useAuth();
+  const { autenticado, carregando, perfil, usuario } = useAuth();
 
   // Abas e filtros
   const [abaAtiva, setAbaAtiva] = useState<"inventario" | "registrar" | "extrato">("inventario");
@@ -107,6 +107,11 @@ export default function EstoqueGeralPage() {
   const [novoInsumoCategoria, setNovoInsumoCategoria] = useState("Proteínas & Frios");
   const [novoInsumoUnidade, setNovoInsumoUnidade] = useState("KG");
   const [novoInsumoValor, setNovoInsumoValor] = useState("");
+  const [novoInsumoOrigem, setNovoInsumoOrigem] = useState<"EXTERNA" | "AGROINDUSTRIA" | "INTERNA">("EXTERNA");
+  const [novoInsumoFornecedor, setNovoInsumoFornecedor] = useState("");
+  const [novoInsumoDarEntradaInicial, setNovoInsumoDarEntradaInicial] = useState(false);
+  const [novoInsumoQtdInicial, setNovoInsumoQtdInicial] = useState("");
+  const [novoInsumoValidadeInicial, setNovoInsumoValidadeInicial] = useState("");
   const [salvandoNovoInsumo, setSalvandoNovoInsumo] = useState(false);
   const [erroNovoInsumo, setErroNovoInsumo] = useState<string | null>(null);
 
@@ -130,6 +135,11 @@ export default function EstoqueGeralPage() {
     setNovoInsumoCategoria("Proteínas & Frios");
     setNovoInsumoUnidade("KG");
     setNovoInsumoValor("");
+    setNovoInsumoOrigem("EXTERNA");
+    setNovoInsumoFornecedor("");
+    setNovoInsumoDarEntradaInicial(false);
+    setNovoInsumoQtdInicial("");
+    setNovoInsumoValidadeInicial("");
     setErroNovoInsumo(null);
     setModalNovoInsumoAberto(true);
   };
@@ -149,16 +159,48 @@ export default function EstoqueGeralPage() {
     setSalvandoNovoInsumo(true);
     setErroNovoInsumo(null);
     try {
-      await produtoService.cadastrar({
+      const novoProduto = await produtoService.cadastrar({
         nome: novoInsumoNome.trim(),
         categoria: novoInsumoCategoria,
         unidadeMedida: novoInsumoUnidade,
         valorReferencia: valorNumerico,
       });
+
+      // Se optou por lançar entrada inicial no estoque:
+      if (novoInsumoDarEntradaInicial && novoInsumoQtdInicial.trim()) {
+        const qtdInicialNum = parseFloat(novoInsumoQtdInicial.replace(",", "."));
+        if (!isNaN(qtdInicialNum) && qtdInicialNum > 0) {
+          const LOCAL_CONGELADOS = "e10aa4e1-9b74-4791-8b01-1a8efd93af8c";
+          const LOCAL_DESPENSA = "eddeb319-7af8-4d68-bd88-8a739c968c74";
+          const localId = novoInsumoCategoria === "Proteínas & Frios" ? LOCAL_CONGELADOS : LOCAL_DESPENSA;
+          const hojeIso = new Date().toISOString().split("T")[0];
+
+          const resEntrada = await registrarEntradaApi({
+            produtoId: novoProduto.id,
+            localId,
+            quantidade: qtdInicialNum,
+            data: hojeIso,
+            origem: novoInsumoOrigem,
+            valor: Number((qtdInicialNum * valorNumerico).toFixed(2)),
+            dataValidade: novoInsumoValidadeInicial || undefined,
+            fornecedor: novoInsumoFornecedor.trim() || undefined,
+          });
+
+          if (resEntrada?.id && novoInsumoFornecedor.trim()) {
+            try {
+              localStorage.setItem(`@gestao_refeitorio:mov_fornecedor_${resEntrada.id}`, novoInsumoFornecedor.trim());
+            } catch (e) {}
+          }
+        }
+      }
+
       setModalNovoInsumoAberto(false);
       setSucessoGeral(`Insumo "${novoInsumoNome}" cadastrado com sucesso no estoque!`);
       setTimeout(() => setSucessoGeral(null), 4000);
       await carregarProdutos();
+      if (abaAtiva === "extrato") {
+        await carregarHistorico();
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro ao cadastrar insumo.";
       setErroNovoInsumo(msg);
@@ -306,14 +348,19 @@ export default function EstoqueGeralPage() {
           }
         } catch (e) {}
 
-        const nomeInsumo = mov.produtoNome || listaEstoque.find(p => p.id === mov.produtoId)?.nome || "Insumo";
-        const unidade = listaEstoque.find(p => p.id === mov.produtoId)?.unidadeMedida || "un";
+        const produtoObj = listaEstoque.find(p => p.id === mov.produtoId);
+        const nomeInsumo = mov.produtoNome || produtoObj?.nome || "Insumo";
+        const unidade = produtoObj?.unidadeMedida || "un";
         const localNome = mov.localNome || "Despensa Geral";
 
         let origemFormatada = "IFPE";
         if (mov.origem === "EXTERNA") origemFormatada = "Fornecedor Externo";
         else if (mov.origem === "AGROINDUSTRIA") origemFormatada = "Agroindústria (IFPE)";
         else if (mov.origem === "INTERNA") origemFormatada = "Produção Interna";
+
+        // Recupera fornecedor personalizado se foi digitado no momento do registro
+        const fornecedorSalvo = typeof window !== "undefined" ? localStorage.getItem(`@gestao_refeitorio:mov_fornecedor_${mov.id}`) : null;
+        const fornecedorFinal = fornecedorSalvo || origemFormatada;
 
         let saidaFormatada = "Consumo";
         if (mov.tipoSaida === "CONSUMO") saidaFormatada = "Consumo das Refeições";
@@ -331,17 +378,36 @@ export default function EstoqueGeralPage() {
           }
         }
 
+        // Responsável real que executou a ação no sistema
+        let responsavelFormatado = "Equipe do Refeitório";
+        if (mov.responsavelNome) {
+          responsavelFormatado = mov.responsavelPerfil
+            ? `${mov.responsavelNome} (${mov.responsavelPerfil === 'NUTRICIONISTA' ? 'Nutricionista' : 'Cozinha'})`
+            : mov.responsavelNome;
+        } else if (mov.responsavelPerfil) {
+          responsavelFormatado = mov.responsavelPerfil === 'NUTRICIONISTA' ? 'Nutricionista (Setor de Nutrição)' : 'Cozinha (Operacional)';
+        } else if (usuario?.nome && mov.tipo === "ENTRADA") {
+          responsavelFormatado = `${usuario.nome} (${perfil === 'NUTRICIONISTA' ? 'Nutricionista' : 'Cozinha'})`;
+        } else if (perfil === "NUTRICIONISTA" && mov.tipo === "ENTRADA") {
+          responsavelFormatado = "Nutricionista (Setor de Nutrição)";
+        }
+
+        // Saldo atual real
+        const saldoReal = (mov.saldoAtual !== undefined && mov.saldoAtual !== null && mov.saldoAtual > 0)
+          ? mov.saldoAtual
+          : (produtoObj?.saldoTotal !== undefined && produtoObj.saldoTotal > 0 ? produtoObj.saldoTotal : mov.quantidade);
+
         return {
           id: mov.id,
           tipo: mov.tipo,
           dataHora: dataFormatada,
-          origemTurno: mov.tipo === "ENTRADA" ? `Entrada • ${origemFormatada}` : `Saída • ${saidaFormatada}`,
-          responsavel: "Equipe (Cozinha/Nutrição)", 
-          fornecedor: mov.tipo === "ENTRADA" ? origemFormatada : undefined,
+          origemTurno: mov.tipo === "ENTRADA" ? `Entrada • ${fornecedorFinal}` : `Saída • ${saidaFormatada}`,
+          responsavel: responsavelFormatado, 
+          fornecedor: mov.tipo === "ENTRADA" ? fornecedorFinal : undefined,
           localArmazenamento: localNome,
           validade: validadeFormatada,
           valor: mov.valor,
-          saldoAtual: mov.saldoAtual,
+          saldoAtual: saldoReal,
           itensResumo: `${nomeInsumo} (${mov.tipo === 'ENTRADA' ? '+' : '-'}${mov.quantidade} ${unidade})`,
           detalhesItens: [
             {
@@ -351,7 +417,7 @@ export default function EstoqueGeralPage() {
             },
           ],
           observacao: mov.tipo === "ENTRADA" 
-            ? `Entrada armazenada em ${localNome}.` 
+            ? `Entrada recebida de ${fornecedorFinal} e armazenada em ${localNome}.` 
             : `Saída de insumos registrada via sistema (${saidaFormatada}).`,
         };
       });
@@ -473,7 +539,7 @@ export default function EstoqueGeralPage() {
       setSalvandoEntrada(true);
       setErroEntrada(null);
 
-      await registrarEntradaApi(
+      const res = await registrarEntradaApi(
         {
           produtoId: insumoEntradaSelecionado.id,
           localId,
@@ -481,9 +547,18 @@ export default function EstoqueGeralPage() {
           data: hojeIso,
           origem,
           valor: valorTotal,
+          dataValidade: validadeEntrada || undefined,
+          fornecedor: fornecedorEntrada.trim() || undefined,
         },
         arquivoFotoReal
       );
+
+      // Salva o fornecedor digitado associado ao ID da movimentação
+      if (res?.id && fornecedorEntrada.trim()) {
+        try {
+          localStorage.setItem(`@gestao_refeitorio:mov_fornecedor_${res.id}`, fornecedorEntrada.trim());
+        } catch (e) {}
+      }
 
       await carregarProdutos();
       
@@ -1391,6 +1466,86 @@ export default function EstoqueGeralPage() {
                     className="w-full pl-8 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Origem / Fornecimento
+                  </label>
+                  <select
+                    value={novoInsumoOrigem}
+                    onChange={(e) => setNovoInsumoOrigem(e.target.value as any)}
+                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
+                  >
+                    <option value="EXTERNA">Fornecedor Externo</option>
+                    <option value="AGROINDUSTRIA">Agroindústria (IFPE)</option>
+                    <option value="INTERNA">Produção Interna</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Fornecedor / Cooperativa
+                  </label>
+                  <input
+                    type="text"
+                    value={novoInsumoFornecedor}
+                    onChange={(e) => setNovoInsumoFornecedor(e.target.value)}
+                    placeholder="Ex: agropecuorio, Cooperativa..."
+                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-semibold focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-emerald-950 block">
+                      Dar Entrada Inicial no Estoque
+                    </span>
+                    <span className="text-[10px] text-emerald-700 block">
+                      Cadastra o insumo e já registra a primeira carga recebida.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={novoInsumoDarEntradaInicial}
+                    onChange={(e) => setNovoInsumoDarEntradaInicial(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded border-emerald-300 focus:ring-emerald-500 cursor-pointer"
+                  />
+                </div>
+
+                {novoInsumoDarEntradaInicial && (
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-emerald-200/60 animate-in fade-in">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-emerald-900 uppercase">
+                        Qtd. Recebida ({novoInsumoUnidade}) *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0.1"
+                        value={novoInsumoQtdInicial}
+                        onChange={(e) => setNovoInsumoQtdInicial(e.target.value)}
+                        placeholder="Ex: 50"
+                        className="w-full p-2 bg-white border border-emerald-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-emerald-900 uppercase">
+                        Validade (Opcional)
+                      </label>
+                      <input
+                        type="date"
+                        value={novoInsumoValidadeInicial}
+                        onChange={(e) => setNovoInsumoValidadeInicial(e.target.value)}
+                        className="w-full p-2 bg-white border border-emerald-300 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:border-emerald-600"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {erroNovoInsumo && (

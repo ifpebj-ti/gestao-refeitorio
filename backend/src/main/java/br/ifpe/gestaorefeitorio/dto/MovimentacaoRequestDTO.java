@@ -30,6 +30,9 @@ public record MovimentacaoRequestDTO(
         BigDecimal valor,
 
         // Opcional — nem todo produto tem controle de validade (CLAUDE.md, Produto.controlaValidade).
-        LocalDate dataValidade
+        LocalDate dataValidade,
+
+        // Opcional — nome do fornecedor/cooperativa informado no recebimento
+        String fornecedor
 ) {
 }

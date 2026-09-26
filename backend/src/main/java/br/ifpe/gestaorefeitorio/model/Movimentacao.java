@@ -58,6 +58,10 @@ public class Movimentacao {
     /** Data de validade do lote recebido, quando aplicável (entradas). */
     private LocalDate dataValidade;
 
+    /** Nome do fornecedor ou cooperativa de origem da mercadoria. */
+    @Column(length = 150)
+    private String fornecedor;
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "responsavel_id")
     private Usuario responsavel;

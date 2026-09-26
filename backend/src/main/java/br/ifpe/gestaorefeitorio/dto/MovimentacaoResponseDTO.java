@@ -21,6 +21,10 @@ public record MovimentacaoResponseDTO(
         TipoSaida tipoSaida,
         BigDecimal valor,
         LocalDate dataValidade,
-        BigDecimal saldoAtual
+        BigDecimal saldoAtual,
+        String responsavelNome,
+        String responsavelEmail,
+        String responsavelPerfil,
+        String fornecedor
 ) {
 }

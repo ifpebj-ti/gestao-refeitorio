@@ -7,6 +7,8 @@ export interface MovimentacaoEntradaRequest {
   data: string; // YYYY-MM-DD
   origem: "EXTERNA" | "AGROINDUSTRIA" | "INTERNA";
   valor: number;
+  dataValidade?: string;
+  fornecedor?: string;
 }
 
 export interface MovimentacaoSaidaRequest {
@@ -31,6 +33,10 @@ export interface MovimentacaoResponse {
   tipoSaida?: "CONSUMO" | "PERDA" | "DESCARTE" | "OUTRO" | string;
   dataValidade?: string;
   saldoAtual?: number;
+  responsavelNome?: string;
+  responsavelEmail?: string;
+  responsavelPerfil?: string;
+  fornecedor?: string;
 }
 
 export const registrarEntradaApi = async (
