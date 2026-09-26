@@ -51,14 +51,14 @@ public class ProdutoServiceImpl implements ProdutoService {
 
     @Override
     public List<ProdutoResponseDTO> listarTodos() {
-        return produtoRepository.findAll().stream()
+        return produtoRepository.findAllByOrderByNomeAsc().stream()
                 .map(this::paraDTO)
                 .toList();
     }
 
     @Override
     public List<ProdutoResponseDTO> listarPorCategoria(String categoria) {
-        return produtoRepository.findByCategoriaIgnoreCase(categoria).stream()
+        return produtoRepository.findByCategoriaIgnoreCaseOrderByNomeAsc(categoria).stream()
                 .map(this::paraDTO)
                 .toList();
     }

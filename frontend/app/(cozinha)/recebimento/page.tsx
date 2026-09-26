@@ -94,14 +94,16 @@ export default function RecebimentoCozinhaPage() {
     carregarCatalogo();
   }, []);
 
-  const produtosFiltrados = produtosDisponiveis.filter((item) => {
-    const bateCategoria =
-      categoriaAtiva === "Todos" || item.categoria === categoriaAtiva;
-    const bateBusca =
-      busca.trim() === "" ||
-      item.nome.toLowerCase().includes(busca.toLowerCase());
-    return bateCategoria && bateBusca;
-  });
+  const produtosFiltrados = produtosDisponiveis
+    .filter((item) => {
+      const bateCategoria =
+        categoriaAtiva === "Todos" || item.categoria === categoriaAtiva;
+      const bateBusca =
+        busca.trim() === "" ||
+        item.nome.toLowerCase().includes(busca.toLowerCase());
+      return bateCategoria && bateBusca;
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
   const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

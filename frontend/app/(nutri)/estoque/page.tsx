@@ -385,17 +385,21 @@ export default function EstoqueGeralPage() {
     return statusSaldo === "ATENCAO" ? "ATENCAO" : "NORMAL";
   };
 
-  const itensFiltrados = listaEstoque.filter((item) => {
-    const bateCategoria = categoriaFiltro === "Todos" || item.categoria === categoriaFiltro;
-    const bateBusca = busca.trim() === "" || item.nome.toLowerCase().includes(busca.toLowerCase());
-    return bateCategoria && bateBusca;
-  });
+  const itensFiltrados = listaEstoque
+    .filter((item) => {
+      const bateCategoria = categoriaFiltro === "Todos" || item.categoria === categoriaFiltro;
+      const bateBusca = busca.trim() === "" || item.nome.toLowerCase().includes(busca.toLowerCase());
+      return bateCategoria && bateBusca;
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
-  const insumosEntradaFiltrados = listaEstoque.filter((item) => {
-    const bateCategoria = categoriaEntradaAtiva === "Todos" || item.categoria === categoriaEntradaAtiva;
-    const bateBusca = buscaEntrada.trim() === "" || item.nome.toLowerCase().includes(buscaEntrada.toLowerCase());
-    return bateCategoria && bateBusca;
-  });
+  const insumosEntradaFiltrados = listaEstoque
+    .filter((item) => {
+      const bateCategoria = categoriaEntradaAtiva === "Todos" || item.categoria === categoriaEntradaAtiva;
+      const bateBusca = buscaEntrada.trim() === "" || item.nome.toLowerCase().includes(buscaEntrada.toLowerCase());
+      return bateCategoria && bateBusca;
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
   const totalAtencao = listaEstoque.filter((i) => calcularStatusItem(i) === "ATENCAO").length;
 
