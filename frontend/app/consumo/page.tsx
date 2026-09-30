@@ -148,27 +148,7 @@ export default function ConsumoDiarioPage() {
         });
         setConsumoNutri({ ...parsed, itens: itensAtualizados });
       } else {
-        // Se for hoje e for Almoço e não houver lançamento ainda, exibe modelo demonstrativo
-        const hojeIso = new Date().toISOString().split("T")[0];
-        if (dataRegistro === hojeIso && tipoRefeicao === "Almoço" && itens.length > 0) {
-          const itensExemplo: ItemConsumoVisualizacao[] = itens.slice(0, 4).map((prod, idx) => ({
-            id: prod.id,
-            nome: prod.nome,
-            categoria: prod.categoria,
-            unidade: prod.unidade,
-            quantidadeUsada: idx === 0 ? 15 : idx === 1 ? 8 : idx === 2 ? 3 : 1.5,
-            saldoTotal: prod.saldoTotal,
-          }));
-          setConsumoNutri({
-            data: dataRegistro,
-            refeicao: tipoRefeicao,
-            horario: "12:30",
-            observacao: "Preparo regular do almoço concluído.",
-            itens: itensExemplo,
-          });
-        } else {
-          setConsumoNutri(null);
-        }
+        setConsumoNutri(null);
       }
     } catch (e) {
       console.error("Erro ao ler consumo salvo para nutricionista:", e);
@@ -176,48 +156,52 @@ export default function ConsumoDiarioPage() {
     }
   }, [dataRegistro, tipoRefeicao, isNutricionista, itens]);
 
-  const cardapioAtual = useMemo(() => {
+  const MSG_CARDAPIO_PADRAO = "Nenhum cardápio cadastrado para esta refeição. O nutricionista pode definir no planejamento semanal.";
+  const [cardapioAtual, setCardapioAtual] = useState<string>(MSG_CARDAPIO_PADRAO);
+
+  useEffect(() => {
     try {
-      if (typeof window !== "undefined") {
-        const salvo = localStorage.getItem("@gestao_refeitorio:cardapio_semanal");
-        if (salvo) {
-          const semanal = JSON.parse(salvo);
-          const diaNome = obterDiaSemanaNome(dataRegistro);
-          const diaDados = semanal[diaNome];
+      const salvo = typeof window !== "undefined" ? localStorage.getItem("@gestao_refeitorio:cardapio_semanal") : null;
+      if (salvo) {
+        const semanal = JSON.parse(salvo);
+        const diaNome = obterDiaSemanaNome(dataRegistro);
+        const diaDados = semanal[diaNome];
 
-          if (diaDados) {
-            let info = "";
-            if (tipoRefeicao === "Café da Manhã" && diaDados.cafe) {
-              const partes = [
-                diaDados.cafe.pratoPrincipal,
-                diaDados.cafe.acompanhamentos ? `Acompanhamentos: ${diaDados.cafe.acompanhamentos}` : "",
-                diaDados.cafe.saladaSobremesa ? `Fruta: ${diaDados.cafe.saladaSobremesa}` : "",
-              ].filter(Boolean);
-              info = partes.join(" • ");
-            } else if (tipoRefeicao === "Almoço" && diaDados.almoco) {
-              const partes = [
-                diaDados.almoco.pratoPrincipal,
-                diaDados.almoco.acompanhamentos ? `Guarnições: ${diaDados.almoco.acompanhamentos}` : "",
-                diaDados.almoco.saladaSobremesa ? `Salada/Sobremesa: ${diaDados.almoco.saladaSobremesa}` : "",
-              ].filter(Boolean);
-              info = partes.join(" • ");
-            } else if (tipoRefeicao === "Jantar" && diaDados.jantar) {
-              const partes = [
-                diaDados.jantar.pratoPrincipal,
-                diaDados.jantar.acompanhamentos ? `Acompanhamentos: ${diaDados.jantar.acompanhamentos}` : "",
-                diaDados.jantar.saladaSobremesa ? `Sobremesa: ${diaDados.jantar.saladaSobremesa}` : "",
-              ].filter(Boolean);
-              info = partes.join(" • ");
-            }
+        if (diaDados) {
+          let info = "";
+          if (tipoRefeicao === "Café da Manhã" && diaDados.cafe) {
+            const partes = [
+              diaDados.cafe.pratoPrincipal,
+              diaDados.cafe.acompanhamentos ? `Acompanhamentos: ${diaDados.cafe.acompanhamentos}` : "",
+              diaDados.cafe.saladaSobremesa ? `Fruta: ${diaDados.cafe.saladaSobremesa}` : "",
+            ].filter(Boolean);
+            info = partes.join(" • ");
+          } else if (tipoRefeicao === "Almoço" && diaDados.almoco) {
+            const partes = [
+              diaDados.almoco.pratoPrincipal,
+              diaDados.almoco.acompanhamentos ? `Guarnições: ${diaDados.almoco.acompanhamentos}` : "",
+              diaDados.almoco.saladaSobremesa ? `Salada/Sobremesa: ${diaDados.almoco.saladaSobremesa}` : "",
+            ].filter(Boolean);
+            info = partes.join(" • ");
+          } else if (tipoRefeicao === "Jantar" && diaDados.jantar) {
+            const partes = [
+              diaDados.jantar.pratoPrincipal,
+              diaDados.jantar.acompanhamentos ? `Acompanhamentos: ${diaDados.jantar.acompanhamentos}` : "",
+              diaDados.jantar.saladaSobremesa ? `Sobremesa: ${diaDados.jantar.saladaSobremesa}` : "",
+            ].filter(Boolean);
+            info = partes.join(" • ");
+          }
 
-            if (info.trim()) return info;
+          if (info.trim()) {
+            setCardapioAtual(info);
+            return;
           }
         }
       }
     } catch (e) {
       console.error("Erro ao ler cardápio da semana:", e);
     }
-    return "Nenhum cardápio cadastrado para esta refeição. O nutricionista pode definir no planejamento semanal.";
+    setCardapioAtual(MSG_CARDAPIO_PADRAO);
   }, [dataRegistro, tipoRefeicao]);
 
   // Controles de quantidade para a equipe da cozinha
