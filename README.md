@@ -17,7 +17,8 @@ campus.
 - `job` — jobs agendados (ex: alerta de validade)
 - `exception` — tratamento global de exceções
 
-**Banco de dados:** PostgreSQL, com migrações versionadas via Flyway
+**Banco de dados:** PostgreSQL, com migrações versionadas via Flyway. Consulte a
+[Modelagem de Dados](docs/MODELAGEM_DADOS.md) para o diagrama, o dicionário de dados e as regras de integridade.
 **Autenticação/Autorização:** JWT + Spring Security, com dois perfis (`NUTRICIONISTA` e `COZINHEIRA`) controlados via `@PreAuthorize`
 **Arquivos (fotos/documentos):** armazenar fora do banco (MinIO/S3) e salvar apenas a URL — ainda não implementado neste esqueleto, ver "Próximos passos"
 **Alertas de validade:** job agendado (`AlertaValidadeJob`, Spring `@Scheduled`) que roda diariamente
