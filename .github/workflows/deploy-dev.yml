@@ -60,7 +60,13 @@ jobs:
           HOST: ${{ secrets.DEV_HOST }}
           USER: ${{ secrets.DEV_USER }}
         run: |
-          scp -i ~/.ssh/deploy_key docker-compose.yml docker-compose.dev.yml \
+          scp -i ~/.ssh/deploy_key \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -o ConnectionAttempts=3 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=2 \
+            docker-compose.yml docker-compose.dev.yml \
             "$USER@$HOST:/opt/gestao-refeitorio/"
       - name: Deploy with health check and rollback
         env:
@@ -68,5 +74,11 @@ jobs:
           USER: ${{ secrets.DEV_USER }}
           IMAGE_TAG: dev-${{ needs.context.outputs.short_sha }}
         run: |
-          ssh -i ~/.ssh/deploy_key "$USER@$HOST" \
+          ssh -i ~/.ssh/deploy_key \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -o ConnectionAttempts=3 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=2 \
+            "$USER@$HOST" \
             "bash -s -- '$IMAGE_TAG' docker-compose.dev.yml" < scripts/deploy-remote.sh
