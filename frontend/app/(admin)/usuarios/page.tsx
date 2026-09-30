@@ -95,6 +95,7 @@ export default function GestaoUsuariosPage() {
   const totalUsuarios = usuarios.length;
   const totalAdmins = usuarios.filter((u) => u.perfil === "ADMIN").length;
   const totalNutris = usuarios.filter((u) => u.perfil === "NUTRICIONISTA").length;
+  const totalCozinha = usuarios.filter((u) => u.perfil === "COZINHA").length;
   const totalAtivos = usuarios.filter((u) => u.ativo).length;
 
   // Filtragem
@@ -243,7 +244,7 @@ export default function GestaoUsuariosPage() {
             <span>Gestão de Usuários</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Controle de acesso e cadastro de contas institucionais para Nutricionistas e Administradores
+            Controle de acesso e cadastro de contas institucionais para Cozinha, Nutricionistas e Administradores
           </p>
         </div>
 
@@ -274,14 +275,23 @@ export default function GestaoUsuariosPage() {
       )}
 
       {/* 2. CARDS DE KPIS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-xs space-y-1 hover:border-purple-200 transition-colors">
           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-purple-600" />
             <span>Total de Contas</span>
           </span>
           <p className="text-2xl font-black text-slate-800">{totalUsuarios}</p>
-          <p className="text-[11px] text-slate-400">Contas com login institucional</p>
+          <p className="text-[11px] text-slate-400">Contas institucionais</p>
+        </div>
+
+        <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-xs space-y-1 hover:border-amber-200 transition-colors">
+          <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+            <UtensilsCrossed className="w-3.5 h-3.5 text-amber-600" />
+            <span>Cozinha</span>
+          </span>
+          <p className="text-2xl font-black text-amber-900">{totalCozinha}</p>
+          <p className="text-[11px] text-slate-400">Consumo e recebimentos</p>
         </div>
 
         <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-xs space-y-1 hover:border-emerald-200 transition-colors">
@@ -290,7 +300,7 @@ export default function GestaoUsuariosPage() {
             <span>Nutricionistas</span>
           </span>
           <p className="text-2xl font-black text-emerald-900">{totalNutris}</p>
-          <p className="text-[11px] text-slate-400">Estoque, cardápio e relatórios</p>
+          <p className="text-[11px] text-slate-400">Estoque e relatórios</p>
         </div>
 
         <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-xs space-y-1 hover:border-purple-200 transition-colors">
@@ -299,10 +309,10 @@ export default function GestaoUsuariosPage() {
             <span>Administradores</span>
           </span>
           <p className="text-2xl font-black text-purple-900">{totalAdmins}</p>
-          <p className="text-[11px] text-slate-400">Gestão de acessos e TI</p>
+          <p className="text-[11px] text-slate-400">Gestão e acessos TI</p>
         </div>
 
-        <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-xs space-y-1 hover:border-emerald-200 transition-colors">
+        <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-xs space-y-1 hover:border-emerald-200 transition-colors sm:col-span-2 lg:col-span-1">
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
             <span>Contas Ativas</span>
@@ -337,6 +347,7 @@ export default function GestaoUsuariosPage() {
             className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-purple-500 cursor-pointer"
           >
             <option value="TODOS">Todos os Perfis</option>
+            <option value="COZINHA">Cozinha</option>
             <option value="NUTRICIONISTA">Nutricionistas</option>
             <option value="ADMIN">Administradores</option>
           </select>
@@ -492,7 +503,7 @@ export default function GestaoUsuariosPage() {
                 </div>
                 <div>
                   <h3 className="text-base font-extrabold text-slate-900">Novo Usuário</h3>
-                  <p className="text-xs text-slate-400">Cadastre o acesso institucional</p>
+                  <p className="text-xs text-slate-400">Cadastre um novo usuário no sistema</p>
                 </div>
               </div>
               <button
@@ -526,12 +537,12 @@ export default function GestaoUsuariosPage() {
 
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700">
-                  E-mail Google Institucional *
+                  E-mail *
                 </label>
                 <input
                   type="email"
                   required
-                  placeholder="exemplo@belojardim.ifpe.edu.br"
+                  placeholder="exemplo@gmail.com ou @ifpe.edu.br"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
@@ -544,6 +555,31 @@ export default function GestaoUsuariosPage() {
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700">Perfil de Acesso *</label>
                 <div className="grid grid-cols-1 gap-2">
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                      formPerfil === "COZINHA"
+                        ? "border-amber-500 bg-amber-50/50 shadow-2xs"
+                        : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="perfil"
+                      value="COZINHA"
+                      checked={formPerfil === "COZINHA"}
+                      onChange={() => setFormPerfil("COZINHA")}
+                      className="mt-0.5 text-amber-600 focus:ring-amber-500"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block">
+                        Cozinha
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Lançamento diário de insumos consumidos e conferência de recebimentos.
+                      </span>
+                    </div>
+                  </label>
+
                   <label
                     className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                       formPerfil === "NUTRICIONISTA"
@@ -663,6 +699,31 @@ export default function GestaoUsuariosPage() {
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700">Perfil de Acesso *</label>
                 <div className="grid grid-cols-1 gap-2">
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                      formPerfil === "COZINHA"
+                        ? "border-amber-500 bg-amber-50/50 shadow-2xs"
+                        : "border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="perfil-edit"
+                      value="COZINHA"
+                      checked={formPerfil === "COZINHA"}
+                      onChange={() => setFormPerfil("COZINHA")}
+                      className="mt-0.5 text-amber-600 focus:ring-amber-500"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 block">
+                        Cozinha
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Lançamento diário de insumos consumidos e conferência de recebimentos.
+                      </span>
+                    </div>
+                  </label>
+
                   <label
                     className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                       formPerfil === "NUTRICIONISTA"

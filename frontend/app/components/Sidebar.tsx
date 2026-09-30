@@ -145,25 +145,14 @@ export default function Sidebar() {
             </span>
           </div>
 
-          {perfil === "ADMIN" || perfil === "NUTRICIONISTA" ? (
-            <button
-              type="button"
-              onClick={logout}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Encerrar Sessão</span>
-            </button>
-          ) : (
-            <Link
-              href="/"
-              onClick={() => setMenuMobileAberto(false)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-slate-500" />
-              <span>Trocar de Perfil / Início</span>
-            </Link>
-          )}
+          <button
+            type="button"
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Encerrar Sessão</span>
+          </button>
         </div>
       </aside>
     </>
