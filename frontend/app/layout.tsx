@@ -1,10 +1,11 @@
 "use client";
 
 import "./globals.css";
-import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Sidebar from "./components/Sidebar";
-import { Menu } from "lucide-react";
+import { Menu, Loader2 } from "lucide-react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
 function Header() {
@@ -43,12 +44,64 @@ function Header() {
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isFullscreen = pathname === "/" || pathname === "/login";
+  const router = useRouter();
+  const { autenticado, carregando, perfil } = useAuth();
+  const isAuthPage = pathname === "/" || pathname === "/login";
 
-  if (isFullscreen) {
+  useEffect(() => {
+    if (carregando) return;
+
+    // 1. Usuário não autenticado tentando acessar qualquer rota interna protegida
+    if (!autenticado && !isAuthPage) {
+      router.replace("/");
+      return;
+    }
+
+    // 2. Usuário autenticado acessando a tela de login
+    if (autenticado && isAuthPage) {
+      if (perfil === "ADMIN") {
+        router.replace("/usuarios");
+      } else {
+        router.replace("/consumo");
+      }
+      return;
+    }
+
+    // 3. Controle de acesso por perfil (RBAC) para rotas internas
+    if (autenticado) {
+      if (perfil === "COZINHA") {
+        const rotasRestritasCozinha = ["/estoque", "/relatorios", "/cardapio", "/usuarios"];
+        if (rotasRestritasCozinha.some((r) => pathname.startsWith(r))) {
+          router.replace("/consumo");
+        }
+      } else if (perfil === "NUTRICIONISTA") {
+        if (pathname.startsWith("/usuarios")) {
+          router.replace("/consumo");
+        }
+      } else if (perfil === "ADMIN") {
+        if (!pathname.startsWith("/usuarios")) {
+          router.replace("/usuarios");
+        }
+      }
+    }
+  }, [autenticado, carregando, isAuthPage, pathname, perfil, router]);
+
+  // Se for página de login
+  if (isAuthPage) {
     return <main className="w-full h-full min-h-screen overflow-y-auto">{children}</main>;
   }
 
+  // Se ainda estiver validando credenciais ou não autenticado
+  if (carregando || !autenticado) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-slate-50 gap-3">
+        <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+        <span className="text-xs font-semibold text-slate-500">Verificando autorização...</span>
+      </div>
+    );
+  }
+
+  // Layout autenticado padrão com Sidebar e Header
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />

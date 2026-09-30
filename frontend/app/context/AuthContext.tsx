@@ -24,16 +24,11 @@ interface AuthContextType {
   setTotalAlertasPendentes: (total: number) => void;
   bannerAlertasVisivel: boolean;
   loginComGoogle: (idToken: string) => Promise<void>;
-  validarPin: (pin: string) => boolean;
   logout: () => void;
-  voltarParaCozinha: () => void;
-  entrarComoCozinha: () => void;
   toggleMenuMobile: () => void;
   fecharMenuMobile: () => void;
   dispensarBannerAlertas: () => void;
 }
-
-const PIN_MESTRE_NUTRI = "1234";
 const STORAGE_TOKEN_KEY = "@gestao_refeitorio:token";
 const STORAGE_USER_KEY = "@gestao_refeitorio:user";
 const STORAGE_PERFIL_KEY = "@gestao_refeitorio:perfil_ativo";
@@ -105,11 +100,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUsuario(dadosUser);
         setPerfil(perfilSalvo || dadosUser.perfil);
         setAutenticado(true);
-      } else if (perfilSalvo) {
-        setPerfil(perfilSalvo);
+      } else {
+        setToken(null);
+        setUsuario(null);
+        setAutenticado(false);
       }
     } catch (e) {
       console.error("Erro ao ler sessão local:", e);
+      setToken(null);
+      setUsuario(null);
+      setAutenticado(false);
     } finally {
       setCarregando(false);
     }
@@ -119,7 +119,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fecharMenuMobile = () => setMenuMobileAberto(false);
 
   const loginComGoogle = async (idToken: string) => {
-    const response = await fetch("http://localhost:8080/api/auth/google", {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+    const response = await fetch(`${baseUrl}/auth/google`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -129,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!response.ok) {
       const erro = await response.json().catch(() => null);
-      throw new Error(erro?.message || "Falha na autenticação institucional com Google.");
+      throw new Error(erro?.mensagem || erro?.message || "E-mail não autorizado ou inativo no sistema.");
     }
 
     const data: { token: string; nome: string; email: string; perfil: PerfilUsuario } = await response.json();
@@ -149,22 +150,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(dadosUsuario));
     localStorage.setItem(STORAGE_PERFIL_KEY, data.perfil);
 
-    if (data.perfil === "COZINHA") {
-      router.push("/consumo");
-    } else if (data.perfil === "ADMIN") {
+    if (data.perfil === "ADMIN") {
       router.push("/usuarios");
     } else {
       router.push("/consumo");
     }
-  };
-
-  const validarPin = (pinDigitado: string): boolean => {
-    if (pinDigitado === PIN_MESTRE_NUTRI) {
-      setPerfil("NUTRICIONISTA");
-      setAutenticado(true);
-      return true;
-    }
-    return false;
   };
 
   const logout = () => {
@@ -180,29 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPerfil("COZINHA");
     setAutenticado(false);
     setMenuMobileAberto(false);
-    router.push("/");
-  };
-
-  const voltarParaCozinha = () => {
-    try {
-      localStorage.setItem(STORAGE_PERFIL_KEY, "COZINHA");
-    } catch (e) {
-      console.error("Erro ao salvar perfil da cozinha:", e);
-    }
-    setPerfil("COZINHA");
-    setMenuMobileAberto(false);
-    router.push("/consumo");
-  };
-
-  const entrarComoCozinha = () => {
-    try {
-      localStorage.setItem(STORAGE_PERFIL_KEY, "COZINHA");
-    } catch (e) {
-      console.error("Erro ao salvar perfil da cozinha:", e);
-    }
-    setPerfil("COZINHA");
-    setMenuMobileAberto(false);
-    router.push("/consumo");
+    router.replace("/");
   };
 
   const dispensarBannerAlertas = () => {
@@ -224,10 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTotalAlertasPendentes,
         bannerAlertasVisivel,
         loginComGoogle,
-        validarPin,
         logout,
-        voltarParaCozinha,
-        entrarComoCozinha,
         toggleMenuMobile,
         fecharMenuMobile,
         dispensarBannerAlertas,
