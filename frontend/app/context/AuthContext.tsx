@@ -53,16 +53,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const [bannerAlertasVisivel, setBannerAlertasVisivel] = useState(true);
 
-  // Inicializa com o total persistido para aparecer imediatamente sem atraso
-  const [totalAlertasPendentes, setTotalAlertasPendentesState] = useState<number>(() => {
+  // Inicializa com 0 para evitar hydration mismatch no SSR, carregando do localStorage após montagem
+  const [totalAlertasPendentes, setTotalAlertasPendentesState] = useState<number>(0);
+
+  useEffect(() => {
     try {
-      if (typeof window !== "undefined") {
-        const salvo = localStorage.getItem("@gestao_refeitorio:total_alertas");
-        if (salvo !== null) return parseInt(salvo, 10) || 0;
+      const salvo = localStorage.getItem("@gestao_refeitorio:total_alertas");
+      if (salvo !== null) {
+        const parsed = parseInt(salvo, 10);
+        if (!isNaN(parsed)) setTotalAlertasPendentesState(parsed);
       }
     } catch {}
-    return 0;
-  });
+  }, []);
 
   const setTotalAlertasPendentes = (total: number) => {
     setTotalAlertasPendentesState(total);
