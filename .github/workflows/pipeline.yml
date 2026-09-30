@@ -104,6 +104,8 @@ jobs:
       short_sha: ${{ steps.revision.outputs.short_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - id: revision
         name: Resolve revision
         run: echo "short_sha=${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
