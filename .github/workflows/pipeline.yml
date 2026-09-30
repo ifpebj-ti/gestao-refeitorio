@@ -163,7 +163,7 @@ jobs:
           # Maven POM inheritance can make the filesystem scanner report versions
           # from unrelated properties. Scan repository configuration and secrets
           # here; resolved backend dependencies are inspected in the built image.
-          run_trivy repository trivy fs --skip-dirs .git --scanners secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
+          run_trivy repository trivy fs --offline-scan --skip-dirs .git --scanners secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
           run_trivy "frontend image" trivy image --ignorefile .trivyignore.yaml --show-suppressed --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 gestao-refeitorio-frontend:ci
           run_trivy "backend image" trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 gestao-refeitorio-backend:ci
 
