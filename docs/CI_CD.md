@@ -2,7 +2,7 @@
 
 ## Diagnóstico da base
 
-O repositório é um monorepo com frontend Next.js 14/TypeScript, API Spring Boot 3/Java 21,
+O repositório é um monorepo com frontend Next.js 16/TypeScript, API Spring Boot 4/Java 21,
 PostgreSQL 16 e migrações Flyway. O backend possui 120 testes JUnit distribuídos entre testes
 unitários, integração com Testcontainers e autorização por perfil. O frontend ainda não possui
 suíte automatizada; por isso o gate atual cobre lint, tipos e build, sem simular testes que não
@@ -54,21 +54,22 @@ A versão inicial registrada para releases é `0.1.0`.
 
 ## Gates de qualidade e segurança
 
-O workflow `CI` é obrigatório antes de merge/deploy:
+O workflow consolidado `CI / Security / Release` é obrigatório antes de merge/deploy:
 
-1. frontend: instalação, auditoria de dependências e build de produção usando os scripts atuais;
+1. frontend: instalação reproduzível, ESLint, verificação de tipos, auditoria de dependências e build de produção;
 2. backend: `mvn clean verify`, incluindo unitários, integração, Flyway e RBAC;
-3. repositório: Trivy para CVEs, segredos e configuração insegura (HIGH/CRITICAL);
-4. containers: build real das duas imagens e bloqueio por CVE CRITICAL corrigível.
+3. segurança: SAST com Semgrep e Dependency Review nas pull requests;
+4. containers: build real das duas imagens;
+5. Trivy centralizado: um único estágio verifica o repositório e as duas imagens, bloqueando
+   achados HIGH/CRITICAL no código/configuração e CVEs CRITICAL corrigíveis nas imagens;
+6. registry: somente imagens que passaram por todos os gates são publicadas no GHCR.
 
-O workflow `Security (deep scan)` complementa o gate com CodeQL para Java e JavaScript/TypeScript,
-Dependency Review em PRs e publicação SARIF no Security tab. Ele também roda toda segunda-feira,
-capturando vulnerabilidades divulgadas depois do merge. O Dependabot cobre npm, Maven, imagens
-Docker e GitHub Actions.
+O mesmo workflow também roda toda segunda-feira, capturando vulnerabilidades divulgadas depois
+do merge. O CodeQL permanece habilitado pelo Default Setup do GitHub, sem uma segunda configuração
+avançada conflitante. O Dependabot cobre npm, Maven, imagens Docker e GitHub Actions.
 
-Como `frontend/package-lock.json` é ignorado pela estrutura atual, o CI usa `npm install` em vez
-de `npm ci`. Isso preserva o frontend sem alterações, mas reduz a reprodutibilidade. A geração e
-versionamento do lockfile fica como decisão futura da equipe do frontend.
+O `frontend/package-lock.json` é versionado e o workflow usa `npm ci`, garantindo uma instalação
+reproduzível das dependências.
 
 Os scans podem bloquear a primeira execução por vulnerabilidades já existentes nas dependências
 das aplicações. Esse comportamento é intencional: a esteira não altera nem cria exceções para o
@@ -77,11 +78,11 @@ respectivas equipes antes da promoção da imagem.
 
 ## Deploy e rollback
 
-`develop` é implantada somente após a conclusão bem-sucedida do workflow `CI`. O pipeline compila
-a revisão exata, verifica a imagem antes do push e implanta `dev-<sha>`.
+`develop` é implantada somente após a conclusão bem-sucedida do workflow consolidado. O pipeline
+compila a revisão exata, verifica e publica as imagens `dev-<sha>` antes de acionar o deploy.
 
-Em produção, a imagem é construída a partir da tag criada pelo Release Please, verificada e
-publicada como `X.Y.Z`, `vX.Y.Z`, `sha-<commit>` e `latest`. O job usa o GitHub Environment
+Em produção, a imagem `sha-<commit>` já analisada é promovida, sem rebuild, para as tags `X.Y.Z`,
+`vX.Y.Z` e `latest`. O job usa o GitHub Environment
 `production`, onde deve haver aprovação manual. Depois do `docker compose up`, o servidor testa
 o Actuator e a página inicial por até 180 segundos. Falha de saúde restaura automaticamente a
 última tag bem-sucedida registrada no host.
@@ -109,9 +110,9 @@ novos workflows para o PR criado por esse token. Para que o PR automático receb
 obrigatórios, prefira um GitHub App token ou PAT de uma conta técnica com acesso mínimo a
 contents e pull requests.
 
-Proteja `develop` e `main` exigindo os checks do `CI`; em `main`, exija também os checks CodeQL e
-Dependency Review se o plano do GitHub oferecer Advanced Security. Desabilite push direto e exija
-ao menos uma revisão.
+Proteja `develop` e `main` exigindo os jobs de frontend, backend, segurança e imagens do workflow
+`CI / Security / Release`; em `main`, exija também o CodeQL padrão se o plano do GitHub oferecer
+Advanced Security. Desabilite push direto e exija ao menos uma revisão.
 
 ## Evolução recomendada
 
