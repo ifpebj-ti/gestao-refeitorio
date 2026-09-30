@@ -4,10 +4,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import br.ifpe.gestaorefeitorio.dto.ConsumoDiarioDTO;
+import br.ifpe.gestaorefeitorio.dto.MovimentacaoAgregadaDTO;
 import br.ifpe.gestaorefeitorio.dto.SaldoPorLocalDTO;
 import br.ifpe.gestaorefeitorio.model.Movimentacao;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,4 +49,65 @@ public interface MovimentacaoRepository extends JpaRepository<Movimentacao, UUID
 
     // Histórico de movimentações do produto (US11/#97), mais recente primeiro.
     List<Movimentacao> findByProdutoIdOrderByDataDesc(UUID produtoId);
+
+    // Mesmo cálculo de calcularSaldoTotal, mas considerando só movimentações até uma data —
+    // usado no relatório mensal (US19/#160) pra saldo final "naquele momento", não o saldo atual.
+    @Query("""
+            select coalesce(sum(case when m.tipo = br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao.ENTRADA
+                                      then m.quantidade else -m.quantidade end), 0)
+            from Movimentacao m
+            where m.produto.id = :produtoId and m.data <= :dataFim
+            """)
+    BigDecimal calcularSaldoTotalAteData(@Param("produtoId") UUID produtoId, @Param("dataFim") LocalDate dataFim);
+
+    // Agrega, por produto, as movimentações dentro do período (US19/#160): entradas, saídas,
+    // quanto veio de produção interna (origem = INTERNA) e o valor total comprado nas entradas.
+    // O saldoFinal é calculado à parte (calcularSaldoTotalAteData), por isso não entra aqui.
+    @Query("""
+            select new br.ifpe.gestaorefeitorio.dto.MovimentacaoAgregadaDTO(
+                    m.produto.id, m.produto.nome,
+                    coalesce(sum(case when m.tipo = br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao.ENTRADA
+                                       then m.quantidade else 0 end), 0),
+                    coalesce(sum(case when m.tipo = br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao.SAIDA
+                                       then m.quantidade else 0 end), 0),
+                    coalesce(sum(case when m.tipo = br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao.ENTRADA
+                                       and m.origem = br.ifpe.gestaorefeitorio.model.enums.OrigemMovimentacao.INTERNA
+                                       then m.quantidade else 0 end), 0),
+                    coalesce(sum(case when m.tipo = br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao.ENTRADA
+                                       then m.valor else 0 end), 0))
+            from Movimentacao m
+            where m.data between :dataInicio and :dataFim
+            group by m.produto.id, m.produto.nome
+            """)
+    List<MovimentacaoAgregadaDTO> agregarPorProdutoNoPeriodo(
+            @Param("dataInicio") LocalDate dataInicio, @Param("dataFim") LocalDate dataFim);
+
+    // Gráfico de consumo (US21/#166): só saídas do tipo CONSUMO (não inclui PERDA/DESCARTE/
+    // OUTRO), somadas por dia — série temporal pra identificar padrões de uso.
+    @Query("""
+            select new br.ifpe.gestaorefeitorio.dto.ConsumoDiarioDTO(m.data, sum(m.quantidade))
+            from Movimentacao m
+            where m.tipo = br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao.SAIDA
+              and m.tipoSaida = br.ifpe.gestaorefeitorio.model.enums.TipoSaida.CONSUMO
+              and m.data between :dataInicio and :dataFim
+            group by m.data
+            order by m.data
+            """)
+    List<ConsumoDiarioDTO> listarConsumoDiario(
+            @Param("dataInicio") LocalDate dataInicio, @Param("dataFim") LocalDate dataFim);
+
+    // Mesmo cálculo, filtrado por produto (quando o gráfico é de um insumo específico).
+    @Query("""
+            select new br.ifpe.gestaorefeitorio.dto.ConsumoDiarioDTO(m.data, sum(m.quantidade))
+            from Movimentacao m
+            where m.produto.id = :produtoId
+              and m.tipo = br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao.SAIDA
+              and m.tipoSaida = br.ifpe.gestaorefeitorio.model.enums.TipoSaida.CONSUMO
+              and m.data between :dataInicio and :dataFim
+            group by m.data
+            order by m.data
+            """)
+    List<ConsumoDiarioDTO> listarConsumoDiarioPorProduto(
+            @Param("produtoId") UUID produtoId, @Param("dataInicio") LocalDate dataInicio,
+            @Param("dataFim") LocalDate dataFim);
 }
