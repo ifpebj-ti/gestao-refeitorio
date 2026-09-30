@@ -37,6 +37,7 @@ class AuthControllerIntegrationTest {
 
     @Container
     @ServiceConnection
+    @SuppressWarnings("resource")
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Autowired

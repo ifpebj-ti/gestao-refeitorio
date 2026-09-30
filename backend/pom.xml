@@ -22,6 +22,8 @@
         <jjwt.version>0.13.0</jjwt.version>
         <google-api-client.version>2.9.1</google-api-client.version>
         <tomcat.version>11.0.25</tomcat.version>
+        <pdfbox.version>3.0.3</pdfbox.version>
+        <poi.version>5.4.0</poi.version>
     </properties>
 
     <dependencies>
@@ -76,20 +78,31 @@
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
-        <!-- Validação do id_token do Google (login OAuth2/OIDC) -->
         <dependency>
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client</artifactId>
             <version>${google-api-client.version}</version>
         </dependency>
 
-        <!-- Jobs agendados (alerta de validade) -->
+        <!-- Exportação de relatórios (US20/#163) -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+
+        <!-- Jobs agendados -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-quartz</artifactId>
         </dependency>
 
-        <!-- Observabilidade (funcionamento concreto: health, métricas) -->
+        <!-- Observabilidade -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -126,8 +139,13 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-test</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

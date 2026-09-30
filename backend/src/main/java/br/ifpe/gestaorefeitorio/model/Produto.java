@@ -40,6 +40,10 @@ public class Produto {
 
     private Integer diasAlertaValidade;
 
+    /** Definida manualmente pela NUTRICIONISTA. Usada pelo job de alerta de estoque baixo (US15). */
+    @Column(precision = 12, scale = 3)
+    private BigDecimal quantidadeMinima;
+
     @Column(nullable = false, updatable = false)
     private Instant criadoEm = Instant.now();
 }
