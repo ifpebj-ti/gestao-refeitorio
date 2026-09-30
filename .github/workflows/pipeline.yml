@@ -135,12 +135,35 @@ jobs:
           cache: true
       - name: Trivy / repository and images
         run: |
+          set +e
+          scan_status=0
+
+          run_trivy() {
+            local label="$1"
+            shift
+            local output
+            local result
+            local findings
+
+            output="$("$@" 2>&1)"
+            result=$?
+            printf '%s\n' "$output"
+
+            if [ "$result" -ne 0 ]; then
+              findings="$(printf '%s\n' "$output" | grep -oE '(CVE|AVD)-[A-Za-z0-9-]+' | sort -u | paste -sd ',' -)"
+              echo "::error title=Trivy / ${label}::${findings:-scan failed; see the job log}"
+              scan_status=1
+            fi
+          }
+
           # Maven POM inheritance can make the filesystem scanner report versions
           # from unrelated properties. Scan repository configuration and secrets
           # here; resolved backend dependencies are inspected in the built image.
-          trivy fs --scanners secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
-          trivy image --ignorefile .trivyignore.yaml --show-suppressed --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 gestao-refeitorio-frontend:ci
-          trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 gestao-refeitorio-backend:ci
+          run_trivy repository trivy fs --scanners secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
+          run_trivy "frontend image" trivy image --ignorefile .trivyignore.yaml --show-suppressed --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 gestao-refeitorio-frontend:ci
+          run_trivy "backend image" trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 gestao-refeitorio-backend:ci
+
+          exit "$scan_status"
       - name: Log in to GHCR
         if: >-
           (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
