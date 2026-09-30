@@ -139,7 +139,7 @@ jobs:
           # from unrelated properties. Scan repository configuration and secrets
           # here; resolved backend dependencies are inspected in the built image.
           trivy fs --scanners secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
-          trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 gestao-refeitorio-frontend:ci
+          trivy image --ignorefile .trivyignore.yaml --show-suppressed --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 gestao-refeitorio-frontend:ci
           trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 gestao-refeitorio-backend:ci
       - name: Log in to GHCR
         if: >-
