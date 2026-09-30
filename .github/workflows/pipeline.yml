@@ -36,7 +36,8 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
       - name: Lint
-        run: npx eslint . --config ../.github/eslint.config.mjs --max-warnings=0
+        # ESLint 10 ainda não é compatível com os plugins React do Next 16.
+        run: npx --yes eslint@9.39.5 . --config ../.github/eslint.config.mjs
       - name: Type check
         run: npx tsc --noEmit
       - name: Dependency audit

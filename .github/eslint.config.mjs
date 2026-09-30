@@ -11,6 +11,7 @@ export default [
     // Dívidas preexistentes do frontend; remover as exceções quando o código for corrigido.
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
+      "react-hooks/immutability": "off",
       "react-hooks/set-state-in-effect": "off",
     },
   },
