@@ -70,7 +70,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     // 3. Controle de acesso por perfil (RBAC) para rotas internas
     if (autenticado) {
       if (perfil === "COZINHA") {
-        const rotasRestritasCozinha = ["/estoque", "/relatorios", "/cardapio", "/usuarios"];
+        const rotasRestritasCozinha = ["/recebimento", "/estoque", "/relatorios", "/cardapio", "/usuarios"];
         if (rotasRestritasCozinha.some((r) => pathname.startsWith(r))) {
           router.replace("/consumo");
         }
