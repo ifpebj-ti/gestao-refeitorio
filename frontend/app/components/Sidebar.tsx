@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import {
   Utensils,
-  PackagePlus,
   Bell,
   Boxes,
   CalendarDays,
@@ -35,7 +34,6 @@ export default function Sidebar() {
   // Links da Cozinha (operacionais)
   const linksCozinha = [
     { href: "/consumo", label: "Consumo Diário", icon: Utensils },
-    { href: "/recebimento", label: "Entradas", icon: PackagePlus },
     { href: "/alertas", label: "Central de Alertas", icon: Bell },
   ];
 
