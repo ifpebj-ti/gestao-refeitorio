@@ -171,8 +171,8 @@ public class ProdutoServiceImpl implements ProdutoService {
 
     private ProdutoResponseDTO paraDTO(Produto produto) {
         BigDecimal saldoTotal = movimentacaoRepository.calcularSaldoTotal(produto.getId());
-        boolean temMovimentacoes = movimentacaoRepository.existsByProdutoId(produto.getId());
-        boolean temCardapio = itemCardapioRepository.existsByProdutoId(produto.getId());
+        boolean temMovimentacoes = movimentacaoRepository != null && movimentacaoRepository.existsByProdutoId(produto.getId());
+        boolean temCardapio = itemCardapioRepository != null && itemCardapioRepository.existsByProdutoId(produto.getId());
         boolean temSaldo = saldoTotal != null && saldoTotal.compareTo(BigDecimal.ZERO) > 0;
         boolean podeExcluir = !temMovimentacoes && !temCardapio && !temSaldo;
 

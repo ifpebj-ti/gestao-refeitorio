@@ -15,6 +15,7 @@ import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.model.enums.OrigemMovimentacao;
 import br.ifpe.gestaorefeitorio.model.enums.Perfil;
 import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
+import br.ifpe.gestaorefeitorio.repository.ItemCardapioRepository;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
 import br.ifpe.gestaorefeitorio.repository.ProducaoInternaRepository;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
@@ -50,6 +51,9 @@ class ProdutoServiceImplTest {
 
     @Mock
     private ProducaoInternaRepository producaoInternaRepository;
+
+    @Mock
+    private ItemCardapioRepository itemCardapioRepository;
 
     @InjectMocks
     private ProdutoServiceImpl produtoService;

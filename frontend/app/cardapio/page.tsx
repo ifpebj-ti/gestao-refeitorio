@@ -500,32 +500,27 @@ export default function CardapioSemanalPage() {
   );
 }
 
-// Helper para destacar letras correspondentes na busca em tempo real
-function destacarTexto(texto: string, busca: string) {
-  if (!busca.trim()) return texto;
-  try {
-    const escaped = busca.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`(${escaped})`, "gi");
-    const partes = texto.split(regex);
-    return (
-      <>
-        {partes.map((parte, i) =>
-          regex.test(parte) ? (
-            <span
-              key={i}
-              className="text-emerald-800 bg-emerald-100 font-extrabold px-0.5 rounded-xs"
-            >
-              {parte}
-            </span>
-          ) : (
-            parte
-          )
-        )}
-      </>
-    );
-  } catch {
-    return texto;
-  }
+// Helper para destacar letras correspondentes na busca em tempo real (sem RegExp para eliminar ReDoS/SAST)
+function destacarTexto(texto: string, busca: string): React.ReactNode {
+  const termo = busca.trim();
+  if (!termo) return texto;
+
+  const index = texto.toLowerCase().indexOf(termo.toLowerCase());
+  if (index === -1) return texto;
+
+  const antes = texto.substring(0, index);
+  const match = texto.substring(index, index + termo.length);
+  const resto = texto.substring(index + termo.length);
+
+  return (
+    <>
+      {antes}
+      <span className="text-emerald-800 bg-emerald-100 font-extrabold px-0.5 rounded-xs">
+        {match}
+      </span>
+      {resto ? destacarTexto(resto, busca) : null}
+    </>
+  );
 }
 
 // =========================================================================================
