@@ -22,6 +22,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.UUID;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -606,5 +607,49 @@ class ProdutoControllerIntegrationTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].dataValidade").value("2026-02-10"));
+    }
+
+    @Test
+    void devePermitirNutricionistaExcluirProdutoSemMovimentacoes() throws Exception {
+        String tokenNutri = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Tempero Especial", "Secos", "kg");
+
+        mockMvc.perform(delete("/api/produtos/" + produto.getId())
+                        .header("Authorization", "Bearer " + tokenNutri))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId())
+                        .header("Authorization", "Bearer " + tokenNutri))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void naoDevePermitirExcluirProdutoComMovimentacoes() throws Exception {
+        String tokenNutri = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto("Arroz Integral", "Grãos", "kg");
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + tokenNutri)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"produtoId":"%s","localId":"%s","quantidade":5,"data":"2026-01-10","origem":"EXTERNA","valor":10.00}
+                                """.formatted(produto.getId(), local.getId())))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(delete("/api/produtos/" + produto.getId())
+                        .header("Authorization", "Bearer " + tokenNutri))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.mensagem").value("Não é possível excluir o produto porque ele possui movimentações no estoque ou vínculo em cardápio."));
+    }
+
+    @Test
+    void naoDevePermitirCozinhaExcluirProduto() throws Exception {
+        String tokenCozinha = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto("Sal Grosso", "Secos", "kg");
+
+        mockMvc.perform(delete("/api/produtos/" + produto.getId())
+                        .header("Authorization", "Bearer " + tokenCozinha))
+                .andExpect(status().isForbidden());
     }
 }

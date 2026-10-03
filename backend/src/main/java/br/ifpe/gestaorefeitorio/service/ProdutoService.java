@@ -33,4 +33,6 @@ public interface ProdutoService {
     List<SaldoPorLocalDTO> listarSaldoPorLocal(UUID produtoId);
 
     List<MovimentacaoHistoricoDTO> listarHistorico(UUID produtoId);
+
+    void excluir(UUID id);
 }

@@ -103,4 +103,12 @@ public class ProdutoController {
             @AuthenticationPrincipal Usuario responsavel) {
         return ResponseEntity.ok(produtoService.atualizarControleValidade(id, request, responsavel));
     }
+
+    // Apenas NUTRICIONISTA pode remover produto, contanto que não tenha movimentações
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('NUTRICIONISTA')")
+    public ResponseEntity<Void> excluir(@PathVariable UUID id) {
+        produtoService.excluir(id);
+        return ResponseEntity.noContent().build();
+    }
 }

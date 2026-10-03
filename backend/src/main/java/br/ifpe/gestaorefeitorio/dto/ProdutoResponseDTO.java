@@ -11,6 +11,7 @@ public record ProdutoResponseDTO(
         BigDecimal valorReferencia,
         BigDecimal quantidadeMinima,
         Boolean controlaValidade,
-        BigDecimal saldoTotal
+        BigDecimal saldoTotal,
+        Boolean podeExcluir
 ) {
 }

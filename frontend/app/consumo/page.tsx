@@ -19,8 +19,10 @@ import {
   Package,
   Utensils,
   Clock,
+  Sparkles,
+  Search,
 } from "lucide-react";
-import { produtoService } from "@/lib/produtos";
+import { produtoService, Produto } from "@/lib/produtos";
 import { registrarSaidaApi } from "@/lib/movimentacoes";
 
 interface ItemFicha {
@@ -30,6 +32,15 @@ interface ItemFicha {
   categoria: string;
   quantidadeUsada: number;
   saldoTotal: number;
+  planejadoCardapio?: boolean;
+  quantidadePlanejada?: number;
+}
+
+interface InsumoPlanejadoCardapio {
+  produtoId: string;
+  nome: string;
+  unidadeMedida: string;
+  quantidadeTotal: number;
 }
 
 interface ItemConsumoVisualizacao {
@@ -77,6 +88,33 @@ const obterDiaSemanaNome = (dataIso: string): "Segunda" | "Terça" | "Quarta" | 
   }
 };
 
+const mapearRefeicaoParaChave = (tipo: TipoRefeicao): "cafe" | "almoco" | "jantar" => {
+  if (tipo === "Café da Manhã") return "cafe";
+  if (tipo === "Almoço") return "almoco";
+  return "jantar";
+};
+
+const obterInsumosPlanejadosDoCardapio = (
+  dataIso: string,
+  tipo: TipoRefeicao
+): InsumoPlanejadoCardapio[] => {
+  try {
+    const salvo = typeof window !== "undefined" ? localStorage.getItem("@gestao_refeitorio:cardapio_semanal") : null;
+    if (salvo) {
+      const semanal = JSON.parse(salvo);
+      const diaNome = obterDiaSemanaNome(dataIso);
+      const chave = mapearRefeicaoParaChave(tipo);
+      const refeicao = semanal[diaNome]?.[chave];
+      if (refeicao?.insumosPlanejados && Array.isArray(refeicao.insumosPlanejados)) {
+        return refeicao.insumosPlanejados;
+      }
+    }
+  } catch (e) {
+    console.error("Erro ao ler insumos planejados do cardápio:", e);
+  }
+  return [];
+};
+
 export default function ConsumoDiarioPage() {
   const { perfil } = useAuth();
   const isNutricionista = perfil === "NUTRICIONISTA";
@@ -87,6 +125,7 @@ export default function ConsumoDiarioPage() {
   // Inicialização dinâmica: atualiza de acordo com o horário atual (ex.: 23h = Jantar)
   const [tipoRefeicao, setTipoRefeicao] = useState<TipoRefeicao>(obterRefeicaoPorHorario);
 
+  const [catalogoBase, setCatalogoBase] = useState<Produto[]>([]);
   const [itens, setItens] = useState<ItemFicha[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -94,7 +133,6 @@ export default function ConsumoDiarioPage() {
   const [feedbackSucesso, setFeedbackSucesso] = useState(false);
   const [sucessoMensagem, setSucessoMensagem] = useState("");
   const [erroEnvio, setErroEnvio] = useState<string | null>(null);
-
 
   // Dados exclusivos de visualização enxuta para o Nutricionista
   const [consumoNutri, setConsumoNutri] = useState<ConsumoRefeicaoVisualizacao | null>(null);
@@ -105,18 +143,29 @@ export default function ConsumoDiarioPage() {
       setCarregando(true);
       setErroEnvio(null);
       const catalogo = await produtoService.listar();
+      setCatalogoBase(catalogo);
 
-      setItens((prev) => {
-        const mapaQtd = new Map(prev.map((i) => [i.id, i.quantidadeUsada]));
-        return catalogo.map((prod) => ({
-          id: prod.id,
-          nome: prod.nome,
-          unidade: prod.unidadeMedida,
-          categoria: prod.categoria,
-          quantidadeUsada: mapaQtd.get(prod.id) || 0,
-          saldoTotal: typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0,
-        }));
-      });
+      const planejados = obterInsumosPlanejadosDoCardapio(dataRegistro, tipoRefeicao);
+      const mapaPlanejados = new Map<string, number>(
+        planejados.map((p) => [p.produtoId, p.quantidadeTotal])
+      );
+
+      setItens(
+        catalogo.map((prod) => {
+          const qtdPlan = mapaPlanejados.get(prod.id);
+          const ehPlan = qtdPlan !== undefined && qtdPlan > 0;
+          return {
+            id: prod.id,
+            nome: prod.nome,
+            unidade: prod.unidadeMedida,
+            categoria: prod.categoria,
+            quantidadeUsada: ehPlan ? qtdPlan : 0,
+            saldoTotal: typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0,
+            planejadoCardapio: ehPlan,
+            quantidadePlanejada: ehPlan ? qtdPlan : undefined,
+          };
+        })
+      );
     } catch (err: unknown) {
       console.error("Erro ao carregar insumos do estoque:", err);
       setErroEnvio(
@@ -130,6 +179,32 @@ export default function ConsumoDiarioPage() {
   useEffect(() => {
     carregarInsumos();
   }, []);
+
+  // Quando mudar a data ou a refeição selecionada, atualiza as quantidades planejadas automaticamente
+  useEffect(() => {
+    if (catalogoBase.length === 0) return;
+    const planejados = obterInsumosPlanejadosDoCardapio(dataRegistro, tipoRefeicao);
+    const mapaPlanejados = new Map<string, number>(
+      planejados.map((p) => [p.produtoId, p.quantidadeTotal])
+    );
+
+    setItens(
+      catalogoBase.map((prod) => {
+        const qtdPlan = mapaPlanejados.get(prod.id);
+        const ehPlan = qtdPlan !== undefined && qtdPlan > 0;
+        return {
+          id: prod.id,
+          nome: prod.nome,
+          unidade: prod.unidadeMedida,
+          categoria: prod.categoria,
+          quantidadeUsada: ehPlan ? qtdPlan : 0,
+          saldoTotal: typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0,
+          planejadoCardapio: ehPlan,
+          quantidadePlanejada: ehPlan ? qtdPlan : undefined,
+        };
+      })
+    );
+  }, [dataRegistro, tipoRefeicao, catalogoBase]);
 
   // Carrega os insumos lançados pela Cozinha para a visualização do Nutricionista
   useEffect(() => {
@@ -204,19 +279,13 @@ export default function ConsumoDiarioPage() {
     setCardapioAtual(MSG_CARDAPIO_PADRAO);
   }, [dataRegistro, tipoRefeicao]);
 
-  // Controles de quantidade para a equipe da cozinha
+  // Controles de quantidade para a equipe da cozinha (permite ajustar livremente o preparo real)
   const alterarQuantidade = (id: string, delta: number) => {
     setItens((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
 
         const novoCalculado = Number((item.quantidadeUsada + delta).toFixed(2));
-        const saldoMaximo = Math.max(0, item.saldoTotal);
-
-        if (delta > 0 && novoCalculado > saldoMaximo) {
-          return { ...item, quantidadeUsada: saldoMaximo };
-        }
-
         return {
           ...item,
           quantidadeUsada: Math.max(0, novoCalculado),
@@ -226,7 +295,7 @@ export default function ConsumoDiarioPage() {
   };
 
   const definirQuantidadeDireta = (id: string, valor: string) => {
-    const parsed = parseFloat(valor);
+    const parsed = parseFloat(valor.replace(",", "."));
     setItens((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
@@ -235,12 +304,9 @@ export default function ConsumoDiarioPage() {
           return { ...item, quantidadeUsada: 0 };
         }
 
-        const saldoMaximo = Math.max(0, item.saldoTotal);
-        const validado = Math.min(parsed, saldoMaximo);
-
         return {
           ...item,
-          quantidadeUsada: validado,
+          quantidadeUsada: parsed,
         };
       })
     );
@@ -346,7 +412,20 @@ export default function ConsumoDiarioPage() {
     return Array.from(setCats);
   }, [itens]);
 
-  const itensFiltrados = itens;
+  const [buscaInsumo, setBuscaInsumo] = useState("");
+
+  const normalizarBusca = (txt: string) =>
+    txt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+  const itensFiltrados = useMemo(() => {
+    if (!buscaInsumo.trim()) return itens;
+    const termo = normalizarBusca(buscaInsumo);
+    return itens.filter(
+      (i) =>
+        normalizarBusca(i.nome).includes(termo) ||
+        normalizarBusca(i.categoria).includes(termo)
+    );
+  }, [itens, buscaInsumo]);
 
   const totalLancados = itens.filter((i) => i.quantidadeUsada > 0).length;
 
@@ -553,23 +632,65 @@ export default function ConsumoDiarioPage() {
               <Package className="w-12 h-12 text-slate-300" />
               <p className="text-base font-bold text-slate-800">Nenhum insumo disponível no catálogo</p>
               <p className="text-xs sm:text-sm text-slate-500 max-w-md">
-                O catálogo do estoque está vazio. Acesse a tela de Recebimento para cadastrar entradas de mercadorias.
+                O catálogo do estoque está vazio.
               </p>
-              <Link
-                href="/recebimento"
-                className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-emerald-700 transition-colors"
-              >
-                Ir para Recebimento de Insumos
-              </Link>
+              {isNutricionista && (
+                <Link
+                  href="/recebimento"
+                  className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-emerald-700 transition-colors"
+                >
+                  Ir para Recebimento de Insumos
+                </Link>
+              )}
             </div>
           )}
 
           {/* Lista de Insumos da Ficha */}
           {!carregando && itens.length > 0 && (
             <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
+              {itens.some((i) => i.planejadoCardapio) && (
+                <div className="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 flex items-center gap-3 text-blue-900 text-xs sm:text-sm shadow-2xs">
+                  <Sparkles className="w-5 h-5 text-blue-600 shrink-0" />
+                  <div>
+                    <p className="font-bold text-blue-950">Insumos de preparo pré-carregados do cardápio</p>
+                    <p className="text-blue-800/90 text-xs mt-0.5">
+                      As quantidades planejadas pelo Nutricionista para esta refeição já foram preenchidas automaticamente. Ajuste os valores ou adicione outros insumos conforme o preparo real.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Barra de Busca e Filtragem Rápida em Tempo Real */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={buscaInsumo}
+                  onChange={(e) => setBuscaInsumo(e.target.value)}
+                  placeholder="Digitar para buscar ou filtrar insumos rapidamente (ex: arroz, frango, feijão)..."
+                  className="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs placeholder:text-slate-400"
+                />
+                {buscaInsumo && (
+                  <button
+                    type="button"
+                    onClick={() => setBuscaInsumo("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                    title="Limpar busca"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
               <div className="space-y-4 sm:space-y-6">
                 {todasCategorias.map((catNome) => {
-                  const itensDaCategoria = itensFiltrados.filter((i) => i.categoria === catNome);
+                  const itensDaCategoria = itensFiltrados
+                    .filter((i) => i.categoria === catNome)
+                    .sort((a, b) => {
+                      if (a.planejadoCardapio && !b.planejadoCardapio) return -1;
+                      if (!a.planejadoCardapio && b.planejadoCardapio) return 1;
+                      return a.nome.localeCompare(b.nome);
+                    });
                   if (itensDaCategoria.length === 0) return null;
 
                   return (
@@ -617,10 +738,17 @@ export default function ConsumoDiarioPage() {
                                   </span>
                                 </div>
 
-                                <div className="flex items-center gap-2 shrink-0 ml-5 sm:ml-0">
+                                <div className="flex items-center gap-2 shrink-0 ml-5 sm:ml-0 flex-wrap">
                                   <span className="inline-block px-2.5 py-0.5 bg-slate-100 text-slate-700 font-bold text-[11px] sm:text-xs rounded-md">
                                     {item.unidade}
                                   </span>
+
+                                  {item.planejadoCardapio && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-blue-50 text-blue-800 border border-blue-200/80 font-semibold text-[10px] sm:text-[11px] rounded-md">
+                                      <Utensils className="w-3 h-3 text-blue-600" />
+                                      Planejado: {item.quantidadePlanejada} {item.unidade}
+                                    </span>
+                                  )}
 
                                   {semEstoque ? (
                                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-rose-100 text-rose-800 font-bold text-[10px] sm:text-[11px] rounded-md">
@@ -663,38 +791,26 @@ export default function ConsumoDiarioPage() {
                                   <input
                                     type="number"
                                     min="0"
-                                    max={Math.max(0, item.saldoTotal)}
                                     step="0.1"
-                                    disabled={semEstoque}
                                     value={item.quantidadeUsada || ""}
                                     placeholder="0"
                                     onChange={(e) => definirQuantidadeDireta(item.id, e.target.value)}
-                                    className="w-20 sm:w-24 text-center font-black text-slate-900 text-base sm:text-lg py-2 bg-transparent focus:outline-none disabled:text-slate-400"
+                                    className="w-20 sm:w-24 text-center font-black text-slate-900 text-base sm:text-lg py-2 bg-transparent focus:outline-none"
                                   />
 
                                   <button
                                     type="button"
                                     onClick={() => alterarQuantidade(item.id, 0.5)}
-                                    disabled={
-                                      semEstoque ||
-                                      item.quantidadeUsada >= item.saldoTotal
-                                    }
-                                    title={
-                                      semEstoque
-                                        ? "Insumo sem saldo em estoque"
-                                        : item.quantidadeUsada >= item.saldoTotal
-                                          ? "Limite do estoque atingido"
-                                          : "Adicionar quantidade"
-                                    }
-                                    className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 active:bg-slate-200 disabled:opacity-30 transition-colors cursor-pointer"
+                                    title="Adicionar quantidade"
+                                    className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer"
                                   >
                                     <Plus className="w-4 h-4" />
                                   </button>
                                 </div>
 
-                                {limiteEstoqueAtingido && (
-                                  <span className="text-[10px] font-bold text-amber-700">
-                                    Limite máximo disponível atingido
+                                {item.saldoTotal > 0 && item.quantidadeUsada > item.saldoTotal && (
+                                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                    Excede saldo em estoque ({item.saldoTotal} {item.unidade})
                                   </span>
                                 )}
                               </div>
