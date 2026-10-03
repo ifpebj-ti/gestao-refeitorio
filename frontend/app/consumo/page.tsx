@@ -20,7 +20,6 @@ import {
   Utensils,
   Clock,
   Sparkles,
-  Search,
 } from "lucide-react";
 import { produtoService, Produto } from "@/lib/produtos";
 import { registrarSaidaApi } from "@/lib/movimentacoes";
@@ -58,6 +57,11 @@ interface ConsumoRefeicaoVisualizacao {
   horario?: string;
   observacao?: string;
   itens: ItemConsumoVisualizacao[];
+  cardapioSnapshot?: {
+    descricao: string;
+    dadosRefeicao?: any;
+    responsavel?: string;
+  };
 }
 
 const CATEGORIAS_PADRAO = [
@@ -71,11 +75,51 @@ const CATEGORIAS_PADRAO = [
 const LOCAL_CONGELADOS = "e10aa4e1-9b74-4791-8b01-1a8efd93af8c";
 const LOCAL_DESPENSA = "eddeb319-7af8-4d68-bd88-8a739c968c74";
 
-const obterDiaSemanaNome = (dataIso: string): "Segunda" | "Terça" | "Quarta" | "Quinta" | "Sexta" => {
+const obterHojeLocalIso = (): string => {
+  const agora = new Date();
+  const ano = agora.getFullYear();
+  const mes = String(agora.getMonth() + 1).padStart(2, "0");
+  const dia = String(agora.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+};
+
+// Bloqueia e converte qualquer data de fim de semana (Sábado ou Domingo) para o dia útil escolar letivo (Sexta-feira)
+const ajustarDataParaDiaUtil = (dataIso: string): string => {
   try {
-    const d = new Date(dataIso + "T12:00:00");
-    const dia = d.getDay();
-    switch (dia) {
+    const [ano, mes, dia] = dataIso.split("-").map(Number);
+    if (!ano || !mes || !dia) return dataIso;
+    const d = new Date(ano, mes - 1, dia, 12, 0, 0);
+    const diaSemana = d.getDay();
+    if (diaSemana === 6) {
+      // Sábado -> ajusta para sexta-feira anterior
+      d.setDate(d.getDate() - 1);
+    } else if (diaSemana === 0) {
+      // Domingo -> ajusta para sexta-feira anterior
+      d.setDate(d.getDate() - 2);
+    } else {
+      return dataIso;
+    }
+    const a = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const diaFinal = String(d.getDate()).padStart(2, "0");
+    return `${a}-${m}-${diaFinal}`;
+  } catch {
+    return dataIso;
+  }
+};
+
+const obterDataInicialConsumo = (): string => {
+  return ajustarDataParaDiaUtil(obterHojeLocalIso());
+};
+
+const obterDiaSemanaNome = (dataIso: string): "Segunda" | "Terça" | "Quarta" | "Quinta" | "Sexta" | null => {
+  try {
+    const dataUtil = ajustarDataParaDiaUtil(dataIso);
+    const [ano, mes, dia] = dataUtil.split("-").map(Number);
+    if (!ano || !mes || !dia) return "Segunda";
+    const d = new Date(ano, mes - 1, dia, 12, 0, 0);
+    const diaNum = d.getDay();
+    switch (diaNum) {
       case 1: return "Segunda";
       case 2: return "Terça";
       case 3: return "Quarta";
@@ -94,6 +138,16 @@ const mapearRefeicaoParaChave = (tipo: TipoRefeicao): "cafe" | "almoco" | "janta
   return "jantar";
 };
 
+function extrairNumeroQuantidade(qtdStr?: string): number | undefined {
+  if (!qtdStr) return undefined;
+  const match = qtdStr.replace(/\s+/g, "").replace(",", ".").match(/(\d+(\.\d+)?)/);
+  if (match) {
+    const num = parseFloat(match[1]);
+    if (!isNaN(num) && num > 0) return num;
+  }
+  return undefined;
+}
+
 const obterInsumosPlanejadosDoCardapio = (
   dataIso: string,
   tipo: TipoRefeicao
@@ -103,10 +157,36 @@ const obterInsumosPlanejadosDoCardapio = (
     if (salvo) {
       const semanal = JSON.parse(salvo);
       const diaNome = obterDiaSemanaNome(dataIso);
+      if (!diaNome) return [];
       const chave = mapearRefeicaoParaChave(tipo);
       const refeicao = semanal[diaNome]?.[chave];
-      if (refeicao?.insumosPlanejados && Array.isArray(refeicao.insumosPlanejados)) {
-        return refeicao.insumosPlanejados;
+      if (refeicao) {
+        const resultado: InsumoPlanejadoCardapio[] = [];
+
+        // 1. Suporte prioritário às linhas de 2 colunas
+        if (refeicao.itens && Array.isArray(refeicao.itens)) {
+          for (const it of refeicao.itens) {
+            if (!it.nome?.trim()) continue;
+            const qtdNum = extrairNumeroQuantidade(it.quantidade);
+            resultado.push({
+              produtoId: `item-${resultado.length + 1}`,
+              nome: it.nome.trim(),
+              unidadeMedida: it.quantidade || "",
+              quantidadeTotal: qtdNum !== undefined ? qtdNum : 0,
+            });
+          }
+          // Se o array de itens existe (mesmo vazio), essa é a lista oficial; nunca recorrer a dados legados
+          return resultado;
+        }
+
+        // 2. Suporte aos insumos legados apenas se 'itens' não existir
+        if (refeicao.insumosPlanejados && Array.isArray(refeicao.insumosPlanejados)) {
+          for (const ins of refeicao.insumosPlanejados) {
+            resultado.push(ins);
+          }
+        }
+
+        return resultado;
       }
     }
   } catch (e) {
@@ -115,15 +195,107 @@ const obterInsumosPlanejadosDoCardapio = (
   return [];
 };
 
+const CONDIMENTOS_E_TEMPEROS = new Set([
+  "sal",
+  "alho",
+  "oleo",
+  "oleo vegetal",
+  "vinagre",
+  "colorau",
+  "cominho",
+  "pimenta",
+  "margarina",
+  "cebola",
+]);
+
+function extrairIngredientePrincipal(nomeItem: string): string {
+  if (nomeItem.toLowerCase().startsWith("salada")) {
+    return "";
+  }
+  const limpo = nomeItem.replace(/\s*\([^)]*\)/g, "").trim();
+  const partes = limpo.split(/\s+(?:com|c\/|ao|à|a\s+la|com\s+molho)\s+/i);
+  return partes[0].trim();
+}
+
+const encontrarPlanejado = (prod: Produto, planejados: InsumoPlanejadoCardapio[]): number | undefined => {
+  const normalizar = (txt?: string) =>
+    (txt || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+  const prodNorm = normalizar(prod.nome);
+
+  // 1. Busca por ID direto
+  const porId = planejados.find((p) => p.produtoId === prod.id);
+  if (porId && porId.quantidadeTotal > 0) return porId.quantidadeTotal;
+
+  // 2. Busca por nome exato
+  const porNomeExato = planejados.find(
+    (p) => normalizar(p.nome) === prodNorm
+  );
+  if (porNomeExato && porNomeExato.quantidadeTotal > 0) return porNomeExato.quantidadeTotal;
+
+  // Condimentos e temperos (como Sal, Alho, Óleo): NUNCA devem receber baixa automática por substring
+  // para evitar que "Salada" ou "Macarrão ao alho e óleo" defina 20 kg de sal/alho!
+  if (CONDIMENTOS_E_TEMPEROS.has(prodNorm) || prod.categoria?.toLowerCase().includes("condimento")) {
+    return undefined;
+  }
+
+  // 3. Busca focada no INGREDIENTE PRINCIPAL do item (antes de "com", "c/", "ao")
+  // Exemplo: "Arroz c/ cenoura (20 kg)" -> ingrediente principal é "Arroz"
+  // Portanto casa "Arroz Parboilizado" com 20 kg, mas NÃO casa "Cenoura"!
+  const porIngredientePrincipal = planejados.find((p) => {
+    const itemPrincipal = normalizar(extrairIngredientePrincipal(p.nome));
+    if (!itemPrincipal) return false;
+
+    // Se o ingrediente principal é igual ou começa com o nome do produto ou vice-versa
+    if (itemPrincipal === prodNorm || prodNorm.startsWith(itemPrincipal) || itemPrincipal.startsWith(prodNorm)) {
+      return true;
+    }
+
+    // Casamentos comuns por raiz
+    if (prodNorm.includes("arroz") && itemPrincipal.includes("arroz")) return true;
+    if (prodNorm.includes("feijao preto") && itemPrincipal.includes("feijao preto")) return true;
+    if (prodNorm.includes("feijao carioca") && itemPrincipal.includes("feijao carioca")) return true;
+    if (prodNorm.includes("feijao macassar") && itemPrincipal.includes("feijao macassar")) return true;
+    if (prodNorm.includes("batata doce") && itemPrincipal.includes("batata doce")) return true;
+    if (prodNorm.includes("macaxeira") && itemPrincipal.includes("macaxeira")) return true;
+    if (prodNorm.includes("jerimum") && itemPrincipal.includes("jerimum")) return true;
+    if (prodNorm.includes("suina") && (itemPrincipal.includes("suino") || itemPrincipal.includes("suina") || itemPrincipal.includes("picadinho suino"))) return true;
+    if ((prodNorm.includes("frango") || prodNorm.includes("isca")) && (itemPrincipal.includes("frango") || itemPrincipal.includes("isca de frango"))) return true;
+    if (prodNorm.includes("pao frances") && itemPrincipal.includes("pao")) return true;
+    if (prodNorm.includes("farofa") && itemPrincipal.includes("farofa")) return true;
+    if (prodNorm.includes("mungunza") && itemPrincipal.includes("mungunza")) return true;
+
+    return false;
+  });
+
+  if (porIngredientePrincipal && porIngredientePrincipal.quantidadeTotal > 0) {
+    return porIngredientePrincipal.quantidadeTotal;
+  }
+
+  return undefined;
+};
+
 export default function ConsumoDiarioPage() {
   const { perfil } = useAuth();
   const isNutricionista = perfil === "NUTRICIONISTA";
 
-  const [dataRegistro, setDataRegistro] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [dataRegistro, setDataRegistro] = useState(obterDataInicialConsumo);
   // Inicialização dinâmica: atualiza de acordo com o horário atual (ex.: 23h = Jantar)
   const [tipoRefeicao, setTipoRefeicao] = useState<TipoRefeicao>(obterRefeicaoPorHorario);
+
+  const [avisoFimDeSemana, setAvisoFimDeSemana] = useState(false);
+  const hojeDiaSemana = new Date().getDay();
+  const ehFimDeSemanaHoje = hojeDiaSemana === 0 || hojeDiaSemana === 6;
+
+  const handleMudarDataRegistro = (novaData: string) => {
+    if (!novaData) return;
+    const ajustada = ajustarDataParaDiaUtil(novaData);
+    if (ajustada !== novaData) {
+      setAvisoFimDeSemana(true);
+      setTimeout(() => setAvisoFimDeSemana(false), 5000);
+    }
+    setDataRegistro(ajustada);
+  };
 
   const [catalogoBase, setCatalogoBase] = useState<Produto[]>([]);
   const [itens, setItens] = useState<ItemFicha[]>([]);
@@ -146,21 +318,19 @@ export default function ConsumoDiarioPage() {
       setCatalogoBase(catalogo);
 
       const planejados = obterInsumosPlanejadosDoCardapio(dataRegistro, tipoRefeicao);
-      const mapaPlanejados = new Map<string, number>(
-        planejados.map((p) => [p.produtoId, p.quantidadeTotal])
-      );
 
       setItens(
         catalogo.map((prod) => {
-          const qtdPlan = mapaPlanejados.get(prod.id);
+          const qtdPlan = encontrarPlanejado(prod, planejados);
           const ehPlan = qtdPlan !== undefined && qtdPlan > 0;
+          const saldo = typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0;
           return {
             id: prod.id,
             nome: prod.nome,
             unidade: prod.unidadeMedida,
             categoria: prod.categoria,
-            quantidadeUsada: ehPlan ? qtdPlan : 0,
-            saldoTotal: typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0,
+            quantidadeUsada: ehPlan && saldo > 0 ? Math.min(saldo, qtdPlan) : 0,
+            saldoTotal: saldo,
             planejadoCardapio: ehPlan,
             quantidadePlanejada: ehPlan ? qtdPlan : undefined,
           };
@@ -184,27 +354,160 @@ export default function ConsumoDiarioPage() {
   useEffect(() => {
     if (catalogoBase.length === 0) return;
     const planejados = obterInsumosPlanejadosDoCardapio(dataRegistro, tipoRefeicao);
-    const mapaPlanejados = new Map<string, number>(
-      planejados.map((p) => [p.produtoId, p.quantidadeTotal])
-    );
 
     setItens(
       catalogoBase.map((prod) => {
-        const qtdPlan = mapaPlanejados.get(prod.id);
+        const qtdPlan = encontrarPlanejado(prod, planejados);
         const ehPlan = qtdPlan !== undefined && qtdPlan > 0;
+        const saldo = typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0;
         return {
           id: prod.id,
           nome: prod.nome,
           unidade: prod.unidadeMedida,
           categoria: prod.categoria,
-          quantidadeUsada: ehPlan ? qtdPlan : 0,
-          saldoTotal: typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0,
+          quantidadeUsada: ehPlan && saldo > 0 ? Math.min(saldo, qtdPlan) : 0,
+          saldoTotal: saldo,
           planejadoCardapio: ehPlan,
           quantidadePlanejada: ehPlan ? qtdPlan : undefined,
         };
       })
     );
   }, [dataRegistro, tipoRefeicao, catalogoBase]);
+
+  const MSG_CARDAPIO_PADRAO = "Nenhum cardápio cadastrado para esta refeição. O nutricionista pode definir no planejamento semanal.";
+  const [cardapioAtual, setCardapioAtual] = useState<string>(MSG_CARDAPIO_PADRAO);
+  const [dadosRefeicaoAtual, setDadosRefeicaoAtual] = useState<any>(null);
+
+  const carregarDescricaoCardapio = (dataIso: string, tipo: TipoRefeicao) => {
+    try {
+      // 1. Se já existe um consumo registrado pela cozinha para esta data e refeição, usa o snapshot oficial de evidência
+      const chaveConsumo = `@gestao_refeitorio:consumo_${dataIso}_${tipo}`;
+      const consumoSalvo = typeof window !== "undefined" ? localStorage.getItem(chaveConsumo) : null;
+      if (consumoSalvo) {
+        try {
+          const parsedConsumo = JSON.parse(consumoSalvo);
+          if (parsedConsumo.cardapioSnapshot) {
+            setDadosRefeicaoAtual(parsedConsumo.cardapioSnapshot.dadosRefeicao || null);
+            setCardapioAtual(parsedConsumo.cardapioSnapshot.descricao || MSG_CARDAPIO_PADRAO);
+            return;
+          }
+        } catch {
+          // segue para busca de cardápio datado ou semanal
+        }
+      }
+
+      // 2. Se existe um cardápio datado específico gravado para este dia
+      const chaveCardapioData = `@gestao_refeitorio:cardapio_data_${dataIso}`;
+      const cardapioDataSalvo = typeof window !== "undefined" ? localStorage.getItem(chaveCardapioData) : null;
+      if (cardapioDataSalvo) {
+        try {
+          const parsedData = JSON.parse(cardapioDataSalvo);
+          const chaveRef = mapearRefeicaoParaChave(tipo);
+          if (parsedData && parsedData[chaveRef]) {
+            const refData = parsedData[chaveRef];
+            setDadosRefeicaoAtual(refData);
+            if (refData.itens && Array.isArray(refData.itens) && refData.itens.length > 0) {
+              const partes = refData.itens.map((it: any) =>
+                it.quantidade?.trim() ? `${it.nome.trim()} (${it.quantidade.trim()})` : it.nome.trim()
+              );
+              if (refData.observacoes) partes.push(`Obs: ${refData.observacoes}`);
+              setCardapioAtual(partes.join(" • "));
+              return;
+            }
+          }
+        } catch {
+          // segue para cardápio semanal
+        }
+      }
+
+      // 3. Fallback para a grade semanal
+      const salvo = typeof window !== "undefined" ? localStorage.getItem("@gestao_refeitorio:cardapio_semanal") : null;
+      if (salvo) {
+        const semanal = JSON.parse(salvo);
+        const diaNome = obterDiaSemanaNome(dataIso);
+        if (!diaNome) {
+          setDadosRefeicaoAtual(null);
+          setCardapioAtual("Fim de semana — Não há cardápio escolar regular cadastrado.");
+          return;
+        }
+        const diaDados = semanal[diaNome];
+
+        if (diaDados) {
+          const chave = mapearRefeicaoParaChave(tipo);
+          const refeicao = diaDados[chave];
+
+          let partes: string[] = [];
+          if (refeicao) {
+            setDadosRefeicaoAtual(refeicao);
+
+            // 1. Suporte prioritário às linhas de 2 colunas
+            if (refeicao.itens && Array.isArray(refeicao.itens)) {
+              for (const it of refeicao.itens) {
+                if (!it.nome?.trim()) continue;
+                partes.push(it.quantidade?.trim() ? `${it.nome.trim()} (${it.quantidade.trim()})` : it.nome.trim());
+              }
+            } else {
+              // 2. Fallback legado apenas se 'itens' não existir
+              if (refeicao.pratoPrincipal) partes.push(refeicao.pratoPrincipal);
+              if (refeicao.acompanhamentos) partes.push(`Acompanhamentos: ${refeicao.acompanhamentos}`);
+              if (refeicao.saladaSobremesa) partes.push(`Salada/Sobremesa: ${refeicao.saladaSobremesa}`);
+              if (refeicao.bebida) partes.push(`Bebida: ${refeicao.bebida}`);
+              if (refeicao.insumosPlanejados && Array.isArray(refeicao.insumosPlanejados) && refeicao.insumosPlanejados.length > 0) {
+                const nomesInsumos = refeicao.insumosPlanejados
+                  .map((i: any) => `${i.nome} (${i.quantidadeTotal} ${i.unidadeMedida})`)
+                  .join(", ");
+                partes.push(`Insumos planejados: ${nomesInsumos}`);
+              }
+            }
+
+            if (refeicao.observacoes) partes.push(`Obs: ${refeicao.observacoes}`);
+          }
+
+          if (partes.length > 0) {
+            setCardapioAtual(partes.join(" • "));
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao ler cardápio da semana:", e);
+    }
+    setDadosRefeicaoAtual(null);
+    setCardapioAtual(MSG_CARDAPIO_PADRAO);
+  };
+
+  // Sincroniza em tempo real se o nutricionista alterar o cardápio
+  useEffect(() => {
+    const handleStorage = () => {
+      carregarDescricaoCardapio(dataRegistro, tipoRefeicao);
+      if (catalogoBase.length > 0) {
+        const planejados = obterInsumosPlanejadosDoCardapio(dataRegistro, tipoRefeicao);
+        setItens(
+          catalogoBase.map((prod) => {
+            const qtdPlan = encontrarPlanejado(prod, planejados);
+            const ehPlan = qtdPlan !== undefined && qtdPlan > 0;
+            const saldo = typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0;
+            return {
+              id: prod.id,
+              nome: prod.nome,
+              unidade: prod.unidadeMedida,
+              categoria: prod.categoria,
+              quantidadeUsada: ehPlan && saldo > 0 ? Math.min(saldo, qtdPlan) : 0,
+              saldoTotal: saldo,
+              planejadoCardapio: ehPlan,
+              quantidadePlanejada: ehPlan ? qtdPlan : undefined,
+            };
+          })
+        );
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [catalogoBase, dataRegistro, tipoRefeicao]);
+
+  useEffect(() => {
+    carregarDescricaoCardapio(dataRegistro, tipoRefeicao);
+  }, [dataRegistro, tipoRefeicao]);
 
   // Carrega os insumos lançados pela Cozinha para a visualização do Nutricionista
   useEffect(() => {
@@ -231,64 +534,19 @@ export default function ConsumoDiarioPage() {
     }
   }, [dataRegistro, tipoRefeicao, isNutricionista, itens]);
 
-  const MSG_CARDAPIO_PADRAO = "Nenhum cardápio cadastrado para esta refeição. O nutricionista pode definir no planejamento semanal.";
-  const [cardapioAtual, setCardapioAtual] = useState<string>(MSG_CARDAPIO_PADRAO);
-
-  useEffect(() => {
-    try {
-      const salvo = typeof window !== "undefined" ? localStorage.getItem("@gestao_refeitorio:cardapio_semanal") : null;
-      if (salvo) {
-        const semanal = JSON.parse(salvo);
-        const diaNome = obterDiaSemanaNome(dataRegistro);
-        const diaDados = semanal[diaNome];
-
-        if (diaDados) {
-          let info = "";
-          if (tipoRefeicao === "Café da Manhã" && diaDados.cafe) {
-            const partes = [
-              diaDados.cafe.pratoPrincipal,
-              diaDados.cafe.acompanhamentos ? `Acompanhamentos: ${diaDados.cafe.acompanhamentos}` : "",
-              diaDados.cafe.saladaSobremesa ? `Fruta: ${diaDados.cafe.saladaSobremesa}` : "",
-            ].filter(Boolean);
-            info = partes.join(" • ");
-          } else if (tipoRefeicao === "Almoço" && diaDados.almoco) {
-            const partes = [
-              diaDados.almoco.pratoPrincipal,
-              diaDados.almoco.acompanhamentos ? `Guarnições: ${diaDados.almoco.acompanhamentos}` : "",
-              diaDados.almoco.saladaSobremesa ? `Salada/Sobremesa: ${diaDados.almoco.saladaSobremesa}` : "",
-            ].filter(Boolean);
-            info = partes.join(" • ");
-          } else if (tipoRefeicao === "Jantar" && diaDados.jantar) {
-            const partes = [
-              diaDados.jantar.pratoPrincipal,
-              diaDados.jantar.acompanhamentos ? `Acompanhamentos: ${diaDados.jantar.acompanhamentos}` : "",
-              diaDados.jantar.saladaSobremesa ? `Sobremesa: ${diaDados.jantar.saladaSobremesa}` : "",
-            ].filter(Boolean);
-            info = partes.join(" • ");
-          }
-
-          if (info.trim()) {
-            setCardapioAtual(info);
-            return;
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Erro ao ler cardápio da semana:", e);
-    }
-    setCardapioAtual(MSG_CARDAPIO_PADRAO);
-  }, [dataRegistro, tipoRefeicao]);
-
   // Controles de quantidade para a equipe da cozinha (permite ajustar livremente o preparo real)
   const alterarQuantidade = (id: string, delta: number) => {
     setItens((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
+        // Não permite adicionar insumo se não houver estoque
+        if (delta > 0 && item.saldoTotal <= 0) return item;
 
         const novoCalculado = Number((item.quantidadeUsada + delta).toFixed(2));
+        const finalCalculado = Math.min(item.saldoTotal, Math.max(0, novoCalculado));
         return {
           ...item,
-          quantidadeUsada: Math.max(0, novoCalculado),
+          quantidadeUsada: finalCalculado,
         };
       })
     );
@@ -300,13 +558,13 @@ export default function ConsumoDiarioPage() {
       prev.map((item) => {
         if (item.id !== id) return item;
 
-        if (isNaN(parsed) || parsed < 0) {
+        if (isNaN(parsed) || parsed < 0 || item.saldoTotal <= 0) {
           return { ...item, quantidadeUsada: 0 };
         }
 
         return {
           ...item,
-          quantidadeUsada: parsed,
+          quantidadeUsada: Math.min(item.saldoTotal, parsed),
         };
       })
     );
@@ -353,7 +611,7 @@ export default function ConsumoDiarioPage() {
         });
       }
 
-      // Salva o registro no localStorage para que o Nutricionista consulte
+      // Salva o registro no localStorage para que o Nutricionista consulte com snapshot histórico de evidência
       const registroSalvo: ConsumoRefeicaoVisualizacao = {
         data: dataRegistro,
         refeicao: tipoRefeicao,
@@ -367,6 +625,14 @@ export default function ConsumoDiarioPage() {
           quantidadeUsada: i.quantidadeUsada,
           saldoTotal: Math.max(0, i.saldoTotal - i.quantidadeUsada),
         })),
+        cardapioSnapshot: {
+          descricao: cardapioAtual,
+          dadosRefeicao: dadosRefeicaoAtual,
+          responsavel:
+            typeof window !== "undefined"
+              ? localStorage.getItem("@gestao_refeitorio:cardapio_nutricionista") || "Nutricionista"
+              : "Nutricionista",
+        },
       };
 
       try {
@@ -412,21 +678,6 @@ export default function ConsumoDiarioPage() {
     return Array.from(setCats);
   }, [itens]);
 
-  const [buscaInsumo, setBuscaInsumo] = useState("");
-
-  const normalizarBusca = (txt: string) =>
-    txt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-
-  const itensFiltrados = useMemo(() => {
-    if (!buscaInsumo.trim()) return itens;
-    const termo = normalizarBusca(buscaInsumo);
-    return itens.filter(
-      (i) =>
-        normalizarBusca(i.nome).includes(termo) ||
-        normalizarBusca(i.categoria).includes(termo)
-    );
-  }, [itens, buscaInsumo]);
-
   const totalLancados = itens.filter((i) => i.quantidadeUsada > 0).length;
 
   return (
@@ -446,15 +697,25 @@ export default function ConsumoDiarioPage() {
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           {isNutricionista ? (
-            <div className="flex items-center gap-2.5 bg-white px-3.5 py-2 border border-slate-300 rounded-xl shadow-xs">
+            <div className="flex items-center gap-2 bg-white px-3.5 py-2 border border-slate-300 rounded-xl shadow-xs">
               <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
               <input
                 type="date"
                 value={dataRegistro}
-                max={new Date().toISOString().split("T")[0]}
-                onChange={(e) => setDataRegistro(e.target.value)}
+                max={ajustarDataParaDiaUtil(obterHojeLocalIso())}
+                onChange={(e) => handleMudarDataRegistro(e.target.value)}
                 className="text-xs sm:text-sm font-semibold text-slate-800 bg-transparent focus:outline-none cursor-pointer"
               />
+              <span className="text-[11px] font-bold text-slate-500 border-l border-slate-200 pl-2">
+                {(() => {
+                  const [ano, mes, dia] = dataRegistro.split("-").map(Number);
+                  if (!ano || !mes || !dia) return "";
+                  const d = new Date(ano, mes - 1, dia, 12, 0, 0);
+                  const diaNum = d.getDay();
+                  const nomes = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+                  return nomes[diaNum] || "";
+                })()}
+              </span>
             </div>
           ) : (
             <div className="flex items-center gap-2.5 bg-slate-50 px-3.5 py-2 border border-slate-200 rounded-xl shadow-2xs select-none">
@@ -462,7 +723,7 @@ export default function ConsumoDiarioPage() {
               <div className="flex flex-col text-left">
                 <span className="text-[10px] uppercase font-bold text-slate-400 leading-none">Hoje</span>
                 <span className="text-xs sm:text-sm font-extrabold text-slate-800 leading-tight">
-                  {new Date().toLocaleDateString("pt-BR")}
+                  {new Date().toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })}
                 </span>
               </div>
             </div>
@@ -471,6 +732,14 @@ export default function ConsumoDiarioPage() {
           <SeletorRefeicao valor={tipoRefeicao} onChange={setTipoRefeicao} />
         </div>
       </div>
+
+      {/* Aviso de Fim de semana (Apenas dias úteis letivos) */}
+      {avisoFimDeSemana && (
+        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-2.5 text-amber-900 text-xs sm:text-sm font-medium animate-in fade-in duration-200">
+          <Info className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>O refeitório escolar funciona exclusivamente de segunda a sexta-feira. Fins de semana não possuem registros e a data foi ajustada para o dia letivo correspondente.</span>
+        </div>
+      )}
 
       {/* Alerta de erro */}
       {erroEnvio && (
@@ -493,7 +762,7 @@ export default function ConsumoDiarioPage() {
       )}
 
       {/* Cardápio do dia planejado */}
-      <CardapioCard refeicao={tipoRefeicao} descricao={cardapioAtual} />
+      <CardapioCard refeicao={tipoRefeicao} descricao={cardapioAtual} dadosRefeicao={dadosRefeicaoAtual} />
 
       {/* ============================================================== */}
       {/* 1. VISÃO EXCLUSIVA DO NUTRICIONISTA: Somente Visualização Enxuta */}
@@ -526,7 +795,10 @@ export default function ConsumoDiarioPage() {
                 <div className="flex items-center gap-2 self-start sm:self-auto">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200/70 rounded-full text-xs font-bold">
                     <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                    Lançado pela Cozinha{consumoNutri.horario ? ` às ${consumoNutri.horario}` : ""}
+                    Lançado pela Cozinha{consumoNutri.data ? ` em ${(() => {
+                      const partes = consumoNutri.data.split("-");
+                      return partes.length === 3 ? `${partes[2]}/${partes[1]}` : consumoNutri.data;
+                    })()}` : ""}{consumoNutri.horario ? ` às ${consumoNutri.horario}` : ""}
                   </span>
                 </div>
               </div>
@@ -596,6 +868,21 @@ export default function ConsumoDiarioPage() {
             </div>
           )}
         </div>
+      ) : ehFimDeSemanaHoje ? (
+        <div className="bg-white border border-amber-200 rounded-2xl p-12 text-center shadow-xs flex flex-col items-center justify-center gap-3">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center">
+            <Calendar className="w-7 h-7" />
+          </div>
+          <h3 className="text-lg font-extrabold text-slate-900">
+            Refeitório Fechado no Fim de Semana
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-600 max-w-md">
+            O registro e baixa de consumo da cozinha funciona exclusivamente nos dias letivos (segunda a sexta-feira). No fim de semana não há refeições escolares cadastradas nem preparo regular.
+          </p>
+          <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full text-xs font-bold text-slate-600">
+            Próximo dia letivo: Segunda-feira
+          </div>
+        </div>
       ) : (
         /* ============================================================== */
         /* 2. VISÃO DA COZINHA: Lançamento Interativo Otimizado para Tablet */
@@ -660,31 +947,9 @@ export default function ConsumoDiarioPage() {
                 </div>
               )}
 
-              {/* Barra de Busca e Filtragem Rápida em Tempo Real */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={buscaInsumo}
-                  onChange={(e) => setBuscaInsumo(e.target.value)}
-                  placeholder="Digitar para buscar ou filtrar insumos rapidamente (ex: arroz, frango, feijão)..."
-                  className="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs placeholder:text-slate-400"
-                />
-                {buscaInsumo && (
-                  <button
-                    type="button"
-                    onClick={() => setBuscaInsumo("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
-                    title="Limpar busca"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
               <div className="space-y-4 sm:space-y-6">
                 {todasCategorias.map((catNome) => {
-                  const itensDaCategoria = itensFiltrados
+                  const itensDaCategoria = itens
                     .filter((i) => i.categoria === catNome)
                     .sort((a, b) => {
                       if (a.planejadoCardapio && !b.planejadoCardapio) return -1;
@@ -781,9 +1046,9 @@ export default function ConsumoDiarioPage() {
                                   <button
                                     type="button"
                                     onClick={() => alterarQuantidade(item.id, -0.5)}
-                                    disabled={item.quantidadeUsada <= 0}
+                                    disabled={item.quantidadeUsada <= 0 || semEstoque}
                                     title="Diminuir quantidade"
-                                    className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 active:bg-slate-200 disabled:opacity-30 transition-colors cursor-pointer"
+                                    className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 active:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                                   >
                                     <Minus className="w-4 h-4" />
                                   </button>
@@ -791,18 +1056,21 @@ export default function ConsumoDiarioPage() {
                                   <input
                                     type="number"
                                     min="0"
+                                    max={item.saldoTotal}
                                     step="0.1"
-                                    value={item.quantidadeUsada || ""}
+                                    disabled={semEstoque}
+                                    value={semEstoque ? "0" : (item.quantidadeUsada || "")}
                                     placeholder="0"
                                     onChange={(e) => definirQuantidadeDireta(item.id, e.target.value)}
-                                    className="w-20 sm:w-24 text-center font-black text-slate-900 text-base sm:text-lg py-2 bg-transparent focus:outline-none"
+                                    className="w-20 sm:w-24 text-center font-black text-slate-900 text-base sm:text-lg py-2 bg-transparent focus:outline-none disabled:text-slate-400 disabled:cursor-not-allowed"
                                   />
 
                                   <button
                                     type="button"
                                     onClick={() => alterarQuantidade(item.id, 0.5)}
-                                    title="Adicionar quantidade"
-                                    className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors cursor-pointer"
+                                    disabled={semEstoque || limiteEstoqueAtingido}
+                                    title={semEstoque ? "Item sem saldo em estoque" : limiteEstoqueAtingido ? "Limite de estoque atingido" : "Adicionar quantidade"}
+                                    className="px-4 py-2.5 text-slate-600 hover:bg-slate-100 active:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                                   >
                                     <Plus className="w-4 h-4" />
                                   </button>

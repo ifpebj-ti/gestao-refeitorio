@@ -92,7 +92,7 @@ export default function EstoqueGeralPage() {
   const [buscaEntradaFocada, setBuscaEntradaFocada] = useState(false);
   const [itemEntradaId, setItemEntradaId] = useState<string>("");
   const [origemEntrada, setOrigemEntrada] = useState<"EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA">("AGROPECUARIA");
-  const [fornecedorEntrada, setFornecedorEntrada] = useState("Agropecuária (Fazenda IFPE)");
+  const [fornecedorEntrada, setFornecedorEntrada] = useState("");
   const [quantidadeEntrada, setQuantidadeEntrada] = useState("");
   const [validadeEntrada, setValidadeEntrada] = useState("");
   const [loteEntrada, setLoteEntrada] = useState("");
@@ -108,8 +108,9 @@ export default function EstoqueGeralPage() {
   const [novoInsumoCategoria, setNovoInsumoCategoria] = useState("Proteínas & Frios");
   const [novoInsumoUnidade, setNovoInsumoUnidade] = useState("KG");
   const [novoInsumoValor, setNovoInsumoValor] = useState("");
+  const [novoInsumoSemPreco, setNovoInsumoSemPreco] = useState(false);
   const [novoInsumoOrigem, setNovoInsumoOrigem] = useState<"EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA">("AGROPECUARIA");
-  const [novoInsumoFornecedor, setNovoInsumoFornecedor] = useState("Agropecuária (Fazenda IFPE)");
+  const [novoInsumoFornecedor, setNovoInsumoFornecedor] = useState("");
   const [novoInsumoDarEntradaInicial, setNovoInsumoDarEntradaInicial] = useState(false);
   const [novoInsumoQtdInicial, setNovoInsumoQtdInicial] = useState("");
   const [novoInsumoValidadeInicial, setNovoInsumoValidadeInicial] = useState("");
@@ -122,6 +123,7 @@ export default function EstoqueGeralPage() {
   const [edicaoUnidade, setEdicaoUnidade] = useState("KG");
   const [edicaoQtdMinima, setEdicaoQtdMinima] = useState("");
   const [edicaoValorReferencia, setEdicaoValorReferencia] = useState("");
+  const [edicaoSemPreco, setEdicaoSemPreco] = useState(false);
   const [edicaoValidadeControlada, setEdicaoValidadeControlada] = useState(false);
   const [salvandoEdicaoInsumo, setSalvandoEdicaoInsumo] = useState(false);
   const [erroEdicaoInsumo, setErroEdicaoInsumo] = useState<string | null>(null);
@@ -136,14 +138,30 @@ export default function EstoqueGeralPage() {
   const [sucessoGeral, setSucessoGeral] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const entradaAutocompleteRef = useRef<HTMLDivElement>(null);
+
+  // Fecha o dropdown de autocomplete de entrada se clicar fora
+  useEffect(() => {
+    const handleClickForaEntrada = (e: MouseEvent) => {
+      if (
+        entradaAutocompleteRef.current &&
+        !entradaAutocompleteRef.current.contains(e.target as Node)
+      ) {
+        setBuscaEntradaFocada(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickForaEntrada);
+    return () => document.removeEventListener("mousedown", handleClickForaEntrada);
+  }, []);
 
   const abrirModalNovoInsumo = () => {
     setNovoInsumoNome("");
     setNovoInsumoCategoria("Proteínas & Frios");
     setNovoInsumoUnidade("KG");
     setNovoInsumoValor("");
+    setNovoInsumoSemPreco(false);
     setNovoInsumoOrigem("AGROPECUARIA");
-    setNovoInsumoFornecedor("Agropecuária (Fazenda IFPE)");
+    setNovoInsumoFornecedor("");
     setNovoInsumoDarEntradaInicial(false);
     setNovoInsumoQtdInicial("");
     setNovoInsumoValidadeInicial("");
@@ -157,10 +175,15 @@ export default function EstoqueGeralPage() {
       setErroNovoInsumo("O nome do insumo é obrigatório.");
       return;
     }
-    const valorNumerico = parseFloat(novoInsumoValor.replace(",", "."));
-    if (isNaN(valorNumerico) || valorNumerico <= 0) {
-      setErroNovoInsumo("Informe um valor de referência positivo (ex: 25.50).");
-      return;
+
+    let valorNumerico: number | null = null;
+    if (!novoInsumoSemPreco && novoInsumoValor.trim() !== "") {
+      const parsed = parseFloat(novoInsumoValor.replace(",", "."));
+      if (isNaN(parsed) || parsed <= 0) {
+        setErroNovoInsumo("Informe um valor de referência positivo ou marque a opção 'Sem preço'.");
+        return;
+      }
+      valorNumerico = parsed;
     }
 
     setSalvandoNovoInsumo(true);
@@ -181,6 +204,8 @@ export default function EstoqueGeralPage() {
           const LOCAL_DESPENSA = "eddeb319-7af8-4d68-bd88-8a739c968c74";
           const localId = novoInsumoCategoria === "Proteínas & Frios" ? LOCAL_CONGELADOS : LOCAL_DESPENSA;
           const hojeIso = new Date().toISOString().split("T")[0];
+          const valorUnitarioParaEntrada = valorNumerico && valorNumerico > 0 ? valorNumerico : 1.0;
+          const valorTotalEntrada = Number((qtdInicialNum * valorUnitarioParaEntrada).toFixed(2)) || 0.01;
 
           const resEntrada = await registrarEntradaApi({
             produtoId: novoProduto.id,
@@ -188,7 +213,7 @@ export default function EstoqueGeralPage() {
             quantidade: qtdInicialNum,
             data: hojeIso,
             origem: novoInsumoOrigem,
-            valor: Number((qtdInicialNum * valorNumerico).toFixed(2)),
+            valor: valorTotalEntrada,
             dataValidade: novoInsumoValidadeInicial || undefined,
             fornecedor: novoInsumoFornecedor.trim() || undefined,
           });
@@ -224,8 +249,10 @@ export default function EstoqueGeralPage() {
         ? String(item.quantidadeMinima)
         : ""
     );
+    const semPreco = item.valorReferencia === undefined || item.valorReferencia === null || item.valorReferencia <= 0;
+    setEdicaoSemPreco(semPreco);
     setEdicaoValorReferencia(
-      item.valorReferencia !== undefined && item.valorReferencia !== null
+      !semPreco && item.valorReferencia !== undefined && item.valorReferencia !== null
         ? String(item.valorReferencia)
         : ""
     );
@@ -252,11 +279,17 @@ export default function EstoqueGeralPage() {
         }
       }
 
-      if (edicaoValorReferencia.trim() !== "") {
+      if (edicaoSemPreco) {
+        if (insumoEmEdicao.valorReferencia !== null && insumoEmEdicao.valorReferencia !== undefined) {
+          await produtoService.atualizarValorReferencia(insumoEmEdicao.id, null);
+        }
+      } else if (edicaoValorReferencia.trim() !== "") {
         const valRef = parseFloat(edicaoValorReferencia.replace(",", "."));
         if (!isNaN(valRef) && valRef > 0 && valRef !== insumoEmEdicao.valorReferencia) {
           await produtoService.atualizarValorReferencia(insumoEmEdicao.id, valRef);
         }
+      } else if (insumoEmEdicao.valorReferencia !== null && insumoEmEdicao.valorReferencia !== undefined) {
+        await produtoService.atualizarValorReferencia(insumoEmEdicao.id, null);
       }
 
       if (edicaoValidadeControlada !== Boolean(insumoEmEdicao.controlaValidade)) {
@@ -531,7 +564,7 @@ export default function EstoqueGeralPage() {
     setBuscaEntrada("");
     setBuscaEntradaFocada(false);
     setOrigemEntrada("AGROPECUARIA");
-    setFornecedorEntrada("Agropecuária (Fazenda IFPE)");
+    setFornecedorEntrada("");
     setQuantidadeEntrada("");
     setValidadeEntrada("");
     setLoteEntrada("");
@@ -560,10 +593,11 @@ export default function EstoqueGeralPage() {
       return;
     }
 
-    if (!fornecedorEntrada.trim()) {
-      alert("Informe o fornecedor!");
-      return;
-    }
+    const fornecedorFinal = fornecedorEntrada.trim() || (
+      origemEntrada === "AGROPECUARIA" ? "Agropecuária (Fazenda IFPE)" :
+      origemEntrada === "AGROINDUSTRIA" ? "Agroindústria (IFPE)" :
+      origemEntrada === "EXTERNA" ? "Fornecedor Externo" : "Produção Interna"
+    );
 
     const LOCAL_CONGELADOS = "e10aa4e1-9b74-4791-8b01-1a8efd93af8c";
     const LOCAL_DESPENSA = "eddeb319-7af8-4d68-bd88-8a739c968c74";
@@ -572,8 +606,8 @@ export default function EstoqueGeralPage() {
         ? LOCAL_CONGELADOS
         : LOCAL_DESPENSA;
 
-    const ehAgropec = origemEntrada === "AGROPECUARIA" || fornecedorEntrada.toLowerCase().includes("agropec");
-    const ehAgroind = origemEntrada === "AGROINDUSTRIA" || fornecedorEntrada.toLowerCase().includes("agroind");
+    const ehAgropec = origemEntrada === "AGROPECUARIA" || fornecedorFinal.toLowerCase().includes("agropec");
+    const ehAgroind = origemEntrada === "AGROINDUSTRIA" || fornecedorFinal.toLowerCase().includes("agroind");
     const origemFinal: "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" = ehAgropec
       ? "AGROPECUARIA"
       : ehAgroind
@@ -583,8 +617,8 @@ export default function EstoqueGeralPage() {
     const precoUnitario =
       insumoEntradaSelecionado.valorReferencia && insumoEntradaSelecionado.valorReferencia > 0
         ? insumoEntradaSelecionado.valorReferencia
-        : 10.0;
-    const valorTotal = Number((qtdNum * precoUnitario).toFixed(2));
+        : 1.0;
+    const valorTotal = Number((qtdNum * precoUnitario).toFixed(2)) || 0.01;
 
     const hojeIso = new Date().toISOString().split("T")[0];
 
@@ -601,15 +635,15 @@ export default function EstoqueGeralPage() {
           origem: origemFinal,
           valor: valorTotal,
           dataValidade: validadeEntrada || undefined,
-          fornecedor: fornecedorEntrada.trim() || undefined,
+          fornecedor: fornecedorFinal,
         },
         arquivoFotoReal
       );
 
       // Salva o fornecedor digitado associado ao ID da movimentação
-      if (res?.id && fornecedorEntrada.trim()) {
+      if (res?.id && fornecedorFinal) {
         try {
-          localStorage.setItem(`@gestao_refeitorio:mov_fornecedor_${res.id}`, fornecedorEntrada.trim());
+          localStorage.setItem(`@gestao_refeitorio:mov_fornecedor_${res.id}`, fornecedorFinal);
         } catch (e) {}
       }
 
@@ -750,8 +784,7 @@ export default function EstoqueGeralPage() {
               </div>
             ) : (
               itensFiltrados.map((item) => {
-                const statusItem = calcularStatusItem(item);
-                const isAtencao = statusItem === "ATENCAO";
+                const semPreco = !item.valorReferencia || item.valorReferencia <= 0;
 
                 return (
                   <div
@@ -768,56 +801,28 @@ export default function EstoqueGeralPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        {isAtencao ? (
-                          <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 shrink-0">
-                            Atenção
-                          </span>
-                        ) : (
-                          <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 shrink-0">
-                            Normal
-                          </span>
-                        )}
                         <button
                           type="button"
                           onClick={() => abrirModalEdicaoInsumo(item)}
-                          className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-lg transition-colors cursor-pointer"
                           title="Editar parâmetros do insumo"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>Editar</span>
                         </button>
-                        {(() => {
-                          const bloqueado = item.podeExcluir === false || (item.saldoTotal ?? 0) > 0;
-                          return (
-                            <button
-                              type="button"
-                              disabled={bloqueado}
-                              onClick={() => {
-                                if (!bloqueado) abrirModalExclusaoInsumo(item);
-                              }}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                bloqueado
-                                  ? "text-slate-300 opacity-40 cursor-not-allowed"
-                                  : "text-slate-400 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
-                              }`}
-                              title={
-                                bloqueado
-                                  ? "Este insumo possui estoque ou histórico de movimentações e não pode ser excluído."
-                                  : "Remover insumo"
-                              }
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          );
-                        })()}
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs gap-2 flex-wrap">
                       <div>
                         <span className="text-slate-500 font-medium">Preço Ref.: </span>
-                        <span className="font-bold text-emerald-800">
-                          R$ {Number(item.valorReferencia || 0).toFixed(2)}
-                        </span>
+                        {semPreco ? (
+                          <span className="font-semibold text-slate-400">Sem preço</span>
+                        ) : (
+                          <span className="font-bold text-emerald-800">
+                            R$ {Number(item.valorReferencia).toFixed(2)}
+                          </span>
+                        )}
                       </div>
                       <div>
                         <span className="text-slate-500 font-medium">Qtd. Mín: </span>
@@ -848,40 +853,44 @@ export default function EstoqueGeralPage() {
                   <th className="px-4 py-3 text-right">Preço Ref.</th>
                   <th className="px-4 py-3 text-right">Qtd. Mínima</th>
                   <th className="px-4 py-3 text-right">Saldo Atual</th>
-                  <th className="px-4 py-3 text-center">Status</th>
                   <th className="px-4 py-3 text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800">
                 {carregandoProdutos ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-medium">
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-medium">
                       Carregando produtos do estoque...
                     </td>
                   </tr>
                 ) : erroCarregamento ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-rose-600 font-medium">
+                    <td colSpan={6} className="px-4 py-8 text-center text-rose-600 font-medium">
                       {erroCarregamento}
                     </td>
                   </tr>
                 ) : itensFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-medium">
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 font-medium">
                       Nenhum produto cadastrado no banco de dados.
                     </td>
                   </tr>
                 ) : (
                   itensFiltrados.map((item) => {
-                    const statusItem = calcularStatusItem(item);
-                    const isAtencao = statusItem === "ATENCAO";
+                    const semPreco = !item.valorReferencia || item.valorReferencia <= 0;
 
                     return (
                       <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="px-4 py-3 font-semibold text-slate-900">{item.nome}</td>
                         <td className="px-4 py-3 text-slate-500 text-xs">{item.categoria}</td>
-                        <td className="px-4 py-3 text-right text-emerald-800 font-bold">
-                          R$ {Number(item.valorReferencia || 0).toFixed(2)}
+                        <td className="px-4 py-3 text-right">
+                          {semPreco ? (
+                            <span className="text-slate-400 font-medium">Sem preço</span>
+                          ) : (
+                            <span className="text-emerald-800 font-bold">
+                              R$ {Number(item.valorReferencia).toFixed(2)}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right text-slate-600 font-medium">
                           {item.quantidadeMinima ?? 0} {item.unidadeMedida}
@@ -890,53 +899,15 @@ export default function EstoqueGeralPage() {
                           {item.saldoTotal ?? 0} {item.unidadeMedida}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {isAtencao ? (
-                            <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                              Atenção
-                            </span>
-                          ) : (
-                            <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                              Normal
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => abrirModalEdicaoInsumo(item)}
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-lg transition-colors cursor-pointer"
-                              title="Editar parâmetros do insumo"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              <span>Editar</span>
-                            </button>
-                            {(() => {
-                              const bloqueado = item.podeExcluir === false || (item.saldoTotal ?? 0) > 0;
-                              return (
-                                <button
-                                  type="button"
-                                  disabled={bloqueado}
-                                  onClick={() => {
-                                    if (!bloqueado) abrirModalExclusaoInsumo(item);
-                                  }}
-                                  className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-bold border rounded-lg transition-colors ${
-                                    bloqueado
-                                      ? "text-slate-300 border-slate-100 opacity-40 cursor-not-allowed"
-                                      : "text-slate-600 hover:text-rose-700 hover:bg-rose-50 border-slate-200 hover:border-rose-300 cursor-pointer"
-                                  }`}
-                                  title={
-                                    bloqueado
-                                      ? "Este insumo possui estoque ou histórico de movimentações e não pode ser excluído."
-                                      : "Remover insumo"
-                                  }
-                                >
-                                  <Trash2 className={`w-3.5 h-3.5 ${bloqueado ? "text-slate-300" : "text-rose-500"}`} />
-                                  <span>Excluir</span>
-                                </button>
-                              );
-                            })()}
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => abrirModalEdicaoInsumo(item)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-lg transition-colors cursor-pointer"
+                            title="Editar parâmetros do insumo"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span>Editar</span>
+                          </button>
                         </td>
                       </tr>
                     );
@@ -968,7 +939,7 @@ export default function EstoqueGeralPage() {
                 </p>
               </div>
 
-              {/* 1. Seleção do Insumo */}
+              {/* 1. Seleção do Insumo (Busca a cada letra) */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
                   <span>Insumo a Receber *</span>
@@ -978,25 +949,110 @@ export default function EstoqueGeralPage() {
                     </span>
                   )}
                 </label>
-                <select
-                  value={itemEntradaId}
-                  onChange={(e) => {
-                    const item = listaEstoque.find((i) => i.id === e.target.value);
-                    if (item) {
-                      setItemEntradaId(item.id);
-                    } else {
-                      limparSelecao();
-                    }
-                  }}
-                  className="w-full p-3 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:border-emerald-600 cursor-pointer shadow-2xs"
-                >
-                  <option value="">Selecione o insumo recebido...</option>
-                  {listaEstoque.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.nome} — {i.categoria} [{i.unidadeMedida}]
-                    </option>
-                  ))}
-                </select>
+
+                {insumoEntradaSelecionado ? (
+                  <div className="flex items-center justify-between gap-3 p-3.5 bg-emerald-50 border-2 border-emerald-500 rounded-xl shadow-2xs">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-extrabold text-slate-900 truncate">
+                          {insumoEntradaSelecionado.nome}
+                        </h4>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                          <span className="font-semibold">{insumoEntradaSelecionado.categoria}</span>
+                          <span>•</span>
+                          <span className="text-emerald-800 font-bold">
+                            Saldo atual: {insumoEntradaSelecionado.saldoTotal ?? 0} {insumoEntradaSelecionado.unidadeMedida}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={limparSelecao}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-rose-700 bg-white hover:bg-rose-50 border border-emerald-300 hover:border-rose-300 rounded-lg transition-colors cursor-pointer shrink-0 shadow-2xs"
+                      title="Trocar insumo selecionado"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Trocar Insumo</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div ref={entradaAutocompleteRef} className="relative">
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={buscaEntrada}
+                        onChange={(e) => {
+                          setBuscaEntrada(e.target.value);
+                          setBuscaEntradaFocada(true);
+                        }}
+                        onFocus={() => setBuscaEntradaFocada(true)}
+                        placeholder="Digite o nome do insumo a receber (ex: arroz, feijão, frango)..."
+                        className="w-full pl-9 pr-9 py-3 bg-white border-2 border-slate-200 focus:border-emerald-600 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none transition-all shadow-2xs"
+                      />
+                      {buscaEntrada && (
+                        <button
+                          type="button"
+                          onClick={() => setBuscaEntrada("")}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                          title="Limpar campo"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {buscaEntradaFocada && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto divide-y divide-slate-100 animate-in fade-in duration-150">
+                        <div className="px-3.5 py-1.5 bg-slate-50 text-[11px] font-bold text-slate-500 flex items-center justify-between sticky top-0 z-10 border-b border-slate-100">
+                          <span>
+                            {insumosEntradaFiltrados.length === 1
+                              ? "1 insumo encontrado"
+                              : `${insumosEntradaFiltrados.length} insumos encontrados`}
+                          </span>
+                          <span className="text-[10px] text-slate-400">Clique para selecionar</span>
+                        </div>
+
+                        {insumosEntradaFiltrados.length === 0 ? (
+                          <div className="p-4 text-center text-xs text-slate-400">
+                            Nenhum insumo encontrado para &quot;{buscaEntrada}&quot;.
+                          </div>
+                        ) : (
+                          insumosEntradaFiltrados.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => {
+                                setItemEntradaId(item.id);
+                                setBuscaEntrada("");
+                                setBuscaEntradaFocada(false);
+                              }}
+                              className="w-full text-left p-3 hover:bg-emerald-50/70 transition-colors flex items-center justify-between gap-3 cursor-pointer"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                                  {item.nome}
+                                </p>
+                                <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-0.5">
+                                  <span className="font-semibold text-slate-600">{item.categoria}</span>
+                                  <span>•</span>
+                                  <span className="text-emerald-700 font-semibold">
+                                    Saldo: {item.saldoTotal ?? 0} {item.unidadeMedida}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="text-xs font-bold px-2 py-1 bg-slate-100 text-slate-700 rounded-lg shrink-0">
+                                {item.unidadeMedida}
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* 2. Origem e Fornecedor */}
@@ -1010,13 +1066,6 @@ export default function EstoqueGeralPage() {
                     onChange={(e) => {
                       const novaOrigem = e.target.value as "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA";
                       setOrigemEntrada(novaOrigem);
-                      if (novaOrigem === "AGROPECUARIA") {
-                        setFornecedorEntrada("Agropecuária (Fazenda IFPE)");
-                      } else if (novaOrigem === "AGROINDUSTRIA") {
-                        setFornecedorEntrada("Agroindústria (IFPE)");
-                      } else if (novaOrigem === "EXTERNA") {
-                        setFornecedorEntrada("Fornecedor Externo");
-                      }
                     }}
                     className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
                   >
@@ -1480,20 +1529,34 @@ export default function EstoqueGeralPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 uppercase">
-                  Preço Referência Unitário (R$) *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Preço Referência Unitário (R$)
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={novoInsumoSemPreco}
+                      onChange={(e) => {
+                        setNovoInsumoSemPreco(e.target.checked);
+                        if (e.target.checked) setNovoInsumoValor("");
+                      }}
+                      className="w-3.5 h-3.5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <span>Sem preço</span>
+                  </label>
+                </div>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R$</span>
                   <input
                     type="number"
                     step="0.01"
                     min="0.01"
-                    required
+                    disabled={novoInsumoSemPreco}
                     value={novoInsumoValor}
                     onChange={(e) => setNovoInsumoValor(e.target.value)}
-                    placeholder="25.00"
-                    className="w-full pl-8 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600"
+                    placeholder={novoInsumoSemPreco ? "Insumo sem preço de referência" : "Ex: 25.00"}
+                    className="w-full pl-8 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -1672,19 +1735,34 @@ export default function EstoqueGeralPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 uppercase">
-                  Preço de Referência Unitário (R$)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Preço de Referência Unitário (R$)
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={edicaoSemPreco}
+                      onChange={(e) => {
+                        setEdicaoSemPreco(e.target.checked);
+                        if (e.target.checked) setEdicaoValorReferencia("");
+                      }}
+                      className="w-3.5 h-3.5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <span>Sem preço</span>
+                  </label>
+                </div>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">R$</span>
                   <input
                     type="number"
                     step="0.01"
                     min="0.01"
+                    disabled={edicaoSemPreco}
                     value={edicaoValorReferencia}
                     onChange={(e) => setEdicaoValorReferencia(e.target.value)}
-                    placeholder="Ex: 25.00"
-                    className="w-full pl-8 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600"
+                    placeholder={edicaoSemPreco ? "Insumo sem preço de referência" : "Ex: 25.00"}
+                    className="w-full pl-8 pr-3 py-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                   />
                 </div>
                 <p className="text-[10px] text-slate-400">
@@ -1734,23 +1812,52 @@ export default function EstoqueGeralPage() {
                 </div>
               )}
 
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setModalEdicaoInsumoAberto(false)}
-                  disabled={salvandoEdicaoInsumo}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={salvandoEdicaoInsumo}
-                  className="flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  {salvandoEdicaoInsumo && <Loader2 className="w-4 h-4 animate-spin" />}
-                  <span>{salvandoEdicaoInsumo ? "Salvando..." : "Salvar Alterações"}</span>
-                </button>
+              <div className="pt-3 flex items-center justify-between gap-2 border-t border-slate-100">
+                {(() => {
+                  const possuiSaldo = (insumoEmEdicao.saldoTotal ?? 0) > 0;
+                  return (
+                    <button
+                      type="button"
+                      disabled={salvandoEdicaoInsumo || possuiSaldo}
+                      onClick={() => {
+                        setModalEdicaoInsumoAberto(false);
+                        abrirModalExclusaoInsumo(insumoEmEdicao);
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-colors border ${
+                        possuiSaldo
+                          ? "text-slate-300 border-slate-200 opacity-50 cursor-not-allowed"
+                          : "text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 cursor-pointer"
+                      }`}
+                      title={
+                        possuiSaldo
+                          ? `Insumo possui saldo (${insumoEmEdicao.saldoTotal} ${insumoEmEdicao.unidadeMedida}) e não pode ser excluído.`
+                          : "Excluir permanentemente este insumo"
+                      }
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Excluir Insumo</span>
+                    </button>
+                  );
+                })()}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalEdicaoInsumoAberto(false)}
+                    disabled={salvandoEdicaoInsumo}
+                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={salvandoEdicaoInsumo}
+                    className="flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {salvandoEdicaoInsumo && <Loader2 className="w-4 h-4 animate-spin" />}
+                    <span>{salvandoEdicaoInsumo ? "Salvando..." : "Salvar Alterações"}</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>

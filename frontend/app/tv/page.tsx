@@ -63,11 +63,24 @@ export default function TvMuralPage() {
         const dadosDia = parsed[diaSemana];
         if (dadosDia && dadosDia[refeicaoAtiva]) {
           const ref = dadosDia[refeicaoAtiva];
-          const partes = [
-            ref.pratoPrincipal,
-            ref.acompanhamentos ? `ACOMPANHAMENTOS: ${ref.acompanhamentos}` : "",
-            ref.saladaSobremesa ? `SALADA / SOBREMESA: ${ref.saladaSobremesa}` : "",
-          ].filter(Boolean);
+          let partes: string[] = [];
+
+          if (ref.itens && Array.isArray(ref.itens) && ref.itens.length > 0) {
+            partes = ref.itens
+              .map((it: any) => it.nome?.trim())
+              .filter(Boolean);
+            if (ref.observacoes?.trim()) {
+              partes.push(`OBS: ${ref.observacoes.trim()}`);
+            }
+          } else {
+            partes = [
+              ref.pratoPrincipal,
+              ref.acompanhamentos ? `ACOMPANHAMENTOS: ${ref.acompanhamentos}` : "",
+              ref.saladaSobremesa ? `SALADA: ${ref.saladaSobremesa}` : "",
+              ref.bebida ? `BEBIDA: ${ref.bebida}` : "",
+              ref.observacoes ? `OBS: ${ref.observacoes}` : "",
+            ].filter(Boolean);
+          }
 
           const texto = partes.join(". ");
           setTextoCardapio(texto.trim());
