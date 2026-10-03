@@ -9,7 +9,10 @@ export interface ProdutoResponse {
   quantidadeMinima?: number;
   controlaValidade?: boolean;
   saldoTotal: number;
+  podeExcluir?: boolean;
 }
+
+export type Produto = ProdutoResponse;
 
 export interface ProdutoRequest {
   nome: string;
@@ -61,5 +64,9 @@ export const produtoService = {
       valorReferencia,
     });
     return response.data;
+  },
+
+  excluir: async (id: string): Promise<void> => {
+    await api.delete(`/produtos/${id}`);
   },
 };

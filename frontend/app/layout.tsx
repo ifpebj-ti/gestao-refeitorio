@@ -47,9 +47,10 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { autenticado, carregando, perfil } = useAuth();
   const isAuthPage = pathname === "/" || pathname === "/login";
+  const isTvPage = pathname === "/tv" || pathname.startsWith("/tv");
 
   useEffect(() => {
-    if (carregando) return;
+    if (carregando || isTvPage) return;
 
     // 1. Usuário não autenticado tentando acessar qualquer rota interna protegida
     if (!autenticado && !isAuthPage) {
@@ -70,7 +71,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     // 3. Controle de acesso por perfil (RBAC) para rotas internas
     if (autenticado) {
       if (perfil === "COZINHA") {
-        const rotasRestritasCozinha = ["/recebimento", "/estoque", "/relatorios", "/cardapio", "/usuarios"];
+        const rotasRestritasCozinha = ["/recebimento", "/estoque", "/relatorios", "/cardapio", "/cardapio-tv", "/usuarios"];
         if (rotasRestritasCozinha.some((r) => pathname.startsWith(r))) {
           router.replace("/consumo");
         }
@@ -84,7 +85,12 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [autenticado, carregando, isAuthPage, pathname, perfil, router]);
+  }, [autenticado, carregando, isAuthPage, isTvPage, pathname, perfil, router]);
+
+  // Se for página de exibição na TV do refeitório (modo mural público em tela cheia)
+  if (isTvPage) {
+    return <main className="w-full h-full min-h-screen overflow-x-hidden">{children}</main>;
+  }
 
   // Se for página de login
   if (isAuthPage) {

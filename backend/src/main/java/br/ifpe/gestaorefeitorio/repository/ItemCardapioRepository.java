@@ -14,6 +14,8 @@ import java.util.UUID;
 public interface ItemCardapioRepository extends JpaRepository<ItemCardapio, UUID> {
     List<ItemCardapio> findByCardapioId(UUID cardapioId);
 
+    boolean existsByProdutoId(UUID produtoId);
+
     // Consolida todos os cardápios do período, somando por produto a quantidade estimada
     // (quantidadePorPessoa * pessoasEstimadas de cada cardápio) — US18/#157.
     @Query("""

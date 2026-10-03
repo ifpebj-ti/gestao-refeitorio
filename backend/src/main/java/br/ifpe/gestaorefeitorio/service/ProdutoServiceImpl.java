@@ -8,17 +8,20 @@ import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoValorReferenciaDTO;
 import br.ifpe.gestaorefeitorio.dto.SaldoPorLocalDTO;
+import br.ifpe.gestaorefeitorio.exception.ProdutoComMovimentacoesException;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.Movimentacao;
 import br.ifpe.gestaorefeitorio.model.Produto;
 import br.ifpe.gestaorefeitorio.model.ProducaoInterna;
 import br.ifpe.gestaorefeitorio.model.Usuario;
+import br.ifpe.gestaorefeitorio.repository.ItemCardapioRepository;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
 import br.ifpe.gestaorefeitorio.repository.ProducaoInternaRepository;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -35,6 +38,7 @@ public class ProdutoServiceImpl implements ProdutoService {
     private final ProdutoRepository produtoRepository;
     private final MovimentacaoRepository movimentacaoRepository;
     private final ProducaoInternaRepository producaoInternaRepository;
+    private final ItemCardapioRepository itemCardapioRepository;
 
     @Override
     public ProdutoResponseDTO cadastrar(ProdutoRequestDTO request) {
@@ -147,12 +151,31 @@ public class ProdutoServiceImpl implements ProdutoService {
                 .toList();
     }
 
+    @Override
+    @Transactional
+    public void excluir(UUID id) {
+        Produto produto = buscarEntidade(id);
+
+        if (movimentacaoRepository.existsByProdutoId(id) || itemCardapioRepository.existsByProdutoId(id)) {
+            throw new ProdutoComMovimentacoesException();
+        }
+
+        produtoRepository.delete(produto);
+        log.info("Produto excluído: {} ({})", produto.getNome(), produto.getId());
+    }
+
     private Produto buscarEntidade(UUID id) {
         return produtoRepository.findById(id)
                 .orElseThrow(() -> new ProdutoNaoEncontradoException(id));
     }
 
     private ProdutoResponseDTO paraDTO(Produto produto) {
+        BigDecimal saldoTotal = movimentacaoRepository.calcularSaldoTotal(produto.getId());
+        boolean temMovimentacoes = movimentacaoRepository.existsByProdutoId(produto.getId());
+        boolean temCardapio = itemCardapioRepository.existsByProdutoId(produto.getId());
+        boolean temSaldo = saldoTotal != null && saldoTotal.compareTo(BigDecimal.ZERO) > 0;
+        boolean podeExcluir = !temMovimentacoes && !temCardapio && !temSaldo;
+
         return new ProdutoResponseDTO(
                 produto.getId(),
                 produto.getNome(),
@@ -161,7 +184,8 @@ public class ProdutoServiceImpl implements ProdutoService {
                 produto.getValorReferencia(),
                 produto.getQuantidadeMinima(),
                 produto.getControlaValidade(),
-                movimentacaoRepository.calcularSaldoTotal(produto.getId()));
+                saldoTotal,
+                podeExcluir);
     }
 
     private MovimentacaoHistoricoDTO paraHistoricoDTO(Movimentacao movimentacao, ProducaoInterna producaoInterna) {

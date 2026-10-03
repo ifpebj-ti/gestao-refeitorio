@@ -18,6 +18,9 @@ import {
   Loader2,
   AlertCircle,
   FileSpreadsheet,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
 } from "lucide-react";
 import {
   CategoriaAlimento,
@@ -50,6 +53,12 @@ function hoje(): string {
   return new Date().toISOString().split("T")[0];
 }
 
+function formatarMesAno(ano: number, mes: number): string {
+  return `${ano}-${String(mes + 1).padStart(2, "0")}`;
+}
+
+type ModoPeriodo = "mensal" | "anual" | "personalizado";
+
 // ─── Dados estáticos para seções que ainda não têm endpoint de back ───────────
 // (rotatividade e insumos parados são derivados visualmente do relatório mensal)
 
@@ -75,10 +84,15 @@ export default function RelatoriosPage() {
   const router = useRouter();
   const { autenticado, carregando, perfil } = useAuth();
 
-  // ── Filtro de período ──
+  // ── Filtro de período (Mensal, Anual ou Personalizado) ──
   const agora = new Date();
+  const [modoPeriodo, setModoPeriodo] = useState<ModoPeriodo>("mensal");
+  const [mesAno, setMesAno] = useState<string>(() =>
+    formatarMesAno(agora.getFullYear(), agora.getMonth())
+  );
+  const [anoSelecionado, setAnoSelecionado] = useState<number>(agora.getFullYear());
   const [dataInicio, setDataInicio] = useState(primeiroDiaDoMes(agora));
-  const [dataFim, setDataFim] = useState(hoje());
+  const [dataFim, setDataFim] = useState(ultimoDiaDoMes(agora));
 
   // ── Dados do backend ──
   const [relatorio, setRelatorio] = useState<RelatorioMensalItemDTO[]>([]);
@@ -101,6 +115,59 @@ export default function RelatoriosPage() {
       }
     }
   }, [autenticado, carregando, perfil, router]);
+
+  // Controles de mudança de modo e período
+  const mudarModo = (novoModo: ModoPeriodo) => {
+    setModoPeriodo(novoModo);
+    if (novoModo === "mensal") {
+      const [ano, mes] = mesAno.split("-").map(Number);
+      const dInicio = new Date(ano, mes - 1, 1);
+      const dFim = new Date(ano, mes, 0);
+      setDataInicio(dInicio.toISOString().split("T")[0]);
+      setDataFim(dFim.toISOString().split("T")[0]);
+    } else if (novoModo === "anual") {
+      setDataInicio(`${anoSelecionado}-01-01`);
+      setDataFim(`${anoSelecionado}-12-31`);
+    }
+  };
+
+  const handleMudarMes = (valorMesAno: string) => {
+    setMesAno(valorMesAno);
+    const [ano, mes] = valorMesAno.split("-").map(Number);
+    if (!ano || !mes) return;
+    const dInicio = new Date(ano, mes - 1, 1);
+    const dFim = new Date(ano, mes, 0);
+    setDataInicio(dInicio.toISOString().split("T")[0]);
+    setDataFim(dFim.toISOString().split("T")[0]);
+  };
+
+  const mesAnterior = () => {
+    const [ano, mes] = mesAno.split("-").map(Number);
+    const d = new Date(ano, mes - 2, 1);
+    const novoMesAno = formatarMesAno(d.getFullYear(), d.getMonth());
+    handleMudarMes(novoMesAno);
+  };
+
+  const proximoMes = () => {
+    const [ano, mes] = mesAno.split("-").map(Number);
+    const d = new Date(ano, mes, 1);
+    const novoMesAno = formatarMesAno(d.getFullYear(), d.getMonth());
+    handleMudarMes(novoMesAno);
+  };
+
+  const handleMudarAno = (ano: number) => {
+    setAnoSelecionado(ano);
+    setDataInicio(`${ano}-01-01`);
+    setDataFim(`${ano}-12-31`);
+  };
+
+  const anoAnterior = () => {
+    handleMudarAno(anoSelecionado - 1);
+  };
+
+  const proximoAno = () => {
+    handleMudarAno(anoSelecionado + 1);
+  };
 
   const carregarDados = useCallback(async () => {
     if (!autenticado) return;
@@ -223,7 +290,7 @@ export default function RelatoriosPage() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-28">
 
       {/* 1. CABEÇALHO */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             Relatórios & Indicadores
@@ -233,26 +300,124 @@ export default function RelatoriosPage() {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 self-start sm:self-auto">
-          {/* Seletor de período real */}
-          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs">
-            <span className="text-slate-400">De</span>
-            <input
-              id="data-inicio"
-              type="date"
-              value={dataInicio}
-              onChange={(e) => setDataInicio(e.target.value)}
-              className="border-none outline-none text-xs font-semibold text-slate-800 bg-transparent cursor-pointer"
-            />
-            <span className="text-slate-400">até</span>
-            <input
-              id="data-fim"
-              type="date"
-              value={dataFim}
-              onChange={(e) => setDataFim(e.target.value)}
-              className="border-none outline-none text-xs font-semibold text-slate-800 bg-transparent cursor-pointer"
-            />
+        <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
+          {/* Seletor de Modo: Mensal | Anual | Personalizado */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => mudarModo("mensal")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                modoPeriodo === "mensal"
+                  ? "bg-white text-emerald-800 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Mensal
+            </button>
+            <button
+              type="button"
+              onClick={() => mudarModo("anual")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                modoPeriodo === "anual"
+                  ? "bg-white text-emerald-800 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Anual
+            </button>
+            <button
+              type="button"
+              onClick={() => mudarModo("personalizado")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                modoPeriodo === "personalizado"
+                  ? "bg-white text-emerald-800 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Personalizado
+            </button>
           </div>
+
+          {/* Controle do Período de acordo com o modo selecionado */}
+          {modoPeriodo === "mensal" && (
+            <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-semibold text-slate-700 shadow-xs">
+              <button
+                type="button"
+                onClick={mesAnterior}
+                className="p-1 hover:bg-slate-100 rounded-md text-slate-500 hover:text-slate-800 cursor-pointer"
+                title="Mês anterior"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <input
+                type="month"
+                value={mesAno}
+                onChange={(e) => handleMudarMes(e.target.value)}
+                className="border-none outline-none text-xs font-bold text-slate-800 bg-transparent cursor-pointer px-1.5"
+              />
+              <button
+                type="button"
+                onClick={proximoMes}
+                className="p-1 hover:bg-slate-100 rounded-md text-slate-500 hover:text-slate-800 cursor-pointer"
+                title="Próximo mês"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {modoPeriodo === "anual" && (
+            <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-semibold text-slate-700 shadow-xs">
+              <button
+                type="button"
+                onClick={anoAnterior}
+                className="p-1 hover:bg-slate-100 rounded-md text-slate-500 hover:text-slate-800 cursor-pointer"
+                title="Ano anterior"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <select
+                value={anoSelecionado}
+                onChange={(e) => handleMudarAno(Number(e.target.value))}
+                className="border-none outline-none text-xs font-bold text-slate-800 bg-transparent cursor-pointer px-1.5 py-0.5"
+              >
+                {[2023, 2024, 2025, 2026, 2027, 2028].map((ano) => (
+                  <option key={ano} value={ano}>
+                    Ano {ano}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={proximoAno}
+                className="p-1 hover:bg-slate-100 rounded-md text-slate-500 hover:text-slate-800 cursor-pointer"
+                title="Próximo ano"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {modoPeriodo === "personalizado" && (
+            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs">
+              <span className="text-slate-400">De</span>
+              <input
+                id="data-inicio"
+                type="date"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+                className="border-none outline-none text-xs font-semibold text-slate-800 bg-transparent cursor-pointer"
+              />
+              <span className="text-slate-400">até</span>
+              <input
+                id="data-fim"
+                type="date"
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
+                className="border-none outline-none text-xs font-semibold text-slate-800 bg-transparent cursor-pointer"
+              />
+            </div>
+          )}
 
           {/* Exportar PDF */}
           <button

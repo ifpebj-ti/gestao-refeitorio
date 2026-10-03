@@ -50,6 +50,8 @@ public interface MovimentacaoRepository extends JpaRepository<Movimentacao, UUID
     // Histórico de movimentações do produto (US11/#97), mais recente primeiro.
     List<Movimentacao> findByProdutoIdOrderByDataDesc(UUID produtoId);
 
+    boolean existsByProdutoId(UUID produtoId);
+
     // Mesmo cálculo de calcularSaldoTotal, mas considerando só movimentações até uma data —
     // usado no relatório mensal (US19/#160) pra saldo final "naquele momento", não o saldo atual.
     @Query("""
