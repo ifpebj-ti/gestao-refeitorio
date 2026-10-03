@@ -5,7 +5,7 @@ export interface ProdutoResponse {
   nome: string;
   categoria: string;
   unidadeMedida: string;
-  valorReferencia: number;
+  valorReferencia?: number | null;
   quantidadeMinima?: number;
   controlaValidade?: boolean;
   saldoTotal: number;
@@ -18,7 +18,7 @@ export interface ProdutoRequest {
   nome: string;
   categoria: string;
   unidadeMedida: string;
-  valorReferencia: number;
+  valorReferencia?: number | null;
 }
 
 export const produtoService = {
@@ -59,7 +59,7 @@ export const produtoService = {
     return response.data;
   },
 
-  atualizarValorReferencia: async (id: string, valorReferencia: number): Promise<ProdutoResponse> => {
+  atualizarValorReferencia: async (id: string, valorReferencia: number | null): Promise<ProdutoResponse> => {
     const response = await api.patch<ProdutoResponse>(`/produtos/${id}/valor-referencia`, {
       valorReferencia,
     });

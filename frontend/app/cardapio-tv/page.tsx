@@ -1,208 +1,138 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "../context/AuthContext";
 import {
   Tv,
   Copy,
   Check,
   CheckCircle2,
-  Calendar,
   SunMedium,
   Coffee,
   Moon,
-  Eye,
+  Radio,
 } from "lucide-react";
 
-type DiaSemana = "Segunda" | "Terça" | "Quarta" | "Quinta" | "Sexta";
 type TipoRefeicaoChave = "cafe" | "almoco" | "jantar";
 
-const DIAS_SEMANA: DiaSemana[] = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
-const STORAGE_KEY = "@gestao_refeitorio:cardapio_semanal";
 const KEY_REFEICAO_TV = "@gestao_refeitorio:refeicao_ativa_tv";
 
-const DIAS_NOMES: Record<number, DiaSemana> = {
-  1: "Segunda",
-  2: "Terça",
-  3: "Quarta",
-  4: "Quinta",
-  5: "Sexta",
-};
-
-interface RefeicaoCardapio {
-  pratoPrincipal: string;
-  acompanhamentos?: string;
-  saladaSobremesa?: string;
-  insumosPlanejados?: Array<{ nome: string; quantidadeTotal: number; unidadeMedida: string }>;
-}
-
-interface DiaCardapio {
-  cafe: RefeicaoCardapio;
-  almoco: RefeicaoCardapio;
-  jantar: RefeicaoCardapio;
-}
-
-const CARDAPIO_PADRAO: Record<DiaSemana, DiaCardapio> = {
-  Segunda: {
-    cafe: { pratoPrincipal: "CUSCUZ COM OVOS MEXIDOS, CAFÉ COM LEITE E BANANA." },
-    almoco: {
-      pratoPrincipal:
-        "BISTECA SUÍNA ASSADA E CALABRESA (PODE SE SERVIR DAS DUAS OPÇÕES), ARROZ, FEIJÃO PRETO, PURÊ DE MACAXEIRA, BATATA DOCE GRATINADA, MACAXEIRA GRATINADA, OVO COZIDO E FAROFA. SALADA: BETERRABA COZIDA, PEPINO, TOMATE E AZEITONA. SOBREMESA: GOIABA",
-    },
-    jantar: { pratoPrincipal: "SOPA NUTRITIVA DE LEGUMES COM CARNE DESFIADA E TORRADAS." },
+const INFO_REFEICOES: Record<
+  TipoRefeicaoChave,
+  { titulo: string; icon: typeof Coffee; corIcone: string }
+> = {
+  cafe: {
+    titulo: "Café da Manhã",
+    icon: Coffee,
+    corIcone: "text-amber-700 bg-amber-50 border-amber-200",
   },
-  Terça: {
-    cafe: { pratoPrincipal: "PÃO COM QUEIJO COALHO E MANTEIGA, CAFÉ COM LEITE E MAÇÃ." },
-    almoco: {
-      pratoPrincipal:
-        "FRANGO ASSADO AO FORNO COM ERVAS, ARROZ BRANCO, FEIJÃO CARIOCA, MACARRÃO AO ALHO E ÓLEO, VINAGRETE. SOBREMESA: MELANCIA",
-    },
-    jantar: { pratoPrincipal: "CUSCUZ TEMPERADO COM CARNE DE SOL DESFIADA E CAFÉ." },
+  almoco: {
+    titulo: "Almoço",
+    icon: SunMedium,
+    corIcone: "text-emerald-700 bg-emerald-50 border-emerald-200",
   },
-  Quarta: {
-    cafe: { pratoPrincipal: "VITAMINA DE FRUTAS COM AVEIA E TORRADA INTEGRAL COM REQUEIJÃO." },
-    almoco: {
-      pratoPrincipal:
-        "CARNE BOVINA DE PANELA COM MANDIOCA, ARROZ PARBOILIZADO, FEIJÃO CARIOCA, SALADA VERDE (ALFACE, TOMATE E CEBOLA). SOBREMESA: LARANJA",
-    },
-    jantar: { pratoPrincipal: "MACARRONADA COM MOLHO À BOLONHESA E QUEIJO RALADO." },
-  },
-  Quinta: {
-    cafe: { pratoPrincipal: "INHAME COZIDO COM OVOS E MANTEIGA DA TERRA, CAFÉ COM LEITE." },
-    almoco: {
-      pratoPrincipal:
-        "FEIJOADA COMPLETA TRADICIONAL, ARROZ BRANCO, COUVE REFOGADA, FAROFA DA CASA, LARANJA EM FATIAS.",
-    },
-    jantar: { pratoPrincipal: "MUNGUNZÁ SALGADO COM CARNE DESFIADA E QUEIJO." },
-  },
-  Sexta: {
-    cafe: { pratoPrincipal: "BOLO CASEIRO DE MILHO, CAFÉ COM LEITE E MAÇÃ." },
-    almoco: {
-      pratoPrincipal:
-        "PEIXE EMPANADO OU ISCAS DE FRANGO GRELHADO, ARROZ COM CENOURA, FEIJÃO MACASSAR, PURÊ DE BATATA, SALADA TROPICAL. SOBREMESA: ABACAXI",
-    },
-    jantar: { pratoPrincipal: "SANDUÍCHE NATURAL DE FRANGO DESFIADO COM SUCO DE MARACUJÁ." },
+  jantar: {
+    titulo: "Jantar",
+    icon: Moon,
+    corIcone: "text-indigo-700 bg-indigo-50 border-indigo-200",
   },
 };
-
-const toLocalDateInputString = (d: Date) => {
-  const ano = d.getFullYear();
-  const mes = String(d.getMonth() + 1).padStart(2, "0");
-  const dia = String(d.getDate()).padStart(2, "0");
-  return `${ano}-${mes}-${dia}`;
-};
-
-function getSegundaDaSemana(d: Date): Date {
-  const date = new Date(d);
-  const day = date.getDay(); // 0 = Domingo, 1 = Segunda ... 6 = Sábado
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  const segunda = new Date(date.setDate(diff));
-  segunda.setHours(0, 0, 0, 0);
-  return segunda;
-}
-
-function calcularDadosDia(segunda: Date, offsetDias: number) {
-  const d = new Date(segunda);
-  d.setDate(segunda.getDate() + offsetDias);
-  const hoje = new Date();
-  const isHoje =
-    d.getDate() === hoje.getDate() &&
-    d.getMonth() === hoje.getMonth() &&
-    d.getFullYear() === hoje.getFullYear();
-
-  const diaStr = String(d.getDate()).padStart(2, "0");
-  const mesStr = String(d.getMonth() + 1).padStart(2, "0");
-
-  return {
-    data: d,
-    dataFormatada: `${diaStr}/${mesStr}`,
-    isHoje,
-  };
-}
 
 export default function CardapioTvPage() {
-  const { usuario } = useAuth();
-  const [dataReferencia, setDataReferencia] = useState<Date>(new Date());
-  const [diaSelecionado, setDiaSelecionado] = useState<DiaSemana>("Segunda");
-  const [cardapio, setCardapio] = useState<Record<DiaSemana, DiaCardapio>>(CARDAPIO_PADRAO);
-  const [cardapioOriginalJson, setCardapioOriginalJson] = useState<string>("");
-  const [refeicaoTransmitida, setRefeicaoTransmitida] = useState<TipoRefeicaoChave>("almoco");
-  const [feedbackSalvo, setFeedbackSalvo] = useState(false);
+  const [refeicaoSelecionada, setRefeicaoSelecionada] = useState<TipoRefeicaoChave>("almoco");
+  const [refeicaoAtivaTv, setRefeicaoAtivaTv] = useState<TipoRefeicaoChave | null>("almoco");
+  const [textosRefeicoes, setTextosRefeicoes] = useState<Record<TipoRefeicaoChave, string>>({
+    cafe: "",
+    almoco: "",
+    jantar: "",
+  });
+  const [feedbackSalvo, setFeedbackSalvo] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [urlTv, setUrlTv] = useState("/tv");
 
-  // Inicialização e acompanhamento do dia atual
+  // Carrega os dados da TV salvos no localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       setUrlTv(`${window.location.origin}/tv`);
-    }
 
-    const agora = new Date();
-    setDataReferencia(agora);
-    const diaNum = agora.getDay();
-    if (DIAS_NOMES[diaNum]) {
-      setDiaSelecionado(DIAS_NOMES[diaNum]);
-    } else {
-      setDiaSelecionado("Segunda");
-    }
+      try {
+        const ativaSalva = localStorage.getItem(KEY_REFEICAO_TV);
+        if (ativaSalva === "nenhuma") {
+          setRefeicaoAtivaTv(null);
+        } else if (ativaSalva && ["cafe", "almoco", "jantar"].includes(ativaSalva)) {
+          const chave = ativaSalva as TipoRefeicaoChave;
+          setRefeicaoAtivaTv(chave);
+          setRefeicaoSelecionada(chave);
+        }
 
-    try {
-      const salvo = localStorage.getItem(STORAGE_KEY);
-      if (salvo) {
-        const parsed = JSON.parse(salvo);
-        setCardapio(parsed);
-        setCardapioOriginalJson(JSON.stringify(parsed));
-      } else {
-        setCardapioOriginalJson(JSON.stringify(CARDAPIO_PADRAO));
+        const tCafe = localStorage.getItem("@gestao_refeitorio:texto_tv_cafe") || "";
+        const tAlmoco = localStorage.getItem("@gestao_refeitorio:texto_tv_almoco") || "";
+        const tJantar = localStorage.getItem("@gestao_refeitorio:texto_tv_jantar") || "";
+
+        setTextosRefeicoes({
+          cafe: tCafe,
+          almoco: tAlmoco,
+          jantar: tJantar,
+        });
+      } catch (e) {
+        console.error("Erro ao carregar textos da TV:", e);
       }
-
-      const ativaSalva = localStorage.getItem(KEY_REFEICAO_TV) as TipoRefeicaoChave | null;
-      if (ativaSalva && ["cafe", "almoco", "jantar"].includes(ativaSalva)) {
-        setRefeicaoTransmitida(ativaSalva);
-      }
-    } catch (e) {
-      console.error("Erro ao ler configurações da TV:", e);
     }
   }, []);
 
-  // Datas calculadas da semana com base na data de referência
-  const segundaSemana = getSegundaDaSemana(dataReferencia);
-  const datasSemana: Record<DiaSemana, { data: Date; dataFormatada: string; isHoje: boolean }> = {
-    Segunda: calcularDadosDia(segundaSemana, 0),
-    Terça: calcularDadosDia(segundaSemana, 1),
-    Quarta: calcularDadosDia(segundaSemana, 2),
-    Quinta: calcularDadosDia(segundaSemana, 3),
-    Sexta: calcularDadosDia(segundaSemana, 4),
-  };
+  // Seleciona e transmite imediatamente a refeição escolhida para a TV
+  const handleTransmitirRefeicao = (chave: TipoRefeicaoChave) => {
+    setRefeicaoSelecionada(chave);
+    setRefeicaoAtivaTv(chave);
 
-  const handleMudarData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    if (!val) return;
-    const [ano, mes, dia] = val.split("-").map(Number);
-    const novaData = new Date(ano, mes - 1, dia, 12, 0, 0);
-    setDataReferencia(novaData);
-    const diaNum = novaData.getDay();
-    if (DIAS_NOMES[diaNum]) {
-      setDiaSelecionado(DIAS_NOMES[diaNum]);
+    try {
+      localStorage.setItem(KEY_REFEICAO_TV, chave);
+
+      // Garante que o texto atual também fique persistido
+      const textoAtual = textosRefeicoes[chave];
+      localStorage.setItem(`@gestao_refeitorio:texto_tv_${chave}`, textoAtual);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("storage"));
+      }
+
+      setFeedbackSalvo(`Transmitindo agora no telão: ${INFO_REFEICOES[chave].titulo}`);
+      setTimeout(() => setFeedbackSalvo(null), 3000);
+    } catch (e) {
+      console.error("Erro ao transmitir refeição na TV:", e);
     }
   };
 
-  const irParaHoje = () => {
-    const agora = new Date();
-    setDataReferencia(agora);
-    const diaNum = agora.getDay();
-    if (DIAS_NOMES[diaNum]) {
-      setDiaSelecionado(DIAS_NOMES[diaNum]);
-    } else {
-      setDiaSelecionado("Segunda");
+  // Salva automaticamente o texto da refeição conforme a nutricionista digita
+  const handleTextoChange = (novoTexto: string) => {
+    setTextosRefeicoes((prev) => ({
+      ...prev,
+      [refeicaoSelecionada]: novoTexto,
+    }));
+
+    try {
+      localStorage.setItem(`@gestao_refeitorio:texto_tv_${refeicaoSelecionada}`, novoTexto);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("storage"));
+      }
+    } catch (e) {
+      console.error("Erro ao salvar texto da TV:", e);
     }
   };
 
-  const handleSelecionarDia = (dia: DiaSemana) => {
-    setDiaSelecionado(dia);
-    const info = datasSemana[dia];
-    if (info) {
-      setDataReferencia(new Date(info.data));
+  const handlePausarTransmissao = () => {
+    try {
+      localStorage.setItem(KEY_REFEICAO_TV, "nenhuma");
+      setRefeicaoAtivaTv(null);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("storage"));
+      }
+
+      setFeedbackSalvo("Transmissão do telão pausada.");
+      setTimeout(() => setFeedbackSalvo(null), 3000);
+    } catch (e) {
+      console.error("Erro ao pausar transmissão da TV:", e);
     }
   };
 
@@ -217,57 +147,8 @@ export default function CardapioTvPage() {
     }
   };
 
-  const handleTrocarRefeicaoTransmitida = (refeicao: TipoRefeicaoChave) => {
-    setRefeicaoTransmitida(refeicao);
-    try {
-      localStorage.setItem(KEY_REFEICAO_TV, refeicao);
-      window.dispatchEvent(new Event("storage"));
-    } catch (e) {
-      console.error("Erro ao salvar refeição ativa da TV:", e);
-    }
-  };
-
-  const handleTextoChange = (refeicao: TipoRefeicaoChave, valor: string) => {
-    setCardapio((prev) => ({
-      ...prev,
-      [diaSelecionado]: {
-        ...prev[diaSelecionado],
-        [refeicao]: {
-          ...prev[diaSelecionado][refeicao],
-          pratoPrincipal: valor,
-        },
-      },
-    }));
-  };
-
-  // Identifica se houve alguma modificação real nos textos do cardápio
-  const cardapioAtualJson = JSON.stringify(cardapio);
-  const temAlteracoesPendentes = Boolean(
-    cardapioOriginalJson && cardapioAtualJson !== cardapioOriginalJson
-  );
-
-  const handleSalvar = () => {
-    if (!temAlteracoesPendentes) return;
-
-    try {
-      localStorage.setItem(STORAGE_KEY, cardapioAtualJson);
-      setCardapioOriginalJson(cardapioAtualJson);
-      localStorage.setItem(KEY_REFEICAO_TV, refeicaoTransmitida);
-      if (usuario?.nome) {
-        localStorage.setItem(
-          "@gestao_refeitorio:cardapio_nutricionista",
-          `Nutricionista ${usuario.nome}`
-        );
-      }
-      window.dispatchEvent(new Event("storage"));
-      setFeedbackSalvo(true);
-      setTimeout(() => setFeedbackSalvo(false), 3500);
-    } catch (e) {
-      console.error("Erro ao salvar cardápio da TV:", e);
-    }
-  };
-
-  const dadosDia = cardapio[diaSelecionado];
+  const textoAtualExibicao = textosRefeicoes[refeicaoSelecionada];
+  const textoAtivoNoTelao = refeicaoAtivaTv ? textosRefeicoes[refeicaoAtivaTv] : "";
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto w-full space-y-6 pb-24">
@@ -279,283 +160,172 @@ export default function CardapioTvPage() {
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Cardápio na TV (Mural dos Estudantes)
+              Cardápio na TV
             </h1>
             <p className="text-xs sm:text-sm text-slate-500">
-              Configure o texto descritivo e escolha a refeição exibida no monitor do refeitório.
+              Escolha qual refeição transmitir no telão e digite o cardápio.
             </p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleSalvar}
-          disabled={!temAlteracoesPendentes}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all self-start sm:self-auto ${
-            temAlteracoesPendentes
-              ? "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-md cursor-pointer"
-              : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none"
-          }`}
-          title={
-            temAlteracoesPendentes
-              ? "Salvar alterações feitas no cardápio"
-              : "Nenhuma alteração realizada para salvar"
-          }
-        >
-          <Check className="w-4 h-4" />
-          <span>Salvar</span>
-          {temAlteracoesPendentes && (
-            <span className="w-2 h-2 rounded-full bg-emerald-200 animate-pulse" />
-          )}
-        </button>
-      </div>
-
-      {/* FEEDBACK DE SALVO */}
-      {feedbackSalvo && (
-        <div className="p-4 bg-emerald-600 text-white rounded-2xl flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
-          <CheckCircle2 className="w-6 h-6 shrink-0 text-emerald-100" />
-          <div>
-            <p className="font-bold text-sm sm:text-base">Cardápio da TV salvo com sucesso!</p>
-            <p className="text-xs text-emerald-100 mt-0.5">
-              O monitor do refeitório atualizará a exibição automaticamente.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* 2. CARD DO LINK PÚBLICO PARA A TELEVISÃO (SOMENTE COPIAR LINK) */}
-      <div className="bg-emerald-600 text-white p-5 sm:p-6 rounded-2xl shadow-md space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
-              <Tv className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="text-sm sm:text-base font-extrabold tracking-wide uppercase text-white">
-                Link de Visualização para a Televisão do Refeitório
-              </h2>
-              <p className="text-xs text-emerald-50 mt-0.5">
-                Copie este link e coloque no navegador da TV do refeitório. Ele abre em tela cheia com alta legibilidade.
-              </p>
-            </div>
-          </div>
-
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             type="button"
             onClick={handleCopiarLink}
-            className="flex items-center gap-1.5 px-4 py-2 bg-white text-emerald-800 hover:bg-emerald-50 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-xs cursor-pointer self-start sm:self-auto shrink-0"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-emerald-50 text-emerald-800 border border-slate-300 hover:border-emerald-600 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-2xs cursor-pointer"
+            title="Copiar link do telão da TV"
           >
             {copiado ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
             <span>{copiado ? "Link Copiado!" : "Copiar Link"}</span>
           </button>
         </div>
+      </div>
 
-        {/* Input Read-only com a URL */}
-        <div className="bg-emerald-700/70 border border-emerald-500/60 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-mono text-emerald-50 flex items-center justify-between">
-          <span className="truncate">{urlTv}</span>
-          <span className="text-[10px] uppercase font-bold text-white bg-white/20 px-2 py-0.5 rounded-md shrink-0 ml-2">
-            Modo Somente Leitura
-          </span>
+      {/* FEEDBACK DE TRANSMISSÃO */}
+      {feedbackSalvo && (
+        <div className="p-3.5 bg-emerald-600 text-white rounded-xl flex items-center gap-2.5 shadow-sm animate-in fade-in duration-150">
+          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-100" />
+          <p className="font-bold text-xs sm:text-sm">{feedbackSalvo}</p>
+        </div>
+      )}
+
+      {/* 2. STATUS ATUAL DO TELÃO */}
+      <div className="bg-emerald-600 text-white p-5 rounded-2xl shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <Radio className="w-4 h-4 text-emerald-100 animate-pulse shrink-0" />
+            <span className="text-xs sm:text-sm font-bold uppercase tracking-wider">
+              {refeicaoAtivaTv ? (
+                <>Transmitindo no Telão: <strong>{INFO_REFEICOES[refeicaoAtivaTv].titulo}</strong></>
+              ) : (
+                <>Transmissão Pausada (Nenhuma refeição ativa no telão)</>
+              )}
+            </span>
+          </div>
+
+          {refeicaoAtivaTv && (
+            <button
+              type="button"
+              onClick={handlePausarTransmissao}
+              className="text-xs font-bold text-emerald-100 bg-emerald-700 hover:bg-emerald-800 px-3 py-1.5 rounded-lg transition-colors cursor-pointer border border-emerald-500/60 self-start sm:self-auto"
+            >
+              Pausar Telão
+            </button>
+          )}
+        </div>
+
+        {/* Prévia do texto que está na TV agora */}
+        <div className="bg-emerald-700/70 border border-emerald-500/50 p-3.5 rounded-xl">
+          <p className="text-xs sm:text-sm font-bold text-white leading-relaxed">
+            {refeicaoAtivaTv ? (
+              textoAtivoNoTelao ? (
+                textoAtivoNoTelao.split("\n").filter(Boolean).join(" • ").toUpperCase()
+              ) : (
+                <span className="text-emerald-100 italic font-normal">
+                  Nenhum texto digitado para esta refeição. Digite no campo abaixo.
+                </span>
+              )
+            ) : (
+              <span className="text-emerald-100 italic font-normal">
+                Telão pausado. Clique em uma refeição abaixo para transmitir no telão.
+              </span>
+            )}
+          </p>
         </div>
       </div>
 
-      {/* 3. SELETOR DE DATA REAL & DIAS DA SEMANA */}
-      <div className="space-y-2.5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="text-xs font-bold text-slate-700">Data de Referência:</span>
-            <input
-              type="date"
-              value={toLocalDateInputString(dataReferencia)}
-              onChange={handleMudarData}
-              className="px-2.5 py-1 text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={irParaHoje}
-            className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer self-start sm:self-auto border border-slate-200"
-            title="Ir para o dia atual"
-          >
-            <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Hoje</span>
-          </button>
+      {/* 3. BOTÕES PARA SELECIONAR E TRANSMITIR A REFEIÇÃO */}
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs font-extrabold text-slate-700 uppercase tracking-wider block">
+            Selecione qual refeição transmitir no telão:
+          </label>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Clique na refeição desejada para colocá-la imediatamente no telão.
+          </p>
         </div>
 
-        {/* Botões dos dias da semana com datas reais */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {DIAS_SEMANA.map((dia) => {
-            const ativo = diaSelecionado === dia;
-            const info = datasSemana[dia];
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {(["cafe", "almoco", "jantar"] as const).map((chave) => {
+            const info = INFO_REFEICOES[chave];
+            const Icon = info.icon;
+            const ativaNoTelao = refeicaoAtivaTv === chave;
+            const emEdicao = refeicaoSelecionada === chave;
+
             return (
               <button
-                key={dia}
+                key={chave}
                 type="button"
-                onClick={() => handleSelecionarDia(dia)}
-                className={`flex-1 min-w-[95px] py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border text-center flex flex-col items-center justify-center gap-0.5 ${
-                  ativo
-                    ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300 shadow-2xs"
+                onClick={() => handleTransmitirRefeicao(chave)}
+                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-3 relative ${
+                  ativaNoTelao
+                    ? "bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/30 shadow-sm"
+                    : emEdicao
+                    ? "bg-slate-50 border-slate-300 shadow-2xs"
+                    : "bg-white border-slate-200 hover:border-emerald-300 hover:bg-slate-50"
                 }`}
               >
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs sm:text-sm font-bold">{dia}</span>
-                  {info?.isHoje && (
-                    <span
-                      className={`text-[9px] px-1.5 py-0.2 rounded-full font-extrabold uppercase ${
-                        ativo ? "bg-white text-emerald-800" : "bg-emerald-100 text-emerald-800"
-                      }`}
-                    >
-                      Hoje
+                <div className="flex items-center justify-between gap-2">
+                  <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${info.corIcone}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+
+                  {ativaNoTelao ? (
+                    <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-full uppercase flex items-center gap-1.5 shadow-2xs">
+                      <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                      Transmitindo
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 px-2 py-0.5 rounded-full transition-colors">
+                      Clique p/ Transmitir
                     </span>
                   )}
                 </div>
-                {info && (
-                  <span
-                    className={`text-[11px] font-medium ${
-                      ativo ? "text-emerald-100" : "text-slate-400"
-                    }`}
-                  >
-                    {info.dataFormatada}
-                  </span>
-                )}
+
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm sm:text-base">
+                    {info.titulo}
+                  </h3>
+                </div>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* 4. SEÇÕES DAS REFEIÇÕES PARA A TV */}
-      <div className="space-y-6">
-        {/* Almoço */}
-        <CardEdicaoTvRefeicao
-          titulo="Almoço"
-          horario="11:30 às 13:30"
-          Icone={SunMedium}
-          corIcone="text-emerald-700 bg-emerald-50 border-emerald-200"
-          valor={dadosDia.almoco?.pratoPrincipal || ""}
-          estaTransmitindo={refeicaoTransmitida === "almoco"}
-          onTransmitir={() => handleTrocarRefeicaoTransmitida("almoco")}
-          onChange={(v) => handleTextoChange("almoco", v)}
-        />
-
-        {/* Café da Manhã */}
-        <CardEdicaoTvRefeicao
-          titulo="Café da Manhã"
-          horario="07:00 às 08:30"
-          Icone={Coffee}
-          corIcone="text-amber-700 bg-amber-50 border-amber-200"
-          valor={dadosDia.cafe?.pratoPrincipal || ""}
-          estaTransmitindo={refeicaoTransmitida === "cafe"}
-          onTransmitir={() => handleTrocarRefeicaoTransmitida("cafe")}
-          onChange={(v) => handleTextoChange("cafe", v)}
-        />
-
-        {/* Jantar */}
-        <CardEdicaoTvRefeicao
-          titulo="Jantar"
-          horario="17:30 às 19:00"
-          Icone={Moon}
-          corIcone="text-indigo-700 bg-indigo-50 border-indigo-200"
-          valor={dadosDia.jantar?.pratoPrincipal || ""}
-          estaTransmitindo={refeicaoTransmitida === "jantar"}
-          onTransmitir={() => handleTrocarRefeicaoTransmitida("jantar")}
-          onChange={(v) => handleTextoChange("jantar", v)}
-        />
-      </div>
-    </div>
-  );
-}
-
-function CardEdicaoTvRefeicao({
-  titulo,
-  horario,
-  Icone,
-  corIcone,
-  valor,
-  estaTransmitindo,
-  onTransmitir,
-  onChange,
-}: {
-  titulo: string;
-  horario: string;
-  Icone: typeof Coffee;
-  corIcone: string;
-  valor: string;
-  estaTransmitindo: boolean;
-  onTransmitir: () => void;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div
-      className={`bg-white border rounded-2xl p-5 sm:p-6 shadow-xs space-y-4 transition-all ${
-        estaTransmitindo ? "border-emerald-500 ring-2 ring-emerald-500/20" : "border-slate-200"
-      }`}
-    >
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-100 gap-3">
-        <div className="flex items-center gap-3">
-          <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${corIcone}`}>
-            <Icone className="w-5 h-5" />
-          </div>
+      {/* 4. CAMPO DE TEXTO ABERTO LIVRE COM AUTO-SAVE */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-100 gap-2">
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-extrabold text-slate-900">{titulo}</h2>
-              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                {horario}
-              </span>
-            </div>
+            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
+              <span>Cardápio: {INFO_REFEICOES[refeicaoSelecionada].titulo}</span>
+              {refeicaoAtivaTv === refeicaoSelecionada && (
+                <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                  No Ar na TV
+                </span>
+              )}
+            </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Texto que será exibido em letras grandes na TV para os estudantes.
+              Digite o cardápio. As alterações são salvas e sincronizadas automaticamente no telão em tempo real.
             </p>
+          </div>
+
+          <div className="flex items-center gap-1 text-xs text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100 self-start sm:self-auto">
+            <Check className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Salvo automaticamente</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          {/* Botão Transmitir com status */}
-          {estaTransmitindo ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              Transmitindo
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={onTransmitir}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-300 hover:border-emerald-400 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
-              title={`Transmitir ${titulo} na TV do refeitório agora`}
-            >
-              <Tv className="w-3.5 h-3.5 text-slate-500" />
-              <span>Transmitir</span>
-            </button>
-          )}
+        <div>
+          <textarea
+            rows={7}
+            value={textoAtualExibicao}
+            onChange={(e) => handleTextoChange(e.target.value)}
+            placeholder="Exemplo: Arroz, Feijão Carioca, Frango Grelhado, Salada de Tomate com Alface..."
+            className="w-full p-4 font-sans text-sm sm:text-base font-semibold leading-relaxed bg-slate-50/70 border-2 border-slate-300 rounded-2xl focus:bg-white focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs text-slate-900 placeholder:text-slate-400"
+          />
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <textarea
-          rows={3}
-          value={valor}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={`Ex: BISTECA SUÍNA ASSADA E CALABRESA, ARROZ, FEIJÃO PRETO, MACAXEIRA... SALADA: BETERRABA E TOMATE. SOBREMESA: GOIABA`}
-          className="w-full p-3.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 focus:outline-none focus:border-emerald-600 transition-colors leading-relaxed shadow-2xs placeholder:text-slate-400 placeholder:font-normal uppercase"
-        />
-
-        {/* Pré-visualização da TV em miniatura */}
-        {valor && (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wide">
-              <Eye className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Prévia da TV:</span>
-            </div>
-            <p className="text-xs font-normal text-slate-800 leading-snug uppercase">
-              {valor}
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
 }
-

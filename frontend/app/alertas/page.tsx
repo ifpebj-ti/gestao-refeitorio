@@ -213,8 +213,8 @@ export default function CentralAlertasPage() {
   const alertasFiltrados = useMemo(() => {
     return listaAlertas.filter((item) => {
       if (filtroTipo === "ESTOQUE_ZERADO" && item.tipoAlerta !== "ESTOQUE_ZERADO") return false;
-      if (filtroTipo === "ESTOQUE_BAIXO" && item.tipoAlerta !== "ESTOQUE_BAIXO" && item.tipoAlerta !== "ESTOQUE_ZERADO") return false;
-      if (filtroTipo === "VALIDADE" && item.tipoAlerta !== "VALIDADE_CRITICA" && item.tipoAlerta !== "VALIDADE_ATENCAO" && item.tipoAlerta !== "PRODUTO_VENCIDO") return false;
+      if (filtroTipo === "ESTOQUE_BAIXO" && item.tipoAlerta !== "ESTOQUE_BAIXO") return false;
+      if (filtroTipo === "VALIDADE" && item.tipoAlerta !== "VALIDADE_CRITICA" && item.tipoAlerta !== "VALIDADE_ATENCAO") return false;
       if (filtroTipo === "VENCIDOS" && item.tipoAlerta !== "PRODUTO_VENCIDO") return false;
 
       if (filtroCategoria !== "Todas" && item.categoria !== filtroCategoria) return false;
@@ -263,42 +263,81 @@ export default function CentralAlertasPage() {
       )}
 
       {/* Cards de Resumo Enxutos */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <button
+          type="button"
+          onClick={() => setFiltroTipo("TODOS")}
+          className={`text-left bg-white border rounded-2xl p-4 shadow-2xs transition-all cursor-pointer ${
+            filtroTipo === "TODOS" ? "border-slate-900 ring-2 ring-slate-900/10" : "border-slate-200 hover:border-slate-300"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500">Total</span>
             <Bell className="w-4 h-4 text-slate-400" />
           </div>
           <p className="text-2xl font-black text-slate-900 mt-2">{kpis.total}</p>
           <span className="text-[11px] text-slate-400">alertas ativos</span>
-        </div>
+        </button>
 
-        <div className="bg-white border border-rose-100 rounded-2xl p-4 shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setFiltroTipo("ESTOQUE_ZERADO")}
+          className={`text-left bg-white border rounded-2xl p-4 shadow-2xs transition-all cursor-pointer ${
+            filtroTipo === "ESTOQUE_ZERADO" ? "border-rose-600 ring-2 ring-rose-600/10" : "border-rose-100 hover:border-rose-200"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-rose-800">Estoque Zerado</span>
             <PackageX className="w-4 h-4 text-rose-500" />
           </div>
           <p className="text-2xl font-black text-rose-700 mt-2">{kpis.estoqueZerado}</p>
           <span className="text-[11px] text-rose-600/70">itens esgotados</span>
-        </div>
+        </button>
 
-        <div className="bg-white border border-amber-100 rounded-2xl p-4 shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setFiltroTipo("ESTOQUE_BAIXO")}
+          className={`text-left bg-white border rounded-2xl p-4 shadow-2xs transition-all cursor-pointer ${
+            filtroTipo === "ESTOQUE_BAIXO" ? "border-amber-600 ring-2 ring-amber-600/10" : "border-amber-100 hover:border-amber-200"
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-800">Validade Próxima</span>
-            <CalendarClock className="w-4 h-4 text-amber-500" />
+            <span className="text-xs font-bold text-amber-800">Estoque Baixo</span>
+            <TrendingDown className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-2xl font-black text-amber-700 mt-2">{kpis.validadeProxima}</p>
-          <span className="text-[11px] text-amber-600/70">em até 7 dias</span>
-        </div>
+          <p className="text-2xl font-black text-amber-700 mt-2">{kpis.estoqueBaixo}</p>
+          <span className="text-[11px] text-amber-600/70">abaixo do mínimo</span>
+        </button>
 
-        <div className="bg-white border border-purple-100 rounded-2xl p-4 shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setFiltroTipo("VALIDADE")}
+          className={`text-left bg-white border rounded-2xl p-4 shadow-2xs transition-all cursor-pointer ${
+            filtroTipo === "VALIDADE" ? "border-yellow-600 ring-2 ring-yellow-600/10" : "border-yellow-100 hover:border-yellow-200"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-yellow-800">Validade Próxima</span>
+            <CalendarClock className="w-4 h-4 text-yellow-600" />
+          </div>
+          <p className="text-2xl font-black text-yellow-700 mt-2">{kpis.validadeProxima}</p>
+          <span className="text-[11px] text-yellow-700/70">em até 7 dias</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFiltroTipo("VENCIDOS")}
+          className={`text-left bg-white border rounded-2xl p-4 shadow-2xs transition-all cursor-pointer col-span-2 sm:col-span-1 ${
+            filtroTipo === "VENCIDOS" ? "border-purple-600 ring-2 ring-purple-600/10" : "border-purple-100 hover:border-purple-200"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-purple-800">Vencidos</span>
             <Clock className="w-4 h-4 text-purple-500" />
           </div>
           <p className="text-2xl font-black text-purple-800 mt-2">{kpis.vencidos}</p>
           <span className="text-[11px] text-purple-600/70">expirados</span>
-        </div>
+        </button>
       </div>
 
       {/* Busca e Filtros Rápidos */}
@@ -342,22 +381,33 @@ export default function CentralAlertasPage() {
           </button>
           <button
             type="button"
-            onClick={() => setFiltroTipo("ESTOQUE_BAIXO")}
+            onClick={() => setFiltroTipo("ESTOQUE_ZERADO")}
             className={`px-3 py-1.5 text-xs font-bold rounded-xl whitespace-nowrap transition-colors cursor-pointer ${
-              filtroTipo === "ESTOQUE_BAIXO"
+              filtroTipo === "ESTOQUE_ZERADO"
                 ? "bg-rose-600 text-white"
                 : "bg-rose-50 text-rose-700 hover:bg-rose-100"
             }`}
           >
-            Estoque Baixo ({kpis.estoqueZerado + kpis.estoqueBaixo})
+            Estoque Zerado ({kpis.estoqueZerado})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiltroTipo("ESTOQUE_BAIXO")}
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl whitespace-nowrap transition-colors cursor-pointer ${
+              filtroTipo === "ESTOQUE_BAIXO"
+                ? "bg-amber-600 text-white"
+                : "bg-amber-50 text-amber-800 hover:bg-amber-100"
+            }`}
+          >
+            Estoque Baixo ({kpis.estoqueBaixo})
           </button>
           <button
             type="button"
             onClick={() => setFiltroTipo("VALIDADE")}
             className={`px-3 py-1.5 text-xs font-bold rounded-xl whitespace-nowrap transition-colors cursor-pointer ${
               filtroTipo === "VALIDADE"
-                ? "bg-amber-600 text-white"
-                : "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                ? "bg-yellow-600 text-white"
+                : "bg-yellow-50 text-yellow-800 hover:bg-yellow-100"
             }`}
           >
             Validade Próxima ({kpis.validadeProxima})

@@ -1,24 +1,29 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import {
   Coffee,
   SunMedium,
   Moon,
+  Clock,
   Edit3,
   Check,
   CheckCircle2,
   Calendar,
-  Plus,
-  Trash2,
-  Search,
-  X,
+  Users,
+  Utensils,
+  RotateCcw,
 } from "lucide-react";
-import { produtoService, ProdutoResponse } from "@/lib/produtos";
 
 type DiaSemana = "Segunda" | "Terça" | "Quarta" | "Quinta" | "Sexta";
 type TipoRefeicaoChave = "cafe" | "almoco" | "jantar";
+
+export interface ItemLinhaCardapio {
+  id: string;
+  nome: string;
+  quantidade?: string;
+}
 
 export interface InsumoPlanejado {
   produtoId: string;
@@ -28,9 +33,17 @@ export interface InsumoPlanejado {
 }
 
 export interface RefeicaoCardapio {
-  pratoPrincipal: string;
-  acompanhamentos: string;
-  saladaSobremesa: string;
+  horario?: string;
+  texto?: string;
+  itens?: ItemLinhaCardapio[];
+  itensSalada?: ItemLinhaCardapio[];
+  observacoes?: string;
+  quantidadePessoas?: string;
+  // Campos retrocompatíveis para não quebrar cardápios pré-existentes:
+  pratoPrincipal?: string;
+  acompanhamentos?: string;
+  saladaSobremesa?: string;
+  bebida?: string;
   insumosPlanejados?: InsumoPlanejado[];
 }
 
@@ -60,7 +73,22 @@ const toLocalDateInputString = (d: Date) => {
 function getSegundaDaSemana(d: Date): Date {
   const date = new Date(d);
   const day = date.getDay(); // 0 = Domingo, 1 = Segunda ... 6 = Sábado
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+
+  // No fim de semana (Sábado ou Domingo), o planejamento escolar padrão é para a próxima Segunda letiva
+  if (day === 6) {
+    const seg = new Date(date);
+    seg.setDate(date.getDate() + 2);
+    seg.setHours(0, 0, 0, 0);
+    return seg;
+  }
+  if (day === 0) {
+    const seg = new Date(date);
+    seg.setDate(date.getDate() + 1);
+    seg.setHours(0, 0, 0, 0);
+    return seg;
+  }
+
+  const diff = date.getDate() - day + 1;
   const segunda = new Date(date.setDate(diff));
   segunda.setHours(0, 0, 0, 0);
   return segunda;
@@ -85,32 +113,188 @@ function calcularDadosDia(segunda: Date, offsetDias: number) {
   };
 }
 
+export function converterParaItensLinha(ref?: RefeicaoCardapio): ItemLinhaCardapio[] {
+  if (!ref) return [];
+  if (Array.isArray(ref.itens)) {
+    return ref.itens.map((it, idx) => ({
+      ...it,
+      id: it.id || `item-gen-${idx}-${Date.now()}`,
+    }));
+  }
+
+  // Conversão retrocompatível para dados legados
+  const lista: ItemLinhaCardapio[] = [];
+  let contador = 1;
+
+  if (ref.saladaSobremesa?.trim()) {
+    lista.push({
+      id: `leg-sal-${contador++}`,
+      nome: `Salada: ${ref.saladaSobremesa.trim()}`,
+      quantidade: "",
+    });
+  }
+
+  if (ref.pratoPrincipal?.trim()) {
+    lista.push({
+      id: `leg-prat-${contador++}`,
+      nome: ref.pratoPrincipal.trim(),
+      quantidade: "",
+    });
+  }
+
+  if (ref.acompanhamentos?.trim()) {
+    lista.push({
+      id: `leg-acomp-${contador++}`,
+      nome: ref.acompanhamentos.trim(),
+      quantidade: "",
+    });
+  }
+
+  if (ref.insumosPlanejados && Array.isArray(ref.insumosPlanejados)) {
+    for (const ins of ref.insumosPlanejados) {
+      lista.push({
+        id: `leg-ins-${contador++}`,
+        nome: ins.nome,
+        quantidade: `${ins.quantidadeTotal} ${ins.unidadeMedida}`,
+      });
+    }
+  }
+
+  if (ref.bebida?.trim()) {
+    lista.push({
+      id: `leg-beb-${contador++}`,
+      nome: ref.bebida.trim(),
+      quantidade: "",
+    });
+  }
+
+  return lista;
+}
+
+export function converterParaItensLinhaSalada(ref?: RefeicaoCardapio): ItemLinhaCardapio[] {
+  if (!ref) return [];
+  if (Array.isArray(ref.itensSalada)) {
+    return ref.itensSalada.map((it, idx) => ({
+      ...it,
+      id: it.id || `sal-gen-${idx}-${Date.now()}`,
+    }));
+  }
+  return [];
+}
+
+export function extrairTextoRefeicao(ref?: RefeicaoCardapio): string {
+  if (!ref) return "";
+  if (typeof ref.texto === "string" && ref.texto.trim()) {
+    return ref.texto;
+  }
+  const linhas: string[] = [];
+  if (ref.itensSalada && ref.itensSalada.length > 0) {
+    linhas.push("Salada:");
+    const vegetais = ref.itensSalada
+      .filter((s) => s.nome?.trim())
+      .map((s) => (s.quantidade?.trim() ? `${s.nome.trim()} (${s.quantidade.trim()})` : s.nome.trim()));
+    if (vegetais.length > 0) {
+      linhas.push(vegetais.join(" + "));
+      linhas.push("");
+    }
+  }
+  if (ref.itens && ref.itens.length > 0) {
+    for (const it of ref.itens) {
+      if (!it.nome?.trim()) continue;
+      const qtd = it.quantidade?.trim() ? ` (${it.quantidade.trim()})` : "";
+      linhas.push(`- ${it.nome.trim()}${qtd}`);
+    }
+  } else {
+    // Retrocompatibilidade com dados legados
+    if (ref.saladaSobremesa?.trim()) {
+      linhas.push("Salada:");
+      linhas.push(ref.saladaSobremesa.trim());
+      linhas.push("");
+    }
+    if (ref.pratoPrincipal?.trim()) linhas.push(`- ${ref.pratoPrincipal.trim()}`);
+    if (ref.acompanhamentos?.trim()) linhas.push(`- ${ref.acompanhamentos.trim()}`);
+    if (ref.insumosPlanejados && Array.isArray(ref.insumosPlanejados)) {
+      for (const ins of ref.insumosPlanejados) {
+        linhas.push(`- ${ins.nome} (${ins.quantidadeTotal} ${ins.unidadeMedida})`);
+      }
+    }
+    if (ref.bebida?.trim()) linhas.push(`- ${ref.bebida.trim()}`);
+  }
+  return linhas.join("\n").trim();
+}
+
+export function parseTextoParaItens(texto: string): {
+  itens: ItemLinhaCardapio[];
+  itensSalada: ItemLinhaCardapio[];
+} {
+  const linhas = (texto || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const itens: ItemLinhaCardapio[] = [];
+  const itensSalada: ItemLinhaCardapio[] = [];
+  let emSalada = false;
+
+  for (const linha of linhas) {
+    if (linha.toLowerCase().startsWith("salada:")) {
+      emSalada = true;
+      const conteudoSalada = linha.replace(/^salada:\s*/i, "").trim();
+      if (conteudoSalada) {
+        const partes = conteudoSalada.split("+");
+        for (const p of partes) {
+          const pt = p.trim();
+          if (!pt) continue;
+          const matchQtd = pt.match(/\(([^)]+)\)/);
+          const nome = pt.replace(/\([^)]+\)/, "").trim();
+          const qtd = matchQtd ? matchQtd[1].trim() : "";
+          itensSalada.push({ id: `sal-${itensSalada.length + 1}`, nome, quantidade: qtd });
+        }
+      }
+      continue;
+    }
+
+    if (emSalada && !linha.startsWith("-")) {
+      const partes = linha.split("+");
+      for (const p of partes) {
+        const pt = p.trim();
+        if (!pt) continue;
+        const matchQtd = pt.match(/\(([^)]+)\)/);
+        const nome = pt.replace(/\([^)]+\)/, "").trim();
+        const qtd = matchQtd ? matchQtd[1].trim() : "";
+        itensSalada.push({ id: `sal-${itensSalada.length + 1}`, nome, quantidade: qtd });
+      }
+      continue;
+    }
+
+    // Linha de prato/item
+    emSalada = false;
+    const limpo = linha.replace(/^-\s*/, "").trim();
+    const matchQtd = limpo.match(/\(([^)]+)\)/);
+    const nome = limpo.replace(/\([^)]+\)/, "").trim();
+    const qtd = matchQtd ? matchQtd[1].trim() : "";
+    itens.push({ id: `item-${itens.length + 1}`, nome, quantidade: qtd });
+  }
+
+  return { itens, itensSalada };
+}
+
+const criarRefeicaoVazia = (): RefeicaoCardapio => ({
+  texto: "",
+  quantidadePessoas: "",
+  observacoes: "",
+  itens: [],
+  itensSalada: [],
+});
+
+const criarDiaVazio = (): DiaCardapio => ({
+  cafe: criarRefeicaoVazia(),
+  almoco: criarRefeicaoVazia(),
+  jantar: criarRefeicaoVazia(),
+});
+
 const CARDAPIO_INICIAL: Record<DiaSemana, DiaCardapio> = {
-  Segunda: {
-    cafe: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-    almoco: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-    jantar: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-  },
-  Terça: {
-    cafe: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-    almoco: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-    jantar: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-  },
-  Quarta: {
-    cafe: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-    almoco: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-    jantar: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-  },
-  Quinta: {
-    cafe: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-    almoco: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-    jantar: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-  },
-  Sexta: {
-    cafe: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-    almoco: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-    jantar: { pratoPrincipal: "", acompanhamentos: "", saladaSobremesa: "" },
-  },
+  Segunda: criarDiaVazio(),
+  Terça: criarDiaVazio(),
+  Quarta: criarDiaVazio(),
+  Quinta: criarDiaVazio(),
+  Sexta: criarDiaVazio(),
 };
 
 const STORAGE_KEY = "@gestao_refeitorio:cardapio_semanal";
@@ -124,17 +308,17 @@ const INFO_REFEICOES: Record<
     corIcone: string;
   }
 > = {
-  almoco: {
-    titulo: "Almoço",
-    horario: "11:30 às 13:30",
-    icon: SunMedium,
-    corIcone: "text-emerald-700 bg-emerald-50 border-emerald-200",
-  },
   cafe: {
     titulo: "Café da Manhã",
     horario: "07:00 às 08:30",
     icon: Coffee,
     corIcone: "text-amber-700 bg-amber-50 border-amber-200",
+  },
+  almoco: {
+    titulo: "Almoço",
+    horario: "11:30 às 13:30",
+    icon: SunMedium,
+    corIcone: "text-emerald-700 bg-emerald-50 border-emerald-200",
   },
   jantar: {
     titulo: "Jantar",
@@ -143,29 +327,6 @@ const INFO_REFEICOES: Record<
     corIcone: "text-indigo-700 bg-indigo-50 border-indigo-200",
   },
 };
-
-const PRODUTOS_PADRAO_FALLBACK: ProdutoResponse[] = [
-  { id: "fallback-arroz-parb", nome: "Arroz Parboilizado", categoria: "Grãos & Cereais", unidadeMedida: "Kg", valorReferencia: 6.5, saldoTotal: 120, podeExcluir: false },
-  { id: "fallback-feijao-car", nome: "Feijão Carioca", categoria: "Grãos & Cereais", unidadeMedida: "Kg", valorReferencia: 7.8, saldoTotal: 95, podeExcluir: false },
-  { id: "fallback-feijao-mac", nome: "Feijão Macassar", categoria: "Grãos & Cereais", unidadeMedida: "Kg", valorReferencia: 7.0, saldoTotal: 60, podeExcluir: false },
-  { id: "fallback-macarrao", nome: "Macarrão Espaguete", categoria: "Grãos & Cereais", unidadeMedida: "Kg", valorReferencia: 4.2, saldoTotal: 50, podeExcluir: false },
-  { id: "fallback-frango", nome: "Peito de Frango", categoria: "Proteínas & Frios", unidadeMedida: "Kg", valorReferencia: 18.5, saldoTotal: 40, podeExcluir: false },
-  { id: "fallback-coxa", nome: "Coxa de Frango", categoria: "Proteínas & Frios", unidadeMedida: "Kg", valorReferencia: 12.0, saldoTotal: 35, podeExcluir: false },
-  { id: "fallback-carne", nome: "Carne Bovina Moída", categoria: "Proteínas & Frios", unidadeMedida: "Kg", valorReferencia: 28.0, saldoTotal: 30, podeExcluir: false },
-  { id: "fallback-calabresa", nome: "Linguiça Calabresa", categoria: "Proteínas & Frios", unidadeMedida: "Kg", valorReferencia: 24.0, saldoTotal: 25, podeExcluir: false },
-  { id: "fallback-ovos", nome: "Ovos Pasteurizados / Cartela", categoria: "Proteínas & Frios", unidadeMedida: "Und", valorReferencia: 18.0, saldoTotal: 20, podeExcluir: false },
-  { id: "fallback-leite", nome: "Leite in natura", categoria: "Laticínios", unidadeMedida: "Lt", valorReferencia: 4.8, saldoTotal: 70, podeExcluir: false },
-  { id: "fallback-queijo", nome: "Queijo Mussarela", categoria: "Laticínios", unidadeMedida: "Kg", valorReferencia: 39.0, saldoTotal: 15, podeExcluir: false },
-  { id: "fallback-margarina", nome: "Margarina", categoria: "Laticínios", unidadeMedida: "Kg", valorReferencia: 12.0, saldoTotal: 18, podeExcluir: false },
-  { id: "fallback-cuscuz", nome: "Flocão de Milho (Cuscuz)", categoria: "Grãos & Cereais", unidadeMedida: "Kg", valorReferencia: 2.8, saldoTotal: 80, podeExcluir: false },
-  { id: "fallback-tomate", nome: "Tomate", categoria: "Hortifrúti", unidadeMedida: "Kg", valorReferencia: 7.0, saldoTotal: 30, podeExcluir: false },
-  { id: "fallback-cebola", nome: "Cebola", categoria: "Hortifrúti", unidadeMedida: "Kg", valorReferencia: 5.5, saldoTotal: 35, podeExcluir: false },
-  { id: "fallback-alho", nome: "Alho", categoria: "Hortifrúti", unidadeMedida: "Kg", valorReferencia: 25.0, saldoTotal: 10, podeExcluir: false },
-  { id: "fallback-batata", nome: "Batata Inglesa", categoria: "Hortifrúti", unidadeMedida: "Kg", valorReferencia: 6.0, saldoTotal: 45, podeExcluir: false },
-  { id: "fallback-cenoura", nome: "Cenoura", categoria: "Hortifrúti", unidadeMedida: "Kg", valorReferencia: 5.0, saldoTotal: 28, podeExcluir: false },
-  { id: "fallback-oleo", nome: "Óleo Vegetal", categoria: "Especificações & Condimentos", unidadeMedida: "Lt", valorReferencia: 6.9, saldoTotal: 40, podeExcluir: false },
-  { id: "fallback-sal", nome: "Sal", categoria: "Especificações & Condimentos", unidadeMedida: "Kg", valorReferencia: 2.0, saldoTotal: 60, podeExcluir: false },
-];
 
 export default function CardapioSemanalPage() {
   const { perfil, usuario } = useAuth();
@@ -176,22 +337,26 @@ export default function CardapioSemanalPage() {
   const [modoEdicao, setModoEdicao] = useState(false);
   const [cardapio, setCardapio] = useState<Record<DiaSemana, DiaCardapio>>(CARDAPIO_INICIAL);
   const [feedbackSalvo, setFeedbackSalvo] = useState(false);
-  const [produtosEstoque, setProdutosEstoque] = useState<ProdutoResponse[]>([]);
-  const [carregandoProdutos, setCarregandoProdutos] = useState(true);
 
-  // Inicialização e acompanhamento do dia atual
   useEffect(() => {
     const agora = new Date();
-    setDataReferencia(agora);
     const diaNum = agora.getDay();
-    if (DIAS_NOMES[diaNum]) {
-      setDiaSelecionado(DIAS_NOMES[diaNum]);
-    } else {
+    if (diaNum === 6 || diaNum === 0) {
+      const diasAteSegunda = diaNum === 6 ? 2 : 1;
+      const proximaSegunda = new Date(agora);
+      proximaSegunda.setDate(agora.getDate() + diasAteSegunda);
+      setDataReferencia(proximaSegunda);
       setDiaSelecionado("Segunda");
+    } else {
+      setDataReferencia(agora);
+      if (DIAS_NOMES[diaNum]) {
+        setDiaSelecionado(DIAS_NOMES[diaNum]);
+      } else {
+        setDiaSelecionado("Segunda");
+      }
     }
   }, []);
 
-  // Datas calculadas da semana com base na data de referência
   const segundaSemana = getSegundaDaSemana(dataReferencia);
   const datasSemana: Record<DiaSemana, { data: Date; dataFormatada: string; isHoje: boolean }> = {
     Segunda: calcularDadosDia(segundaSemana, 0),
@@ -206,21 +371,37 @@ export default function CardapioSemanalPage() {
     if (!val) return;
     const [ano, mes, dia] = val.split("-").map(Number);
     const novaData = new Date(ano, mes - 1, dia, 12, 0, 0);
-    setDataReferencia(novaData);
     const diaNum = novaData.getDay();
-    if (DIAS_NOMES[diaNum]) {
-      setDiaSelecionado(DIAS_NOMES[diaNum]);
+    if (diaNum === 6 || diaNum === 0) {
+      const diasAteSegunda = diaNum === 6 ? 2 : 1;
+      const proximaSeg = new Date(novaData);
+      proximaSeg.setDate(novaData.getDate() + diasAteSegunda);
+      setDataReferencia(proximaSeg);
+      setDiaSelecionado("Segunda");
+    } else {
+      setDataReferencia(novaData);
+      if (DIAS_NOMES[diaNum]) {
+        setDiaSelecionado(DIAS_NOMES[diaNum]);
+      }
     }
   };
 
   const irParaHoje = () => {
     const agora = new Date();
-    setDataReferencia(agora);
     const diaNum = agora.getDay();
-    if (DIAS_NOMES[diaNum]) {
-      setDiaSelecionado(DIAS_NOMES[diaNum]);
-    } else {
+    if (diaNum === 6 || diaNum === 0) {
+      const diasAteSegunda = diaNum === 6 ? 2 : 1;
+      const proximaSegunda = new Date(agora);
+      proximaSegunda.setDate(agora.getDate() + diasAteSegunda);
+      setDataReferencia(proximaSegunda);
       setDiaSelecionado("Segunda");
+    } else {
+      setDataReferencia(agora);
+      if (DIAS_NOMES[diaNum]) {
+        setDiaSelecionado(DIAS_NOMES[diaNum]);
+      } else {
+        setDiaSelecionado("Segunda");
+      }
     }
   };
 
@@ -232,94 +413,78 @@ export default function CardapioSemanalPage() {
     }
   };
 
-  // Carrega produtos do catálogo para seleção do nutricionista com fallback garantido
-  useEffect(() => {
-    setCarregandoProdutos(true);
-    produtoService
-      .listar()
-      .then((lista) => {
-        if (lista && lista.length > 0) {
-          setProdutosEstoque(lista.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
-        } else {
-          setProdutosEstoque(PRODUTOS_PADRAO_FALLBACK);
-        }
-      })
-      .catch((err) => {
-        console.error("Erro ao listar produtos para cardápio, utilizando catálogo de apoio:", err);
-        setProdutosEstoque(PRODUTOS_PADRAO_FALLBACK);
-      })
-      .finally(() => setCarregandoProdutos(false));
-  }, []);
-
-  // Carrega cardápio salvo no localStorage
+  // Carrega cardápio salvo no localStorage (descarta automaticamente mocks antigos de desenvolvimento)
   useEffect(() => {
     try {
       const salvo = localStorage.getItem(STORAGE_KEY);
       if (salvo) {
-        setCardapio(JSON.parse(salvo));
+        const parsed = JSON.parse(salvo);
+        const ehMockAntigo =
+          JSON.stringify(parsed).includes("seg-c1") ||
+          JSON.stringify(parsed).includes("ter-c1") ||
+          JSON.stringify(parsed).includes("qua-c1");
+        if (ehMockAntigo) {
+          localStorage.removeItem(STORAGE_KEY);
+          setCardapio(CARDAPIO_INICIAL);
+          return;
+        }
+        setCardapio(parsed);
+      } else {
+        setCardapio(CARDAPIO_INICIAL);
       }
     } catch (e) {
       console.error("Erro ao carregar cardápio salvo:", e);
+      setCardapio(CARDAPIO_INICIAL);
     }
   }, []);
 
-  const handleAdicionarInsumo = (
+  const handleAtualizarTextoRefeicao = (
     refeicao: TipoRefeicaoChave,
-    produtoId: string,
-    quantidadeTotal: number
+    novoTexto: string
   ) => {
-    const prod = produtosEstoque.find((p) => p.id === produtoId);
-    if (!prod || quantidadeTotal <= 0) return;
-
     setCardapio((prev) => {
       const refeicaoAtual = prev[diaSelecionado][refeicao];
-      const listaAtual = refeicaoAtual.insumosPlanejados || [];
-
-      const index = listaAtual.findIndex((i) => i.produtoId === produtoId);
-      let novaLista: InsumoPlanejado[];
-      if (index >= 0) {
-        novaLista = listaAtual.map((item, idx) =>
-          idx === index ? { ...item, quantidadeTotal } : item
-        );
-      } else {
-        novaLista = [
-          ...listaAtual,
-          {
-            produtoId: prod.id,
-            nome: prod.nome,
-            unidadeMedida: prod.unidadeMedida,
-            quantidadeTotal,
-          },
-        ];
-      }
-
-      return {
+      const { itens, itensSalada } = parseTextoParaItens(novoTexto);
+      const novoCardapio = {
         ...prev,
         [diaSelecionado]: {
           ...prev[diaSelecionado],
           [refeicao]: {
             ...refeicaoAtual,
-            insumosPlanejados: novaLista,
+            texto: novoTexto,
+            itens,
+            itensSalada,
           },
         },
       };
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(novoCardapio));
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("storage"));
+        }
+      } catch (e) {
+        console.error("Erro ao salvar cardápio:", e);
+      }
+
+      return novoCardapio;
     });
   };
 
-  const handleRemoverInsumo = (
+  const handleAtualizarCampo = (
     refeicao: TipoRefeicaoChave,
-    produtoId: string
+    campo: "observacoes" | "quantidadePessoas" | "horario",
+    valor: string
   ) => {
     setCardapio((prev) => {
       const refeicaoAtual = prev[diaSelecionado][refeicao];
-      const listaAtual = refeicaoAtual.insumosPlanejados || [];
       return {
         ...prev,
         [diaSelecionado]: {
           ...prev[diaSelecionado],
           [refeicao]: {
             ...refeicaoAtual,
-            insumosPlanejados: listaAtual.filter((i) => i.produtoId !== produtoId),
+            [campo]: valor,
           },
         },
       };
@@ -335,11 +500,49 @@ export default function CardapioSemanalPage() {
           `Nutricionista ${usuario.nome}`
         );
       }
+
+      // Salva snapshot datado para os dias da semana de referência como evidência histórica perene
+      for (const dia of DIAS_SEMANA) {
+        const info = datasSemana[dia];
+        if (info && info.data) {
+          const ano = info.data.getFullYear();
+          const mes = String(info.data.getMonth() + 1).padStart(2, "0");
+          const dStr = String(info.data.getDate()).padStart(2, "0");
+          const iso = `${ano}-${mes}-${dStr}`;
+          localStorage.setItem(`@gestao_refeitorio:cardapio_data_${iso}`, JSON.stringify(cardapio[dia]));
+        }
+      }
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("storage"));
+      }
       setFeedbackSalvo(true);
       setModoEdicao(false);
       setTimeout(() => setFeedbackSalvo(false), 3500);
     } catch (e) {
       console.error("Erro ao salvar cardápio:", e);
+    }
+  };
+
+  const handleLimparGrade = () => {
+    if (confirm("Deseja realmente limpar todos os itens cadastrados no cardápio semanal?")) {
+      setCardapio(CARDAPIO_INICIAL);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(CARDAPIO_INICIAL));
+        const chavesParaRemover: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith("@gestao_refeitorio:cardapio_data_") || k.startsWith("@gestao_refeitorio:consumo_"))) {
+            chavesParaRemover.push(k);
+          }
+        }
+        chavesParaRemover.forEach((k) => localStorage.removeItem(k));
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("storage"));
+        }
+      } catch (e) {
+        console.error("Erro ao limpar cardápio:", e);
+      }
     }
   };
 
@@ -358,7 +561,7 @@ export default function CardapioSemanalPage() {
               Cardápio Semanal
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Planejamento de insumos para a cozinha e descrição para exibição na TV do refeitório.
+              Defina os pratos e quantidades livremente em texto aberto, sincronizando com a Cozinha e a TV.
             </p>
           </div>
         </div>
@@ -367,14 +570,25 @@ export default function CardapioSemanalPage() {
         {isNutricionista && (
           <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
             {modoEdicao ? (
-              <button
-                type="button"
-                onClick={handleSalvarCardapio}
-                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer"
-              >
-                <Check className="w-4 h-4" />
-                <span>Salvar Alterações</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleLimparGrade}
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs sm:text-sm font-bold shadow-2xs transition-all cursor-pointer"
+                  title="Limpar todos os itens cadastrados no cardápio"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Limpar Grade</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSalvarCardapio}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Salvar Alterações</span>
+                </button>
+              </div>
             ) : (
               <button
                 type="button"
@@ -396,7 +610,7 @@ export default function CardapioSemanalPage() {
           <div>
             <p className="font-bold text-sm sm:text-base">Cardápio salvo com sucesso!</p>
             <p className="text-xs text-emerald-100 mt-0.5">
-              Os insumos calculados foram enviados para a Cozinha e a descrição da TV foi atualizada.
+              As quantidades e insumos foram sincronizados com o Consumo da Cozinha e a exibição da TV.
             </p>
           </div>
         </div>
@@ -404,23 +618,43 @@ export default function CardapioSemanalPage() {
 
       {/* 2. SELETOR DE DATA REAL & DIAS DA SEMANA */}
       <div className="space-y-2.5">
+        {/* Banner informativo quando hoje for fim de semana */}
+        {(() => {
+          const hojeReal = new Date();
+          const diaNumReal = hojeReal.getDay();
+          const isFimDeSemana = diaNumReal === 6 || diaNumReal === 0;
+          if (!isFimDeSemana) return null;
+          const nomeHoje = diaNumReal === 6 ? "Sábado" : "Domingo";
+          const dataStr = `${String(hojeReal.getDate()).padStart(2, "0")}/${String(hojeReal.getMonth() + 1).padStart(2, "0")}`;
+          return (
+            <div className="flex items-center gap-2 p-2.5 px-3.5 bg-amber-50/90 border border-amber-200 text-amber-950 rounded-xl text-xs shadow-2xs">
+              <Calendar className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                Hoje é <strong>{nomeHoje} ({dataStr})</strong>. Fora do período letivo, exibindo planejamento para a <strong>próxima semana ({datasSemana.Segunda.dataFormatada} a {datasSemana.Sexta.dataFormatada})</strong>.
+              </span>
+            </div>
+          );
+        })()}
+
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="text-xs font-bold text-slate-700">Data de Referência:</span>
-            <input
-              type="date"
-              value={toLocalDateInputString(dataReferencia)}
-              onChange={handleMudarData}
-              className="px-2.5 py-1 text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
-            />
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="text-xs font-bold text-slate-700">Data de Referência:</span>
+              <input
+                type="date"
+                value={toLocalDateInputString(dataReferencia)}
+                onChange={handleMudarData}
+                className="px-2.5 py-1 text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
+              />
+            </div>
           </div>
 
           <button
             type="button"
             onClick={irParaHoje}
             className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer self-start sm:self-auto border border-slate-200"
-            title="Ir para o dia atual"
+            title="Ir para o dia atual ou próxima semana útil"
           >
             <Calendar className="w-3.5 h-3.5 text-emerald-600" />
             <span>Hoje</span>
@@ -470,451 +704,204 @@ export default function CardapioSemanalPage() {
         </div>
       </div>
 
-      {/* 3. AS REFEIÇÕES DO DIA (Almoço, Café e Jantar exibidos normalmente) */}
+      {/* 3. AS REFEIÇÕES DO DIA (Café da Manhã primeiro, depois Almoço e Jantar) */}
       <div className="space-y-6">
-        {(["almoco", "cafe", "jantar"] as const).map((chave) => {
+        {(["cafe", "almoco", "jantar"] as const).map((chave) => {
           const info = INFO_REFEICOES[chave];
           const dadosRef = diaAtualDados[chave];
           const Icon = info.icon;
-          const insumos = dadosRef.insumosPlanejados || [];
 
-          return (
-            <CardInsumosRefeicao
-              key={chave}
-              diaNome={diaSelecionado}
-              tituloRefeicao={info.titulo}
-              horarioRefeicao={info.horario}
-              corIcone={info.corIcone}
-              Icone={Icon}
-              insumos={insumos}
-              modoEdicao={modoEdicao}
-              produtosEstoque={produtosEstoque}
-              carregandoProdutos={carregandoProdutos}
-              onAdicionarInsumo={(prodId, qtd) => handleAdicionarInsumo(chave, prodId, qtd)}
-              onRemoverInsumo={(prodId) => handleRemoverInsumo(chave, prodId)}
-            />
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+            const horarioCustomizado = dadosRef.horario?.trim() || info.horario;
 
-// Helper para destacar letras correspondentes na busca em tempo real (sem RegExp para eliminar ReDoS/SAST)
-function destacarTexto(texto: string, busca: string): React.ReactNode {
-  const termo = busca.trim();
-  if (!termo) return texto;
-
-  const index = texto.toLowerCase().indexOf(termo.toLowerCase());
-  if (index === -1) return texto;
-
-  const antes = texto.substring(0, index);
-  const match = texto.substring(index, index + termo.length);
-  const resto = texto.substring(index + termo.length);
-
-  return (
-    <>
-      {antes}
-      <span className="text-emerald-800 bg-emerald-100 font-extrabold px-0.5 rounded-xs">
-        {match}
-      </span>
-      {resto ? destacarTexto(resto, busca) : null}
-    </>
-  );
-}
-
-// =========================================================================================
-// COMPONENTE: Insumo + Quantidade + Setinha de Add (+)
-// =========================================================================================
-function CardInsumosRefeicao({
-  diaNome,
-  tituloRefeicao,
-  horarioRefeicao,
-  corIcone,
-  Icone,
-  insumos,
-  modoEdicao,
-  produtosEstoque,
-  carregandoProdutos,
-  onAdicionarInsumo,
-  onRemoverInsumo,
-}: {
-  diaNome: DiaSemana;
-  tituloRefeicao: string;
-  horarioRefeicao: string;
-  corIcone: string;
-  Icone: typeof Coffee;
-  insumos: InsumoPlanejado[];
-  modoEdicao: boolean;
-  produtosEstoque: ProdutoResponse[];
-  carregandoProdutos: boolean;
-  onAdicionarInsumo: (produtoId: string, quantidade: number) => void;
-  onRemoverInsumo: (produtoId: string) => void;
-}) {
-  const [busca, setBusca] = useState("");
-  const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoResponse | null>(null);
-  const [dropdownAberto, setDropdownAberto] = useState(false);
-  const [quantidade, setQuantidade] = useState("");
-  const [indiceFoco, setIndiceFoco] = useState(0);
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const buscaInputRef = useRef<HTMLInputElement>(null);
-  const qtdInputRef = useRef<HTMLInputElement>(null);
-
-  // Fecha dropdown ao clicar fora do componente
-  useEffect(() => {
-    function handleClickFora(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setDropdownAberto(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickFora);
-    return () => document.removeEventListener("mousedown", handleClickFora);
-  }, []);
-
-  const normalizar = (txt: string) =>
-    txt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-
-  // Filtragem e ordenação em tempo real a cada letra digitada
-  const produtosFiltrados = useMemo(() => {
-    const termo = normalizar(busca);
-    if (!termo) {
-      return produtosEstoque;
-    }
-    // Prioriza os que começam exatamente com o termo digitado
-    const comecamCom = produtosEstoque.filter((p) => normalizar(p.nome).startsWith(termo));
-    const contemNoNome = produtosEstoque.filter(
-      (p) => !normalizar(p.nome).startsWith(termo) && normalizar(p.nome).includes(termo)
-    );
-    const contemNaCategoria = produtosEstoque.filter(
-      (p) =>
-        !normalizar(p.nome).includes(termo) && normalizar(p.categoria).includes(termo)
-    );
-    return [...comecamCom, ...contemNoNome, ...contemNaCategoria];
-  }, [busca, produtosEstoque]);
-
-  const handleSelecionarProduto = (p: ProdutoResponse) => {
-    setProdutoSelecionado(p);
-    setBusca("");
-    setDropdownAberto(false);
-    setIndiceFoco(0);
-    setTimeout(() => {
-      qtdInputRef.current?.focus();
-      qtdInputRef.current?.select();
-    }, 60);
-  };
-
-  const handleAdd = () => {
-    if (!produtoSelecionado) return;
-    const qtdNum = parseFloat(quantidade.replace(",", "."));
-    if (isNaN(qtdNum) || qtdNum <= 0) return;
-
-    onAdicionarInsumo(produtoSelecionado.id, qtdNum);
-    setProdutoSelecionado(null);
-    setBusca("");
-    setQuantidade("");
-    setDropdownAberto(false);
-    setIndiceFoco(0);
-    setTimeout(() => buscaInputRef.current?.focus(), 60);
-  };
-
-  const handleKeyDownBusca = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!dropdownAberto) {
-      if (e.key === "ArrowDown" || e.key === "Enter") {
-        setDropdownAberto(true);
-      }
-      return;
-    }
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setIndiceFoco((prev) => (prev < produtosFiltrados.length - 1 ? prev + 1 : 0));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setIndiceFoco((prev) => (prev > 0 ? prev - 1 : produtosFiltrados.length - 1));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const itemParaSelecionar =
-        indiceFoco >= 0 && produtosFiltrados[indiceFoco]
-          ? produtosFiltrados[indiceFoco]
-          : produtosFiltrados[0];
-      if (itemParaSelecionar) {
-        handleSelecionarProduto(itemParaSelecionar);
-      }
-    } else if (e.key === "Escape") {
-      setDropdownAberto(false);
-    }
-  };
-
-  return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
-      {/* Topo da Refeição */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-100 gap-2">
-        <div className="flex items-center gap-3">
-          <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${corIcone}`}>
-            <Icone className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
-                {tituloRefeicao}
-              </h2>
-              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                {horarioRefeicao}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Insumos e quantidades de preparo que a Cozinha utilizará no {diaNome}.
-            </p>
-          </div>
-        </div>
-
-        <span className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl self-start sm:self-auto">
-          {insumos.length} {insumos.length === 1 ? "insumo adicionado" : "insumos adicionados"}
-        </span>
-      </div>
-
-      {/* Linha de Adição: Digitar Insumo (busca em tempo real a cada letra) + Quantidade + Botão de Add (+) */}
-      {modoEdicao && (
-        <div ref={containerRef} className="space-y-2 pt-1 relative">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-bold text-slate-800 block">
-              Adicionar Insumo do Estoque
-            </label>
-            {produtoSelecionado && (
-              <span className="text-[11px] font-semibold text-emerald-700">
-                Insumo selecionado • informe a quantidade ao lado
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-            {/* Campo de Digitação com Autocomplete em Tempo Real */}
-            <div className="relative flex-1">
-              {produtoSelecionado ? (
-                /* Insumo Selecionado em Destaque */
-                <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-emerald-50 border-2 border-emerald-500 rounded-xl text-emerald-950 text-xs sm:text-sm font-bold shadow-2xs">
-                  <div className="flex items-center gap-2 truncate">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span className="truncate">{produtoSelecionado.nome}</span>
-                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md shrink-0">
-                      {produtoSelecionado.unidadeMedida}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProdutoSelecionado(null);
-                      setBusca("");
-                      setDropdownAberto(true);
-                      setIndiceFoco(0);
-                      setTimeout(() => buscaInputRef.current?.focus(), 50);
-                    }}
-                    className="p-1 text-emerald-700 hover:text-rose-700 hover:bg-emerald-100 rounded-lg cursor-pointer transition-colors"
-                    title="Trocar insumo"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                /* Input de Busca em Tempo Real a Cada Letra */
-                <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    ref={buscaInputRef}
-                    type="text"
-                    value={busca}
-                    onChange={(e) => {
-                      setBusca(e.target.value);
-                      setDropdownAberto(true);
-                      setIndiceFoco(0);
-                    }}
-                    onFocus={() => {
-                      setDropdownAberto(true);
-                      setIndiceFoco(0);
-                    }}
-                    onKeyDown={handleKeyDownBusca}
-                    placeholder={
-                      carregandoProdutos
-                        ? "Carregando catálogo do estoque..."
-                        : "Digite para buscar insumo (ex: arroz, feijão, frango, carne)..."
-                    }
-                    className="w-full pl-9 pr-9 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-emerald-600 transition-all shadow-2xs placeholder:text-slate-400"
-                  />
-                  {busca && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBusca("");
-                        setDropdownAberto(true);
-                        setIndiceFoco(0);
-                        buscaInputRef.current?.focus();
-                      }}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
-                      title="Limpar busca"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Dropdown com os resultados atualizados a cada letra digitada */}
-              {!produtoSelecionado && dropdownAberto && (
-                <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-64 overflow-y-auto divide-y divide-slate-100 animate-in fade-in slide-in-from-top-1 duration-150">
-                  {/* Cabeçalho do Dropdown com contador em tempo real */}
-                  <div className="px-3.5 py-1.5 bg-slate-50 text-[11px] font-bold text-slate-500 flex items-center justify-between sticky top-0 z-10 border-b border-slate-100">
-                    <span>
-                      {produtosFiltrados.length === 1
-                        ? "1 insumo encontrado"
-                        : `${produtosFiltrados.length} insumos encontrados`}
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      Enter seleciona • Setas navegam
-                    </span>
-                  </div>
-
-                  {produtosFiltrados.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-slate-400">
-                      Nenhum insumo encontrado para &quot;{busca}&quot;.
-                    </div>
-                  ) : (
-                    produtosFiltrados.map((p, index) => {
-                      const jaAdicionado = insumos.some((i) => i.produtoId === p.id);
-                      const focado = index === indiceFoco;
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          disabled={jaAdicionado}
-                          onClick={() => handleSelecionarProduto(p)}
-                          className={`w-full text-left p-2.5 transition-colors flex items-center justify-between gap-3 ${
-                            jaAdicionado
-                              ? "bg-slate-50 opacity-40 cursor-not-allowed"
-                              : focado
-                              ? "bg-emerald-50 text-emerald-950 font-medium"
-                              : "hover:bg-emerald-50/70 cursor-pointer"
-                          }`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                              {destacarTexto(p.nome, busca)}
-                            </p>
-                            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-0.5">
-                              <span className="font-semibold text-slate-600">{p.categoria}</span>
-                              <span>•</span>
-                              <span className="text-emerald-700 font-semibold">
-                                Saldo: {p.saldoTotal ?? 0} {p.unidadeMedida}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="shrink-0 flex items-center gap-2">
-                            {jaAdicionado ? (
-                              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
-                                Já adicionado
-                              </span>
-                            ) : (
-                              <span className="text-xs font-bold px-2 py-1 bg-slate-100 text-slate-700 rounded-lg">
-                                {p.unidadeMedida}
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Quantidade ao Lado */}
-            <div className="relative w-full sm:w-36 shrink-0">
-              <input
-                ref={qtdInputRef}
-                type="number"
-                step="0.1"
-                min="0.1"
-                placeholder={produtoSelecionado ? `Qtd (${produtoSelecionado.unidadeMedida})` : "Quantidade"}
-                value={quantidade}
-                onChange={(e) => setQuantidade(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAdd();
-                  } else if (e.key === "Backspace" && !quantidade && produtoSelecionado) {
-                    // Backspace com campo vazio permite voltar e trocar o insumo
-                    setProdutoSelecionado(null);
-                    setDropdownAberto(true);
-                    setTimeout(() => buscaInputRef.current?.focus(), 50);
-                  }
-                }}
-                className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs"
+            return (
+              <CardRefeicaoAberta
+                key={chave}
+                tipoChave={chave}
+                diaNome={diaSelecionado}
+                tituloRefeicao={info.titulo}
+                horarioRefeicao={horarioCustomizado}
+                corIcone={info.corIcone}
+                Icone={Icon}
+                dadosRefeicao={dadosRef}
+                modoEdicao={modoEdicao}
+                onAtualizarTexto={(novoTexto) => handleAtualizarTextoRefeicao(chave, novoTexto)}
+                onAtualizarCampo={(campo, valor) => handleAtualizarCampo(chave, campo, valor)}
               />
-              {produtoSelecionado && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">
-                  {produtoSelecionado.unidadeMedida}
-                </span>
-              )}
-            </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
-            {/* Botão de Adicionar (+) */}
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={!produtoSelecionado || !quantidade}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5 shadow-sm"
-              title="Adicionar insumo à refeição"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Adicionar</span>
-            </button>
+  // =========================================================================================
+  // COMPONENTE: Campo Aberto Livre para Cardápio (Estilo Documento do IFPE / WhatsApp)
+  // Simples, rápido e sem complicações de colunas
+  // =========================================================================================
+  function CardRefeicaoAberta({
+    tipoChave,
+    diaNome,
+    tituloRefeicao,
+    horarioRefeicao,
+    corIcone,
+    Icone,
+    dadosRefeicao,
+    modoEdicao,
+    onAtualizarTexto,
+    onAtualizarCampo,
+  }: {
+    tipoChave: TipoRefeicaoChave;
+    diaNome: DiaSemana;
+    tituloRefeicao: string;
+    horarioRefeicao: string;
+    corIcone: string;
+    Icone: typeof Coffee;
+    dadosRefeicao: RefeicaoCardapio;
+    modoEdicao: boolean;
+    onAtualizarTexto: (novoTexto: string) => void;
+    onAtualizarCampo: (campo: "observacoes" | "quantidadePessoas" | "horario", valor: string) => void;
+  }) {
+    const textoAtual = extrairTextoRefeicao(dadosRefeicao);
+    const linhasTexto = textoAtual
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    const placeholderExemplo =
+      tipoChave === "cafe"
+        ? `- Batata doce (20 kg)\n- Isca de frango cozida (7,5 kg)\n- Mungunzá (1 kg)\n- Pão francês (40 und) - ofertar margarina\n- Biscoito Cream Cracker\n- Café/ACHOCOLATADO`
+        : tipoChave === "almoco"
+        ? `Salada:\nBeterraba cozida (5 kg) + Cenoura cozida (5 kg) + Pepino (5 kg) + Jerimum em cubos (10 kg) + Azeitona (2 kg)\n\n- Picadinho suíno assado (70 kg)\n- Arroz c/ cenoura (22 kg)\n- Feijão preto (17 kg)\n- Purê de jerimum (15 kg)\n- Batata doce gratinada\n- Ovo cozido (5 bandejas)\n- Farofa temperada (6 kg)`
+        : `- Macaxeira (20 kg)\n- Picadinho suíno\n- Sopa de frango (3 kg de coxa de frango)\n- Pão francês (90 und)\n- Biscoito Cream cracker\n- Café/leite`;
+
+    return (
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
+        {/* Topo da Refeição */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-100 gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${corIcone}`}>
+              <Icone className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
+                  {tituloRefeicao}
+                </h2>
+                {modoEdicao ? (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 border border-amber-300 rounded-lg shadow-2xs">
+                    <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <input
+                      type="text"
+                      value={dadosRefeicao.horario ?? horarioRefeicao}
+                      onChange={(e) => onAtualizarCampo("horario", e.target.value)}
+                      placeholder={horarioRefeicao}
+                      className="w-32 text-xs font-bold text-amber-950 bg-white border border-amber-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-500"
+                      title="Horário da refeição (100% mutável)"
+                    />
+                  </div>
+                ) : (
+                  <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-md flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    {horarioRefeicao}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Cardápio para {diaNome}.
+              </p>
+            </div>
           </div>
+
+        {/* Quantidade de Pessoas */}
+        <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+          {modoEdicao ? (
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 border border-slate-200 rounded-xl shadow-2xs">
+              <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span className="text-[11px] font-bold text-slate-600">Pessoas:</span>
+              <input
+                type="text"
+                value={dadosRefeicao.quantidadePessoas || ""}
+                onChange={(e) => onAtualizarCampo("quantidadePessoas", e.target.value)}
+                placeholder={tipoChave === "cafe" ? "50" : tipoChave === "almoco" ? "350" : "150"}
+                className="w-16 font-extrabold text-xs text-slate-800 bg-white border border-slate-300 rounded px-1.5 py-0.5 text-center focus:outline-none focus:border-emerald-600"
+                title="Previsão de pessoas para esta refeição"
+              />
+            </div>
+          ) : (
+            <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-xl flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>
+                {dadosRefeicao.quantidadePessoas
+                  ? `${dadosRefeicao.quantidadePessoas} pessoas`
+                  : "Previsão padrão"}
+              </span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* MODO DE EDIÇÃO: Campo Aberto Livre (Textarea Confortável) */}
+      {modoEdicao ? (
+        <div className="space-y-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 pb-1">
+            <label className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <Utensils className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Cardápio & Preparos (Campo Aberto Livre)</span>
+            </label>
+            <span className="text-[11px] text-slate-500">
+              Digite ou cole as linhas livremente
+            </span>
+          </div>
+
+          <textarea
+            rows={tipoChave === "almoco" ? 11 : 8}
+            value={textoAtual}
+            onChange={(e) => onAtualizarTexto(e.target.value)}
+            placeholder={placeholderExemplo}
+            className="w-full p-3.5 text-xs sm:text-sm font-medium leading-relaxed bg-white border-2 border-slate-300 rounded-xl focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs text-slate-900 placeholder:text-slate-400 font-sans"
+          />
+        </div>
+      ) : (
+        /* MODO DE VISUALIZAÇÃO: Exibição Elegante e Formatada Estilo Folha do IFPE */
+        <div className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80 space-y-3">
+          {linhasTexto.length > 0 ? (
+            <div className="space-y-2 text-xs sm:text-sm text-slate-800">
+              {linhasTexto.map((linha, idx) => {
+                const ehItemComTraco = linha.startsWith("-");
+
+                if (ehItemComTraco) {
+                  const limpo = linha.replace(/^-\s*/, "");
+                  const matchQtd = limpo.match(/\(([^)]+)\)/);
+                  const nome = limpo.replace(/\([^)]+\)/, "").trim();
+                  const qtd = matchQtd ? matchQtd[1].trim() : "";
+
+                  return (
+                    <p key={idx} className="flex items-start gap-2 pl-1">
+                      <span className="font-extrabold text-slate-900">-</span>
+                      <span className="font-bold text-slate-950">{nome}</span>
+                      {qtd && (
+                        <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60 text-xs">
+                          ({qtd})
+                        </span>
+                      )}
+                    </p>
+                  );
+                }
+
+                return (
+                  <p key={idx} className="font-bold text-slate-900 pl-1">
+                    {linha}
+                  </p>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 italic py-2 text-center">
+              Nenhum cardápio cadastrado ainda para esta refeição. Clique em &quot;Editar Cardápio&quot; para digitar os itens.
+            </p>
+          )}
         </div>
       )}
-
-      {/* Lista dos Insumos Adicionados */}
-      <div className="space-y-1.5 pt-1">
-        {insumos.length > 0 ? (
-          <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50">
-            {insumos.map((ins) => (
-              <div
-                key={ins.produtoId}
-                className="p-3 bg-white flex items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors"
-              >
-                <div className="min-w-0 flex-1 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0" />
-                  <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                    {ins.nome}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs sm:text-sm font-extrabold">
-                    {ins.quantidadeTotal} {ins.unidadeMedida}
-                  </span>
-
-                  {modoEdicao && (
-                    <button
-                      type="button"
-                      onClick={() => onRemoverInsumo(ins.produtoId)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                      title="Remover insumo"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-5 text-center bg-slate-50/60 rounded-xl border border-dashed border-slate-200 text-slate-400 text-xs">
-            Nenhum insumo selecionado para esta refeição ainda.
-            {modoEdicao && " Selecione um insumo acima e informe a quantidade para adicionar."}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

@@ -51,25 +51,77 @@ export default function TvMuralPage() {
   const carregarCardapio = () => {
     try {
       // Lê qual refeição o Nutricionista definiu para ser transmitida na TV
-      const refeicaoSalva = localStorage.getItem(KEY_REFEICAO_TV) as TipoRefeicaoChave | null;
+      const refeicaoSalva = localStorage.getItem(KEY_REFEICAO_TV);
+      if (refeicaoSalva === "nenhuma") {
+        setTextoCardapio("");
+        return;
+      }
+
       const refeicaoAtiva: TipoRefeicaoChave =
         refeicaoSalva && ["cafe", "almoco", "jantar"].includes(refeicaoSalva)
-          ? refeicaoSalva
+          ? (refeicaoSalva as TipoRefeicaoChave)
           : "almoco";
 
+      // 1. Prioridade direta: texto digitado manualmente pelo usuário na tela Cardápio na TV
+      const textoTvManual = localStorage.getItem(`@gestao_refeitorio:texto_tv_${refeicaoAtiva}`);
+      if (textoTvManual && textoTvManual.trim()) {
+        const formatado = textoTvManual
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .map((l) => l.replace(/^-\s*/, ""))
+          .join(" • ");
+        setTextoCardapio(formatado);
+        return;
+      }
+
+      // 2. Fallback: cardápio semanal
       const salvo = localStorage.getItem(STORAGE_KEY);
       if (salvo) {
         const parsed = JSON.parse(salvo);
         const dadosDia = parsed[diaSemana];
         if (dadosDia && dadosDia[refeicaoAtiva]) {
           const ref = dadosDia[refeicaoAtiva];
-          const partes = [
-            ref.pratoPrincipal,
-            ref.acompanhamentos ? `ACOMPANHAMENTOS: ${ref.acompanhamentos}` : "",
-            ref.saladaSobremesa ? `SALADA / SOBREMESA: ${ref.saladaSobremesa}` : "",
-          ].filter(Boolean);
+          if (ref.texto && typeof ref.texto === "string" && ref.texto.trim()) {
+            const formatado = ref.texto
+              .split("\n")
+              .map((l: string) => l.trim())
+              .filter(Boolean)
+              .map((l: string) => l.replace(/^-\s*/, ""))
+              .join(" • ");
+            setTextoCardapio(formatado);
+            return;
+          }
 
-          const texto = partes.join(". ");
+          let partes: string[] = [];
+
+          const temItens = Boolean(ref.itens && Array.isArray(ref.itens) && ref.itens.length > 0);
+          const temItensSalada = Boolean(ref.itensSalada && Array.isArray(ref.itensSalada) && ref.itensSalada.length > 0);
+
+          if (temItens || temItensSalada) {
+            if (temItens) {
+              partes.push(...ref.itens.map((it: any) => it.nome?.trim()).filter(Boolean));
+            }
+            if (temItensSalada) {
+              const saladas = ref.itensSalada.map((it: any) => it.nome?.trim()).filter(Boolean);
+              if (saladas.length > 0) {
+                partes.push(`SALADA: ${saladas.join(" + ")}`);
+              }
+            }
+            if (ref.observacoes?.trim()) {
+              partes.push(`OBS: ${ref.observacoes.trim()}`);
+            }
+          } else {
+            partes = [
+              ref.pratoPrincipal,
+              ref.acompanhamentos ? `ACOMPANHAMENTOS: ${ref.acompanhamentos}` : "",
+              ref.saladaSobremesa ? `SALADA: ${ref.saladaSobremesa}` : "",
+              ref.bebida ? `BEBIDA: ${ref.bebida}` : "",
+              ref.observacoes ? `OBS: ${ref.observacoes}` : "",
+            ].filter(Boolean);
+          }
+
+          const texto = partes.join(" • ");
           setTextoCardapio(texto.trim());
           return;
         }
