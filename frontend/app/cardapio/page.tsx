@@ -6,6 +6,7 @@ import {
   Coffee,
   SunMedium,
   Moon,
+  Clock,
   Edit3,
   Check,
   CheckCircle2,
@@ -35,7 +36,10 @@ export interface InsumoPlanejado {
 }
 
 export interface RefeicaoCardapio {
+  horario?: string;
+  texto?: string;
   itens?: ItemLinhaCardapio[];
+  itensSalada?: ItemLinhaCardapio[];
   observacoes?: string;
   quantidadePessoas?: string;
   // Campos retrocompatíveis para não quebrar cardápios pré-existentes:
@@ -170,10 +174,116 @@ export function converterParaItensLinha(ref?: RefeicaoCardapio): ItemLinhaCardap
   return lista;
 }
 
+export function converterParaItensLinhaSalada(ref?: RefeicaoCardapio): ItemLinhaCardapio[] {
+  if (!ref) return [];
+  if (Array.isArray(ref.itensSalada)) {
+    return ref.itensSalada.map((it, idx) => ({
+      ...it,
+      id: it.id || `sal-gen-${idx}-${Date.now()}`,
+    }));
+  }
+  return [];
+}
+
+export function extrairTextoRefeicao(ref?: RefeicaoCardapio): string {
+  if (!ref) return "";
+  if (typeof ref.texto === "string" && ref.texto.trim()) {
+    return ref.texto;
+  }
+  const linhas: string[] = [];
+  if (ref.itensSalada && ref.itensSalada.length > 0) {
+    linhas.push("Salada:");
+    const vegetais = ref.itensSalada
+      .filter((s) => s.nome?.trim())
+      .map((s) => (s.quantidade?.trim() ? `${s.nome.trim()} (${s.quantidade.trim()})` : s.nome.trim()));
+    if (vegetais.length > 0) {
+      linhas.push(vegetais.join(" + "));
+      linhas.push("");
+    }
+  }
+  if (ref.itens && ref.itens.length > 0) {
+    for (const it of ref.itens) {
+      if (!it.nome?.trim()) continue;
+      const qtd = it.quantidade?.trim() ? ` (${it.quantidade.trim()})` : "";
+      linhas.push(`- ${it.nome.trim()}${qtd}`);
+    }
+  } else {
+    // Retrocompatibilidade com dados legados
+    if (ref.saladaSobremesa?.trim()) {
+      linhas.push("Salada:");
+      linhas.push(ref.saladaSobremesa.trim());
+      linhas.push("");
+    }
+    if (ref.pratoPrincipal?.trim()) linhas.push(`- ${ref.pratoPrincipal.trim()}`);
+    if (ref.acompanhamentos?.trim()) linhas.push(`- ${ref.acompanhamentos.trim()}`);
+    if (ref.insumosPlanejados && Array.isArray(ref.insumosPlanejados)) {
+      for (const ins of ref.insumosPlanejados) {
+        linhas.push(`- ${ins.nome} (${ins.quantidadeTotal} ${ins.unidadeMedida})`);
+      }
+    }
+    if (ref.bebida?.trim()) linhas.push(`- ${ref.bebida.trim()}`);
+  }
+  return linhas.join("\n").trim();
+}
+
+export function parseTextoParaItens(texto: string): {
+  itens: ItemLinhaCardapio[];
+  itensSalada: ItemLinhaCardapio[];
+} {
+  const linhas = (texto || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const itens: ItemLinhaCardapio[] = [];
+  const itensSalada: ItemLinhaCardapio[] = [];
+  let emSalada = false;
+
+  for (const linha of linhas) {
+    if (linha.toLowerCase().startsWith("salada:")) {
+      emSalada = true;
+      const conteudoSalada = linha.replace(/^salada:\s*/i, "").trim();
+      if (conteudoSalada) {
+        const partes = conteudoSalada.split("+");
+        for (const p of partes) {
+          const pt = p.trim();
+          if (!pt) continue;
+          const matchQtd = pt.match(/\(([^)]+)\)/);
+          const nome = pt.replace(/\([^)]+\)/, "").trim();
+          const qtd = matchQtd ? matchQtd[1].trim() : "";
+          itensSalada.push({ id: `sal-${itensSalada.length + 1}`, nome, quantidade: qtd });
+        }
+      }
+      continue;
+    }
+
+    if (emSalada && !linha.startsWith("-")) {
+      const partes = linha.split("+");
+      for (const p of partes) {
+        const pt = p.trim();
+        if (!pt) continue;
+        const matchQtd = pt.match(/\(([^)]+)\)/);
+        const nome = pt.replace(/\([^)]+\)/, "").trim();
+        const qtd = matchQtd ? matchQtd[1].trim() : "";
+        itensSalada.push({ id: `sal-${itensSalada.length + 1}`, nome, quantidade: qtd });
+      }
+      continue;
+    }
+
+    // Linha de prato/item
+    emSalada = false;
+    const limpo = linha.replace(/^-\s*/, "").trim();
+    const matchQtd = limpo.match(/\(([^)]+)\)/);
+    const nome = limpo.replace(/\([^)]+\)/, "").trim();
+    const qtd = matchQtd ? matchQtd[1].trim() : "";
+    itens.push({ id: `item-${itens.length + 1}`, nome, quantidade: qtd });
+  }
+
+  return { itens, itensSalada };
+}
+
 const criarRefeicaoVazia = (): RefeicaoCardapio => ({
+  texto: "",
   quantidadePessoas: "",
   observacoes: "",
   itens: [],
+  itensSalada: [],
 });
 
 const criarDiaVazio = (): DiaCardapio => ({
@@ -201,17 +311,17 @@ const INFO_REFEICOES: Record<
     corIcone: string;
   }
 > = {
-  almoco: {
-    titulo: "Almoço",
-    horario: "11:30 às 13:30",
-    icon: SunMedium,
-    corIcone: "text-emerald-700 bg-emerald-50 border-emerald-200",
-  },
   cafe: {
     titulo: "Café da Manhã",
     horario: "07:00 às 08:30",
     icon: Coffee,
     corIcone: "text-amber-700 bg-amber-50 border-amber-200",
+  },
+  almoco: {
+    titulo: "Almoço",
+    horario: "11:30 às 13:30",
+    icon: SunMedium,
+    corIcone: "text-emerald-700 bg-emerald-50 border-emerald-200",
   },
   jantar: {
     titulo: "Jantar",
@@ -355,31 +465,22 @@ export default function CardapioSemanalPage() {
     }
   }, []);
 
-  const handleAtualizarItem = (
+  const handleAtualizarTextoRefeicao = (
     refeicao: TipoRefeicaoChave,
-    itemId: string,
-    campo: "nome" | "quantidade",
-    valor: string
+    novoTexto: string
   ) => {
     setCardapio((prev) => {
       const refeicaoAtual = prev[diaSelecionado][refeicao];
-      const listaAtual = converterParaItensLinha(refeicaoAtual);
-      const novaLista = listaAtual.map((it) =>
-        it.id === itemId ? { ...it, [campo]: valor } : it
-      );
-
+      const { itens, itensSalada } = parseTextoParaItens(novoTexto);
       const novoCardapio = {
         ...prev,
         [diaSelecionado]: {
           ...prev[diaSelecionado],
           [refeicao]: {
             ...refeicaoAtual,
-            itens: novaLista,
-            pratoPrincipal: "",
-            acompanhamentos: "",
-            saladaSobremesa: "",
-            bebida: "",
-            insumosPlanejados: [],
+            texto: novoTexto,
+            itens,
+            itensSalada,
           },
         },
       };
@@ -391,80 +492,6 @@ export default function CardapioSemanalPage() {
         }
       } catch (e) {
         console.error("Erro ao salvar cardápio:", e);
-      }
-
-      return novoCardapio;
-    });
-  };
-
-  const handleAdicionarLinha = (refeicao: TipoRefeicaoChave) => {
-    setCardapio((prev) => {
-      const refeicaoAtual = prev[diaSelecionado][refeicao];
-      const listaAtual = converterParaItensLinha(refeicaoAtual);
-      const novoItem: ItemLinhaCardapio = {
-        id: `item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        nome: "",
-        quantidade: "",
-      };
-
-      const novoCardapio = {
-        ...prev,
-        [diaSelecionado]: {
-          ...prev[diaSelecionado],
-          [refeicao]: {
-            ...refeicaoAtual,
-            itens: [...listaAtual, novoItem],
-            pratoPrincipal: "",
-            acompanhamentos: "",
-            saladaSobremesa: "",
-            bebida: "",
-            insumosPlanejados: [],
-          },
-        },
-      };
-
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(novoCardapio));
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("storage"));
-        }
-      } catch (e) {
-        console.error("Erro ao salvar cardápio:", e);
-      }
-
-      return novoCardapio;
-    });
-  };
-
-  const handleRemoverLinha = (refeicao: TipoRefeicaoChave, itemId: string) => {
-    setCardapio((prev) => {
-      const refeicaoAtual = prev[diaSelecionado][refeicao];
-      const listaAtual = converterParaItensLinha(refeicaoAtual);
-      const novaLista = listaAtual.filter((it) => it.id !== itemId);
-
-      const novoCardapio = {
-        ...prev,
-        [diaSelecionado]: {
-          ...prev[diaSelecionado],
-          [refeicao]: {
-            ...refeicaoAtual,
-            itens: novaLista,
-            pratoPrincipal: "",
-            acompanhamentos: "",
-            saladaSobremesa: "",
-            bebida: "",
-            insumosPlanejados: [],
-          },
-        },
-      };
-
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(novoCardapio));
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("storage"));
-        }
-      } catch (e) {
-        console.error("Erro ao salvar cardápio após remoção:", e);
       }
 
       return novoCardapio;
@@ -473,7 +500,7 @@ export default function CardapioSemanalPage() {
 
   const handleAtualizarCampo = (
     refeicao: TipoRefeicaoChave,
-    campo: "observacoes" | "quantidadePessoas",
+    campo: "observacoes" | "quantidadePessoas" | "horario",
     valor: string
   ) => {
     setCardapio((prev) => {
@@ -561,7 +588,7 @@ export default function CardapioSemanalPage() {
               Cardápio Semanal
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Defina os preparos e quantidades em colunas, sincronizando automaticamente com a Cozinha e a TV.
+              Defina os pratos e quantidades livremente em texto aberto, sincronizando com a Cozinha e a TV.
             </p>
           </div>
         </div>
@@ -627,21 +654,11 @@ export default function CardapioSemanalPage() {
           const nomeHoje = diaNumReal === 6 ? "Sábado" : "Domingo";
           const dataStr = `${String(hojeReal.getDate()).padStart(2, "0")}/${String(hojeReal.getMonth() + 1).padStart(2, "0")}`;
           return (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 px-3.5 bg-amber-50/90 border border-amber-200 text-amber-950 rounded-xl text-xs shadow-2xs">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>
-                  Hoje é <strong>{nomeHoje} ({dataStr})</strong>. Fora do período letivo, exibindo planejamento para a <strong>próxima semana ({datasSemana.Segunda.dataFormatada} a {datasSemana.Sexta.dataFormatada})</strong>.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => navegarSemana(-1, "Sexta")}
-                className="inline-flex items-center gap-1 font-bold text-emerald-800 hover:text-emerald-950 bg-white border border-amber-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0 self-start sm:self-auto shadow-2xs text-[11px]"
-                title="Voltar para a semana letiva que se encerrou na sexta-feira"
-              >
-                <span>Ver semana anterior (até Sexta)</span>
-              </button>
+            <div className="flex items-center gap-2 p-2.5 px-3.5 bg-amber-50/90 border border-amber-200 text-amber-950 rounded-xl text-xs shadow-2xs">
+              <Calendar className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                Hoje é <strong>{nomeHoje} ({dataStr})</strong>. Fora do período letivo, exibindo planejamento para a <strong>próxima semana ({datasSemana.Segunda.dataFormatada} a {datasSemana.Sexta.dataFormatada})</strong>.
+              </span>
             </div>
           );
         })()}
@@ -714,89 +731,113 @@ export default function CardapioSemanalPage() {
         </div>
       </div>
 
-      {/* 3. AS REFEIÇÕES DO DIA (Almoço, Café e Jantar exibidos normalmente) */}
+      {/* 3. AS REFEIÇÕES DO DIA (Café da Manhã primeiro, depois Almoço e Jantar) */}
       <div className="space-y-6">
-        {(["almoco", "cafe", "jantar"] as const).map((chave) => {
+        {(["cafe", "almoco", "jantar"] as const).map((chave) => {
           const info = INFO_REFEICOES[chave];
           const dadosRef = diaAtualDados[chave];
           const Icon = info.icon;
-          const itensLinha = converterParaItensLinha(dadosRef);
 
-          return (
-            <CardInsumosRefeicao
-              key={chave}
-              diaNome={diaSelecionado}
-              tituloRefeicao={info.titulo}
-              horarioRefeicao={info.horario}
-              corIcone={info.corIcone}
-              Icone={Icon}
-              dadosRefeicao={dadosRef}
-              itens={itensLinha}
-              modoEdicao={modoEdicao}
-              onAtualizarItem={(itemId, campo, valor) => handleAtualizarItem(chave, itemId, campo, valor)}
-              onAdicionarLinha={() => handleAdicionarLinha(chave)}
-              onRemoverLinha={(itemId) => handleRemoverLinha(chave, itemId)}
-              onAtualizarCampo={(campo, valor) => handleAtualizarCampo(chave, campo, valor)}
-            />
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+            const horarioCustomizado = dadosRef.horario?.trim() || info.horario;
 
-// =========================================================================================
-// COMPONENTE: Tabela em Duas Colunas (Item / Insumo + Quantidade Opcional)
-// =========================================================================================
-function CardInsumosRefeicao({
-  diaNome,
-  tituloRefeicao,
-  horarioRefeicao,
-  corIcone,
-  Icone,
-  dadosRefeicao,
-  itens,
-  modoEdicao,
-  onAtualizarItem,
-  onAdicionarLinha,
-  onRemoverLinha,
-  onAtualizarCampo,
-}: {
-  diaNome: DiaSemana;
-  tituloRefeicao: string;
-  horarioRefeicao: string;
-  corIcone: string;
-  Icone: typeof Coffee;
-  dadosRefeicao: RefeicaoCardapio;
-  itens: ItemLinhaCardapio[];
-  modoEdicao: boolean;
-  onAtualizarItem: (itemId: string, campo: "nome" | "quantidade", valor: string) => void;
-  onAdicionarLinha: () => void;
-  onRemoverLinha: (itemId: string) => void;
-  onAtualizarCampo: (campo: "observacoes" | "quantidadePessoas", valor: string) => void;
-}) {
-  return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
-      {/* Topo da Refeição */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-100 gap-3">
-        <div className="flex items-center gap-3">
-          <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${corIcone}`}>
-            <Icone className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
-                {tituloRefeicao}
-              </h2>
-              <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                {horarioRefeicao}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Planejamento para a Cozinha e exibição na TV no {diaNome}.
-            </p>
-          </div>
+            return (
+              <CardRefeicaoAberta
+                key={chave}
+                tipoChave={chave}
+                diaNome={diaSelecionado}
+                tituloRefeicao={info.titulo}
+                horarioRefeicao={horarioCustomizado}
+                corIcone={info.corIcone}
+                Icone={Icon}
+                dadosRefeicao={dadosRef}
+                modoEdicao={modoEdicao}
+                onAtualizarTexto={(novoTexto) => handleAtualizarTextoRefeicao(chave, novoTexto)}
+                onAtualizarCampo={(campo, valor) => handleAtualizarCampo(chave, campo, valor)}
+              />
+            );
+          })}
         </div>
+      </div>
+    );
+  }
+
+  // =========================================================================================
+  // COMPONENTE: Campo Aberto Livre para Cardápio (Estilo Documento do IFPE / WhatsApp)
+  // Simples, rápido e sem complicações de colunas
+  // =========================================================================================
+  function CardRefeicaoAberta({
+    tipoChave,
+    diaNome,
+    tituloRefeicao,
+    horarioRefeicao,
+    corIcone,
+    Icone,
+    dadosRefeicao,
+    modoEdicao,
+    onAtualizarTexto,
+    onAtualizarCampo,
+  }: {
+    tipoChave: TipoRefeicaoChave;
+    diaNome: DiaSemana;
+    tituloRefeicao: string;
+    horarioRefeicao: string;
+    corIcone: string;
+    Icone: typeof Coffee;
+    dadosRefeicao: RefeicaoCardapio;
+    modoEdicao: boolean;
+    onAtualizarTexto: (novoTexto: string) => void;
+    onAtualizarCampo: (campo: "observacoes" | "quantidadePessoas" | "horario", valor: string) => void;
+  }) {
+    const textoAtual = extrairTextoRefeicao(dadosRefeicao);
+    const linhasTexto = textoAtual
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    const placeholderExemplo =
+      tipoChave === "cafe"
+        ? `- Batata doce (20 kg)\n- Isca de frango cozida (7,5 kg)\n- Mungunzá (1 kg)\n- Pão francês (40 und) - ofertar margarina\n- Biscoito Cream Cracker\n- Café/ACHOCOLATADO`
+        : tipoChave === "almoco"
+        ? `Salada:\nBeterraba cozida (5 kg) + Cenoura cozida (5 kg) + Pepino (5 kg) + Jerimum em cubos (10 kg) + Azeitona (2 kg)\n\n- Picadinho suíno assado (70 kg)\n- Arroz c/ cenoura (22 kg)\n- Feijão preto (17 kg)\n- Purê de jerimum (15 kg)\n- Batata doce gratinada\n- Ovo cozido (5 bandejas)\n- Farofa temperada (6 kg)`
+        : `- Macaxeira (20 kg)\n- Picadinho suíno\n- Sopa de frango (3 kg de coxa de frango)\n- Pão francês (90 und)\n- Biscoito Cream cracker\n- Café/leite`;
+
+    return (
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
+        {/* Topo da Refeição */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-100 gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${corIcone}`}>
+              <Icone className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
+                  {tituloRefeicao}
+                </h2>
+                {modoEdicao ? (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 border border-amber-300 rounded-lg shadow-2xs">
+                    <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <input
+                      type="text"
+                      value={dadosRefeicao.horario ?? horarioRefeicao}
+                      onChange={(e) => onAtualizarCampo("horario", e.target.value)}
+                      placeholder={horarioRefeicao}
+                      className="w-32 text-xs font-bold text-amber-950 bg-white border border-amber-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-500"
+                      title="Horário da refeição (100% mutável)"
+                    />
+                  </div>
+                ) : (
+                  <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-md flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    {horarioRefeicao}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Cardápio para {diaNome}.
+              </p>
+            </div>
+          </div>
 
         {/* Quantidade de Pessoas */}
         <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
@@ -808,7 +849,7 @@ function CardInsumosRefeicao({
                 type="text"
                 value={dadosRefeicao.quantidadePessoas || ""}
                 onChange={(e) => onAtualizarCampo("quantidadePessoas", e.target.value)}
-                placeholder="50"
+                placeholder={tipoChave === "cafe" ? "50" : tipoChave === "almoco" ? "350" : "150"}
                 className="w-16 font-extrabold text-xs text-slate-800 bg-white border border-slate-300 rounded px-1.5 py-0.5 text-center focus:outline-none focus:border-emerald-600"
                 title="Previsão de pessoas para esta refeição"
               />
@@ -816,154 +857,73 @@ function CardInsumosRefeicao({
           ) : (
             <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1 rounded-xl flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>{dadosRefeicao.quantidadePessoas ? `${dadosRefeicao.quantidadePessoas} pessoas` : "Previsão padrão"}</span>
+              <span>
+                {dadosRefeicao.quantidadePessoas
+                  ? `${dadosRefeicao.quantidadePessoas} pessoas`
+                  : "Previsão padrão"}
+              </span>
             </span>
           )}
-
-          <span className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1 rounded-xl">
-            {itens.length} {itens.length === 1 ? "item" : "itens"}
-          </span>
         </div>
       </div>
 
-      {/* MODO DE EDIÇÃO: Tabela em Duas Colunas */}
+      {/* MODO DE EDIÇÃO: Campo Aberto Livre (Textarea Confortável) */}
       {modoEdicao ? (
         <div className="space-y-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80">
-          <div className="flex items-center justify-between pb-1 border-b border-slate-200/60">
-            <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 pb-1">
+            <label className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
               <Utensils className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Itens da Refeição (Duas Colunas)</span>
-            </h3>
+              <span>Cardápio & Preparos (Campo Aberto Livre)</span>
+            </label>
             <span className="text-[11px] text-slate-500">
-              Digite o nome do prato/insumo e a quantidade se houver (opcional)
+              Digite ou cole as linhas livremente
             </span>
           </div>
 
-          {/* Cabeçalho da Tabela */}
-          <div className="grid grid-cols-12 gap-2 text-[11px] font-bold text-slate-500 uppercase px-1 pt-1">
-            <div className="col-span-7 sm:col-span-8">
-              Coluna 1 • Item / Insumo / Preparo
-            </div>
-            <div className="col-span-4 sm:col-span-3">
-              Coluna 2 • Quantidade (Opcional)
-            </div>
-            <div className="col-span-1 text-center"></div>
-          </div>
-
-          {/* Lista de Linhas Editáveis */}
-          <div className="space-y-2">
-            {itens.length > 0 ? (
-              itens.map((item) => (
-                <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
-                  {/* Coluna 1: Nome do Item / Preparo */}
-                  <div className="col-span-7 sm:col-span-8">
-                    <input
-                      type="text"
-                      value={item.nome}
-                      onChange={(e) => onAtualizarItem(item.id, "nome", e.target.value)}
-                      placeholder="Item / insumo"
-                      className="w-full px-3 py-2 text-xs sm:text-sm font-semibold bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs"
-                    />
-                  </div>
-
-                  {/* Coluna 2: Quantidade (Opcional) */}
-                  <div className="col-span-4 sm:col-span-3">
-                    <input
-                      type="text"
-                      value={item.quantidade || ""}
-                      onChange={(e) => onAtualizarItem(item.id, "quantidade", e.target.value)}
-                      placeholder="Qtd (opcional)"
-                      className="w-full px-3 py-2 text-xs sm:text-sm font-semibold bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs"
-                    />
-                  </div>
-
-                  {/* Botão de Remover Linha */}
-                  <div className="col-span-1 flex justify-center">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onRemoverLinha(item.id);
-                      }}
-                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                      title="Remover linha"
-                      aria-label="Remover linha"
-                    >
-                      <Trash2 className="w-4 h-4 pointer-events-none" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-xs text-slate-400 italic py-2">
-                Nenhum item adicionado. Clique no botão &quot;Adicionar Linha&quot; abaixo para incluir itens.
-              </p>
-            )}
-          </div>
-
-          {/* Botão para Adicionar Nova Linha */}
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={onAdicionarLinha}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer shadow-2xs"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Adicionar Linha</span>
-            </button>
-          </div>
-
-          {/* Campo de Observações para a Cozinha */}
-          <div className="pt-3 border-t border-slate-200">
-            <label className="text-[11px] font-bold text-slate-700 block mb-1">
-              Observações gerais para esta refeição (opcional):
-            </label>
-            <input
-              type="text"
-              value={dadosRefeicao.observacoes || ""}
-              onChange={(e) => onAtualizarCampo("observacoes", e.target.value)}
-              placeholder="Observações (opcional)"
-              className="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-emerald-600 shadow-2xs"
-            />
-          </div>
+          <textarea
+            rows={tipoChave === "almoco" ? 11 : 8}
+            value={textoAtual}
+            onChange={(e) => onAtualizarTexto(e.target.value)}
+            className="w-full p-3.5 text-xs sm:text-sm font-medium leading-relaxed bg-white border-2 border-slate-300 rounded-xl focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs text-slate-900 placeholder:text-slate-400 font-sans"
+          />
         </div>
       ) : (
-        /* MODO DE VISUALIZAÇÃO: Layout limpo estilo folha do IFPE */
-        <div className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80 space-y-2.5">
-          <div className="flex items-center justify-between pb-1 border-b border-slate-200/50">
-            <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-              <Utensils className="w-3.5 h-3.5 text-emerald-600" />
-              Composição da Refeição ({itens.length} {itens.length === 1 ? "item" : "itens"})
-            </span>
-          </div>
+        /* MODO DE VISUALIZAÇÃO: Exibição Elegante e Formatada Estilo Folha do IFPE */
+        <div className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80 space-y-3">
+          {linhasTexto.length > 0 ? (
+            <div className="space-y-2 text-xs sm:text-sm text-slate-800">
+              {linhasTexto.map((linha, idx) => {
+                const ehItemComTraco = linha.startsWith("-");
 
-          {itens.length > 0 ? (
-            <div className="space-y-1.5 text-xs sm:text-sm text-slate-800 pt-1">
-              {itens.map((it) => (
-                <p key={it.id} className="flex items-start gap-2">
-                  <span className="font-extrabold text-slate-900">-</span>
-                  <span className="font-bold text-slate-950">{it.nome}</span>
-                  {it.quantidade && (
-                    <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60 text-xs">
-                      ({it.quantidade})
-                    </span>
-                  )}
-                </p>
-              ))}
+                if (ehItemComTraco) {
+                  const limpo = linha.replace(/^-\s*/, "");
+                  const matchQtd = limpo.match(/\(([^)]+)\)/);
+                  const nome = limpo.replace(/\([^)]+\)/, "").trim();
+                  const qtd = matchQtd ? matchQtd[1].trim() : "";
 
-              {dadosRefeicao.observacoes && (
-                <div className="mt-3 p-2.5 bg-amber-50/90 rounded-xl border border-amber-200 text-amber-950">
-                  <span className="text-[10px] font-bold text-amber-900 uppercase block mb-0.5">
-                    Observações:
-                  </span>
-                  <span className="text-xs">{dadosRefeicao.observacoes}</span>
-                </div>
-              )}
+                  return (
+                    <p key={idx} className="flex items-start gap-2 pl-1">
+                      <span className="font-extrabold text-slate-900">-</span>
+                      <span className="font-bold text-slate-950">{nome}</span>
+                      {qtd && (
+                        <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60 text-xs">
+                          ({qtd})
+                        </span>
+                      )}
+                    </p>
+                  );
+                }
+
+                return (
+                  <p key={idx} className="font-bold text-slate-900 pl-1">
+                    {linha}
+                  </p>
+                );
+              })}
             </div>
           ) : (
-            <p className="text-xs text-slate-400 italic">
-              Nenhum item cadastrado ainda. Clique em &quot;Editar Cardápio&quot; para adicionar itens e quantidades.
+            <p className="text-xs text-slate-400 italic py-2 text-center">
+              Nenhum cardápio cadastrado ainda para esta refeição. Clique em &quot;Editar Cardápio&quot; para digitar os itens.
             </p>
           )}
         </div>

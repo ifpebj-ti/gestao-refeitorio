@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { Utensils } from "lucide-react";
 
 export interface ItemLinhaCardapio {
   id: string;
@@ -9,7 +10,9 @@ export interface ItemLinhaCardapio {
 }
 
 export interface DadosRefeicaoCardapio {
+  texto?: string;
   itens?: ItemLinhaCardapio[];
+  itensSalada?: ItemLinhaCardapio[];
   observacoes?: string;
   quantidadePessoas?: string;
   // Campos legados para retrocompatibilidade:
@@ -25,6 +28,12 @@ interface CardapioCardProps {
   descricao: string;
   responsavel?: string;
   dadosRefeicao?: DadosRefeicaoCardapio | null;
+  modoFixo?: boolean;
+}
+
+interface ItemCardapioNormalizado {
+  nome: string;
+  quantidade?: string;
 }
 
 export default function CardapioCard({
@@ -32,6 +41,7 @@ export default function CardapioCard({
   descricao,
   responsavel,
   dadosRefeicao,
+  modoFixo = false,
 }: CardapioCardProps) {
   const [nomeResponsavel, setNomeResponsavel] = useState(responsavel || "Nutricionista");
 
@@ -52,12 +62,16 @@ export default function CardapioCard({
     }
   }, [responsavel]);
 
+  const temTextoLivre = Boolean(dadosRefeicao?.texto && dadosRefeicao.texto.trim());
   const temArrayItens = Boolean(dadosRefeicao && Array.isArray(dadosRefeicao.itens));
-  const temItensLinha = Boolean(temArrayItens && (dadosRefeicao?.itens?.length || 0) > 0);
+  const temItensLinha = Boolean(
+    temArrayItens &&
+      ((dadosRefeicao?.itens?.length || 0) > 0 || (dadosRefeicao?.itensSalada?.length || 0) > 0)
+  );
 
-  // Dados legados só são considerados se NÃO existir a lista oficial de itens
   const temDadosLegados = Boolean(
-    !temArrayItens &&
+    !temTextoLivre &&
+      !temArrayItens &&
       dadosRefeicao &&
       (dadosRefeicao.pratoPrincipal ||
         dadosRefeicao.acompanhamentos ||
@@ -67,135 +81,160 @@ export default function CardapioCard({
   );
 
   const ehPadrao =
+    !temTextoLivre &&
     !temItensLinha &&
     !temDadosLegados &&
     (!descricao || descricao.startsWith("Nenhum cardápio cadastrado"));
 
-  // Separa salada dos outros itens se tiver itens em linha
-  const itens = dadosRefeicao?.itens || [];
-  const itemSalada = itens.find((it) => it.nome.toLowerCase().startsWith("salada"));
-  const itensSemSalada = itens.filter((it) => !it.nome.toLowerCase().startsWith("salada"));
+  // Normaliza todos os itens de qualquer formato em uma lista limpa e unificada
+  const itensNormalizados = useMemo<ItemCardapioNormalizado[]>(() => {
+    if (ehPadrao) return [];
+    const lista: ItemCardapioNormalizado[] = [];
 
-  // Parser de fallback se apenas a string descricao estiver preenchida (ex: partes separadas por •)
-  const itensFallback = (!dadosRefeicao && !ehPadrao && descricao)
-    ? descricao.split(" • ").map((s) => s.trim()).filter(Boolean)
-    : [];
+    // 1. Texto livre: linhas com - Nome (Qtd)
+    if (temTextoLivre) {
+      const linhas = (dadosRefeicao?.texto || "").split("\n").map((l) => l.trim()).filter(Boolean);
+      for (const linha of linhas) {
+        const limpo = linha.replace(/^[-•*]\s*/, "").trim();
+        if (!limpo) continue;
+        const matchQtd = limpo.match(/\(([^)]+)\)/);
+        const nome = limpo.replace(/\([^)]+\)/, "").trim();
+        const qtd = matchQtd ? matchQtd[1].trim() : undefined;
+        lista.push({ nome, quantidade: qtd });
+      }
+      return lista;
+    }
 
-  const saladaFallback = itensFallback.find((it) => it.toLowerCase().startsWith("salada"));
-  const outrosItensFallback = itensFallback.filter((it) => !it.toLowerCase().startsWith("salada"));
+    // 2. Itens estruturados (pratos e saladas)
+    if (temItensLinha) {
+      if (dadosRefeicao?.itens) {
+        for (const it of dadosRefeicao.itens) {
+          if (!it.nome?.trim()) continue;
+          lista.push({ nome: it.nome.trim(), quantidade: it.quantidade?.trim() || undefined });
+        }
+      }
+      if (dadosRefeicao?.itensSalada) {
+        for (const it of dadosRefeicao.itensSalada) {
+          if (!it.nome?.trim()) continue;
+          const nomeSal = it.nome.toLowerCase().startsWith("salada") ? it.nome.trim() : `Salada: ${it.nome.trim()}`;
+          lista.push({ nome: nomeSal, quantidade: it.quantidade?.trim() || undefined });
+        }
+      }
+      return lista;
+    }
 
+    // 3. Fallback legado
+    if (temDadosLegados && dadosRefeicao) {
+      if (dadosRefeicao.pratoPrincipal) lista.push({ nome: dadosRefeicao.pratoPrincipal });
+      if (dadosRefeicao.acompanhamentos) lista.push({ nome: dadosRefeicao.acompanhamentos });
+      if (dadosRefeicao.saladaSobremesa) lista.push({ nome: `Salada: ${dadosRefeicao.saladaSobremesa}` });
+      if (dadosRefeicao.bebida) lista.push({ nome: `Bebida: ${dadosRefeicao.bebida}` });
+      return lista;
+    }
+
+    // 4. Fallback por descrição com separador •
+    if (descricao && !ehPadrao) {
+      const partes = descricao.split(" • ").map((s) => s.trim()).filter(Boolean);
+      for (const p of partes) {
+        const matchQtd = p.match(/\(([^)]+)\)/);
+        const nome = p.replace(/\([^)]+\)/, "").trim();
+        const qtd = matchQtd ? matchQtd[1].trim() : undefined;
+        lista.push({ nome, quantidade: qtd });
+      }
+    }
+
+    return lista;
+  }, [dadosRefeicao, temTextoLivre, temItensLinha, temDadosLegados, ehPadrao, descricao]);
+
+  const obsTexto = dadosRefeicao?.observacoes?.trim() || "";
+
+  // ==============================================================
+  // 1. MODO ENXUTO E COMPACTO (Exclusivamente os chips organizados)
+  // ==============================================================
+  if (modoFixo) {
+    return (
+      <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl p-2 sm:px-3 sm:py-2 shadow-2xs transition-all overflow-hidden">
+        {ehPadrao ? (
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-700 text-white font-extrabold text-xs sm:text-sm rounded-xl shrink-0">
+              <Utensils className="w-3.5 h-3.5 text-emerald-100 shrink-0" />
+              <span>{refeicao}</span>
+            </span>
+            <p className="text-xs sm:text-sm text-slate-500 italic">
+              Nenhum cardápio cadastrado para esta refeição.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 py-0.5">
+            {/* Tag da Refeição em destaque legível */}
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-700 text-white font-extrabold text-xs sm:text-sm rounded-xl shrink-0 shadow-2xs">
+              <Utensils className="w-3.5 h-3.5 text-emerald-100 shrink-0" />
+              <span>{refeicao}</span>
+            </span>
+
+            {/* Chips de cada prato: expandidos sem cortes, alto contraste e tamanho compacto */}
+            {itensNormalizados.map((it, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 bg-white hover:bg-slate-50/80 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-bold text-slate-900 shadow-2xs transition-colors"
+              >
+                <span className="text-emerald-600 font-black">•</span>
+                <span>{it.nome}</span>
+                {it.quantidade && (
+                  <span className="text-slate-800 font-extrabold bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 text-xs">
+                    {it.quantidade}
+                  </span>
+                )}
+              </span>
+            ))}
+
+            {/* Obs se houver */}
+            {obsTexto && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 bg-amber-50 border border-amber-200/80 rounded-xl text-xs sm:text-sm font-medium text-amber-950 shadow-2xs">
+                <span className="font-extrabold text-amber-900 bg-amber-200/70 px-1.5 py-0.2 rounded text-[11px] uppercase">
+                  Obs
+                </span>
+                <span>{obsTexto}</span>
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ==============================================================
+  // 2. MODO PADRÃO (Para Outras Páginas se Necessário)
+  // ==============================================================
   return (
-    <div className="bg-white border-2 border-emerald-300/80 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
-      {/* Topo do Card */}
-      <div className="flex items-center justify-between gap-4 pb-3 border-b border-emerald-100/80">
+    <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+      <div className="flex items-center justify-between gap-4 pb-2.5 border-b border-slate-100">
         <div className="flex items-center gap-2 text-emerald-900 font-extrabold text-xs sm:text-sm tracking-wider uppercase">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <Utensils className="w-4 h-4 text-emerald-700" />
           <span>Cardápio do Dia • {refeicao}</span>
         </div>
-
-        <div className="flex flex-col items-end text-right shrink-0">
-          <span className="text-[10px] sm:text-[11px] text-slate-400 uppercase tracking-wider font-bold">
-            Planejamento Semanal
-          </span>
-          <span className="text-xs sm:text-sm font-extrabold text-emerald-950 mt-0.5">
-            {nomeResponsavel}
-          </span>
-        </div>
+        <span className="text-xs font-bold text-slate-500">{nomeResponsavel}</span>
       </div>
 
       {ehPadrao ? (
-        <div className="p-4 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-center">
-          <p className="text-xs sm:text-sm text-slate-500 italic">
-            Nenhum cardápio cadastrado para esta refeição. O nutricionista pode definir no planejamento semanal.
-          </p>
-        </div>
+        <p className="text-xs text-slate-400 italic pt-3">
+          Nenhum cardápio cadastrado para esta refeição.
+        </p>
       ) : (
-        <div className="space-y-3.5">
-          {/* Seção da Salada (se houver) */}
-          {(itemSalada || (temDadosLegados && dadosRefeicao?.saladaSobremesa) || saladaFallback) && (
-            <div className="space-y-1 pl-1">
-              <p className="font-bold text-slate-900 text-xs sm:text-sm">Salada:</p>
-              <p className="text-slate-800 text-xs sm:text-sm font-medium">
-                {itemSalada
-                  ? itemSalada.nome.replace(/^salada:\s*/i, "")
-                  : dadosRefeicao?.saladaSobremesa || saladaFallback?.replace(/^salada(\/sobremesa)?:\s*/i, "")}
-                {itemSalada?.quantidade ? ` (${itemSalada.quantidade})` : ""}
-              </p>
-            </div>
-          )}
-
-          {/* Lista de Itens no formato do papel (- Item (Qtd)) */}
-          <div className="space-y-1.5 pl-1 text-xs sm:text-sm text-slate-900">
-            {temItensLinha ? (
-              <>
-                {itensSemSalada.map((it) => (
-                  <p key={it.id} className="flex items-start gap-2">
-                    <span className="font-extrabold text-slate-900">-</span>
-                    <span className="font-bold text-slate-950">{it.nome}</span>
-                    {it.quantidade && (
-                      <span className="font-medium text-emerald-900">
-                        ({it.quantidade})
-                      </span>
-                    )}
-                  </p>
-                ))}
-
-                {dadosRefeicao?.observacoes && (
-                  <p className="flex items-start gap-2 text-slate-700 italic pt-1">
-                    <span className="font-extrabold not-italic text-slate-900">-</span>
-                    <span>Obs: {dadosRefeicao.observacoes}</span>
-                  </p>
-                )}
-              </>
-            ) : temDadosLegados ? (
-              <>
-                {dadosRefeicao?.pratoPrincipal && (
-                  <p className="flex items-start gap-2">
-                    <span className="font-extrabold text-slate-900">-</span>
-                    <span className="font-bold text-slate-950">{dadosRefeicao.pratoPrincipal}</span>
-                  </p>
-                )}
-
-                {dadosRefeicao?.acompanhamentos && (
-                  <p className="flex items-start gap-2">
-                    <span className="font-extrabold text-slate-900">-</span>
-                    <span>{dadosRefeicao.acompanhamentos}</span>
-                  </p>
-                )}
-
-                {dadosRefeicao?.insumosPlanejados &&
-                  dadosRefeicao.insumosPlanejados.map((ins, idx) => (
-                    <p key={idx} className="flex items-start gap-2">
-                      <span className="font-extrabold text-slate-900">-</span>
-                      <span>
-                        {ins.nome} ({ins.quantidadeTotal} {ins.unidadeMedida})
-                      </span>
-                    </p>
-                  ))}
-
-                {dadosRefeicao?.bebida && (
-                  <p className="flex items-start gap-2">
-                    <span className="font-extrabold text-slate-900">-</span>
-                    <span className="font-semibold text-emerald-950">{dadosRefeicao.bebida}</span>
-                  </p>
-                )}
-
-                {dadosRefeicao?.observacoes && (
-                  <p className="flex items-start gap-2 text-slate-700 italic">
-                    <span className="font-extrabold not-italic text-slate-900">-</span>
-                    <span>Obs: {dadosRefeicao.observacoes}</span>
-                  </p>
-                )}
-              </>
-            ) : (
-              outrosItensFallback.map((item, idx) => (
-                <p key={idx} className="flex items-start gap-2">
-                  <span className="font-extrabold text-slate-900">-</span>
-                  <span>{item}</span>
-                </p>
-              ))
-            )}
-          </div>
+        <div className="flex flex-wrap gap-1.5 pt-3">
+          {itensNormalizados.map((it, idx) => (
+            <span
+              key={idx}
+              className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+            >
+              <span>{it.nome}</span>
+              {it.quantidade && (
+                <span className="text-emerald-700 font-extrabold text-[11px]">
+                  ({it.quantidade})
+                </span>
+              )}
+            </span>
+          ))}
         </div>
       )}
     </div>

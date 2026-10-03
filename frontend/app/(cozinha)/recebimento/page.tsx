@@ -10,9 +10,12 @@ import {
   ImageIcon,
   Building2,
   Camera,
+  Scale,
+  X,
 } from "lucide-react";
 import { produtoService, ProdutoResponse } from "@/lib/produtos";
 import { registrarEntradaApi } from "@/lib/movimentacoes";
+import { UNIDADES_MEDIDA_SUGERIDAS, normalizarUnidadeMedida } from "@/lib/unidades";
 
 export default function RecebimentoCozinhaPage() {
   const [produtosDisponiveis, setProdutosDisponiveis] = useState<ProdutoResponse[]>([]);
@@ -20,13 +23,20 @@ export default function RecebimentoCozinhaPage() {
 
   // Formulário de entrada
   const [produtoSelecionado, setProdutoSelecionado] = useState<ProdutoResponse | null>(null);
-  const [origemEntrada, setOrigemEntrada] = useState<"EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA">("AGROPECUARIA");
-  const [fornecedor, setFornecedor] = useState("Agropecuária (Fazenda IFPE)");
+  const [fornecedor, setFornecedor] = useState("");
   const [quantidade, setQuantidade] = useState<string>("");
   const [dataValidade, setDataValidade] = useState("");
   const [lote, setLote] = useState("");
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [arquivoFoto, setArquivoFoto] = useState<File | null>(null);
+
+  // Estados para Alterar Unidade de Medida
+  const [modalEdicaoUnidadeAberto, setModalEdicaoUnidadeAberto] = useState(false);
+  const [unidadeSelecionada, setUnidadeSelecionada] = useState("Kg");
+  const [unidadeCustomizada, setUnidadeCustomizada] = useState("");
+  const [usarOutraUnidade, setUsarOutraUnidade] = useState(false);
+  const [salvandoUnidade, setSalvandoUnidade] = useState(false);
+  const [erroUnidade, setErroUnidade] = useState<string | null>(null);
 
   const [salvando, setSalvando] = useState(false);
   const [sucessoFeedback, setSucessoFeedback] = useState(false);
@@ -75,12 +85,60 @@ export default function RecebimentoCozinhaPage() {
 
   const limparSelecao = () => {
     setProdutoSelecionado(null);
-    setOrigemEntrada("AGROPECUARIA");
-    setFornecedor("Agropecuária (Fazenda IFPE)");
+    setFornecedor("");
     setQuantidade("");
     setDataValidade("");
     setLote("");
     removerFoto();
+  };
+
+  const abrirModalAlterarUnidade = () => {
+    if (!produtoSelecionado) return;
+    const uAtual = (produtoSelecionado.unidadeMedida || "").trim();
+    const ehSugerida = UNIDADES_MEDIDA_SUGERIDAS.some(
+      (u) => u.sigla.toLowerCase() === uAtual.toLowerCase()
+    );
+    const unidadeNorm = normalizarUnidadeMedida(uAtual);
+    if (ehSugerida) {
+      setUnidadeSelecionada(unidadeNorm);
+      setUsarOutraUnidade(false);
+      setUnidadeCustomizada("");
+    } else {
+      setUnidadeSelecionada("OUTRA");
+      setUsarOutraUnidade(true);
+      setUnidadeCustomizada(uAtual);
+    }
+    setErroUnidade(null);
+    setModalEdicaoUnidadeAberto(true);
+  };
+
+  const handleSalvarUnidade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!produtoSelecionado) return;
+    const unidadeFinal = usarOutraUnidade
+      ? (unidadeCustomizada.trim() || "Und")
+      : unidadeSelecionada;
+
+    if (!unidadeFinal) {
+      setErroUnidade("Informe a nova unidade de medida.");
+      return;
+    }
+
+    setSalvandoUnidade(true);
+    setErroUnidade(null);
+    try {
+      const atualizado = await produtoService.atualizarUnidadeMedida(produtoSelecionado.id, unidadeFinal);
+      setProdutoSelecionado(atualizado);
+      setProdutosDisponiveis((prev) =>
+        prev.map((p) => (p.id === atualizado.id ? atualizado : p))
+      );
+      setModalEdicaoUnidadeAberto(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao alterar unidade de medida.";
+      setErroUnidade(msg);
+    } finally {
+      setSalvandoUnidade(false);
+    }
   };
 
   const handleSalvarEntrada = async () => {
@@ -91,7 +149,7 @@ export default function RecebimentoCozinhaPage() {
       return;
     }
     if (!fornecedor.trim()) {
-      alert("Informe o fornecedor!");
+      alert("Informe o fornecedor ou setor de origem!");
       return;
     }
 
@@ -113,6 +171,17 @@ export default function RecebimentoCozinhaPage() {
     const valorTotal = Number((qtdNum * valorUnitario).toFixed(2));
     const hojeIso = new Date().toISOString().split("T")[0];
 
+    const fTrim = fornecedor.trim();
+    let origemFinal: "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" = "EXTERNA";
+    const fLower = fTrim.toLowerCase();
+    if (fLower.includes("agroind")) {
+      origemFinal = "AGROINDUSTRIA";
+    } else if (fLower.includes("agropec") || fLower.includes("fazenda")) {
+      origemFinal = "AGROPECUARIA";
+    } else if (fLower.includes("interna") || fLower.includes("horta")) {
+      origemFinal = "INTERNA";
+    }
+
     try {
       setSalvando(true);
       setErroEnvio(null);
@@ -123,10 +192,10 @@ export default function RecebimentoCozinhaPage() {
           localId,
           quantidade: qtdNum,
           data: hojeIso,
-          origem: origemEntrada,
+          origem: origemFinal,
           valor: valorTotal,
           dataValidade: dataValidade || undefined,
-          fornecedor: fornecedor.trim() || undefined,
+          fornecedor: fTrim || undefined,
         },
         arquivoFoto
       );
@@ -192,14 +261,27 @@ export default function RecebimentoCozinhaPage() {
 
           {/* 1. Seleção do Insumo */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
-              <span>Insumo a Receber *</span>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 uppercase">
+                Insumo a Receber *
+              </label>
               {produtoSelecionado && (
-                <span className="text-[11px] font-semibold text-emerald-700 lowercase">
-                  Saldo em estoque: {produtoSelecionado.saldoTotal ?? 0} {produtoSelecionado.unidadeMedida}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-emerald-700 lowercase">
+                    Saldo: {produtoSelecionado.saldoTotal ?? 0} {produtoSelecionado.unidadeMedida}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={abrirModalAlterarUnidade}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                    title="Alterar unidade deste insumo"
+                  >
+                    <Scale className="w-3 h-3 text-emerald-600" />
+                    <span>Unidade ({produtoSelecionado.unidadeMedida})</span>
+                  </button>
+                </div>
               )}
-            </label>
+            </div>
             {carregandoProdutos ? (
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-400 flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
@@ -227,63 +309,40 @@ export default function RecebimentoCozinhaPage() {
             )}
           </div>
 
-          {/* 2. Origem e Fornecedor */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 uppercase">
-                Canal / Origem da Mercadoria *
-              </label>
-              <select
-                value={origemEntrada}
-                onChange={(e) => {
-                  const novaOrigem = e.target.value as "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA";
-                  setOrigemEntrada(novaOrigem);
-                  if (novaOrigem === "AGROPECUARIA") {
-                    setFornecedor("Agropecuária (Fazenda IFPE)");
-                  } else if (novaOrigem === "AGROINDUSTRIA") {
-                    setFornecedor("Agroindústria (IFPE)");
-                  } else if (novaOrigem === "EXTERNA") {
-                    setFornecedor("Fornecedor Externo");
-                  }
-                }}
-                className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
-              >
-                <option value="AGROPECUARIA">Agropecuária / Fazenda (IFPE)</option>
-                <option value="AGROINDUSTRIA">Agroindústria (IFPE)</option>
-                <option value="EXTERNA">Fornecedor Externo (Compras/Licitação)</option>
-                <option value="INTERNA">Produção Interna</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-emerald-700" />
-                <span>Nome do Fornecedor / Setor *</span>
-              </label>
-              <input
-                type="text"
-                list="sugestoes-fornecedor-cozinha"
-                value={fornecedor}
-                onChange={(e) => setFornecedor(e.target.value)}
-                placeholder="Ex.: Agropecuária IFPE, Cooperativa, Distribuidora..."
-                className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600"
-              />
-              <datalist id="sugestoes-fornecedor-cozinha">
-                <option value="Agropecuária (Fazenda IFPE)" />
-                <option value="Agroindústria (IFPE)" />
-                <option value="Distribuidora Agreste" />
-                <option value="Cooperativa da Agricultura Familiar" />
-                <option value="Fornecedor Externo / Licitação" />
-              </datalist>
-            </div>
+          {/* 2. Fornecedor / Setor de Origem */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Fornecedor / Setor de Origem *</span>
+            </label>
+            <input
+              type="text"
+              value={fornecedor}
+              onChange={(e) => setFornecedor(e.target.value)}
+              placeholder="Digite quem forneceu ou o setor (ex: Fazenda IFPE, Distribuidora, Cooperativa...)"
+              className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600 text-slate-900 placeholder:text-slate-400"
+            />
           </div>
 
           {/* 3. Quantidade e Validade */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 uppercase">
-                Quantidade Recebida {produtoSelecionado ? `(${produtoSelecionado.unidadeMedida})` : ""} *
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 uppercase">
+                  Quantidade Recebida {produtoSelecionado ? `(${produtoSelecionado.unidadeMedida})` : ""} *
+                </label>
+                {produtoSelecionado && (
+                  <button
+                    type="button"
+                    onClick={abrirModalAlterarUnidade}
+                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 underline flex items-center gap-1 cursor-pointer"
+                    title="Modificar unidade de medida deste produto"
+                  >
+                    <Scale className="w-3 h-3" />
+                    <span>Mudar unidade</span>
+                  </button>
+                )}
+              </div>
               <input
                 type="number"
                 step="0.1"
@@ -386,6 +445,117 @@ export default function RecebimentoCozinhaPage() {
               {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               <span>{salvando ? "Registrando no estoque..." : "Salvar Entrada no Estoque"}</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Alteração de Unidade de Medida */}
+      {modalEdicaoUnidadeAberto && produtoSelecionado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-7 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                  <Scale className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 leading-tight">
+                    Alterar Unidade de Medida
+                  </h3>
+                  <p className="text-[11px] text-slate-500 truncate max-w-[240px]">
+                    {produtoSelecionado.nome}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalEdicaoUnidadeAberto(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSalvarUnidade} className="space-y-4">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 space-y-1">
+                <p>
+                  Unidade atual:{" "}
+                  <strong className="text-slate-900 font-bold px-1.5 py-0.5 bg-slate-200/70 rounded">
+                    {produtoSelecionado.unidadeMedida}
+                  </strong>
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  A alteração será aplicada a este produto no estoque e nas próximas entradas.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase">
+                  Escolha a Nova Unidade *
+                </label>
+                <select
+                  value={usarOutraUnidade ? "OUTRA" : unidadeSelecionada}
+                  onChange={(e) => {
+                    if (e.target.value === "OUTRA") {
+                      setUsarOutraUnidade(true);
+                    } else {
+                      setUsarOutraUnidade(false);
+                      setUnidadeSelecionada(e.target.value);
+                    }
+                  }}
+                  className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
+                >
+                  {UNIDADES_MEDIDA_SUGERIDAS.map((u) => (
+                    <option key={u.sigla} value={u.sigla}>
+                      {u.nome}
+                    </option>
+                  ))}
+                  <option value="OUTRA">✏️ Outra unidade personalizada...</option>
+                </select>
+
+                {usarOutraUnidade && (
+                  <div className="pt-1.5 space-y-1">
+                    <label className="text-[11px] font-bold text-emerald-900 uppercase">
+                      Digite o nome ou sigla da unidade:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={unidadeCustomizada}
+                      onChange={(e) => setUnidadeCustomizada(e.target.value)}
+                      placeholder="Ex: Garrafa, Barra, Pote, Balde, Bisnaga..."
+                      className="w-full p-2 bg-emerald-50/50 border border-emerald-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {erroUnidade && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{erroUnidade}</span>
+                </div>
+              )}
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setModalEdicaoUnidadeAberto(false)}
+                  disabled={salvandoUnidade}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={salvandoUnidade}
+                  className="flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {salvandoUnidade && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{salvandoUnidade ? "Atualizando..." : "Confirmar Unidade"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

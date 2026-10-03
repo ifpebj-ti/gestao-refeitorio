@@ -25,10 +25,15 @@ import {
   DollarSign,
   Calendar,
   MapPin,
+  User,
+  ExternalLink,
+  ShieldCheck,
+  Scale,
 } from "lucide-react";
 import { verificarStatusEstoque, CategoriaAlimento } from "@/app/utils/estoqueRules";
 import { produtoService, ProdutoResponse } from "@/lib/produtos";
 import { registrarEntradaApi, listarHistoricoApi } from "@/lib/movimentacoes"; 
+import { UNIDADES_MEDIDA_SUGERIDAS, normalizarUnidadeMedida } from "@/lib/unidades"; 
 
 interface ItemMovimentadoDetalhe {
   insumo: string;
@@ -41,6 +46,7 @@ interface MovimentacaoExtrato {
   tipo: "ENTRADA" | "SAIDA";
   dataHora: string;
   origemTurno: string;
+  motivoSaida?: string;
   responsavel: string;
   itensResumo: string;
   detalhesItens: ItemMovimentadoDetalhe[];
@@ -50,6 +56,7 @@ interface MovimentacaoExtrato {
   validade?: string;
   valor?: number;
   saldoAtual?: number;
+  unidade?: string;
   observacao?: string;
   fotoAnexada?: string;
 }
@@ -91,7 +98,6 @@ export default function EstoqueGeralPage() {
   const [buscaEntrada, setBuscaEntrada] = useState("");
   const [buscaEntradaFocada, setBuscaEntradaFocada] = useState(false);
   const [itemEntradaId, setItemEntradaId] = useState<string>("");
-  const [origemEntrada, setOrigemEntrada] = useState<"EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA">("AGROPECUARIA");
   const [fornecedorEntrada, setFornecedorEntrada] = useState("");
   const [quantidadeEntrada, setQuantidadeEntrada] = useState("");
   const [validadeEntrada, setValidadeEntrada] = useState("");
@@ -103,13 +109,15 @@ export default function EstoqueGeralPage() {
   const [sucessoFeedback, setSucessoFeedback] = useState(false);
 
   // Estados para Novo Insumo (US04 / #174)
+  // Estados para Novo Insumo (US04 / #174)
   const [modalNovoInsumoAberto, setModalNovoInsumoAberto] = useState(false);
   const [novoInsumoNome, setNovoInsumoNome] = useState("");
   const [novoInsumoCategoria, setNovoInsumoCategoria] = useState("Proteínas & Frios");
-  const [novoInsumoUnidade, setNovoInsumoUnidade] = useState("KG");
+  const [novoInsumoUnidade, setNovoInsumoUnidade] = useState("Kg");
+  const [novoInsumoUnidadeCustomizada, setNovoInsumoUnidadeCustomizada] = useState("");
+  const [novoInsumoUsarOutraUnidade, setNovoInsumoUsarOutraUnidade] = useState(false);
   const [novoInsumoValor, setNovoInsumoValor] = useState("");
-  const [novoInsumoSemPreco, setNovoInsumoSemPreco] = useState(false);
-  const [novoInsumoOrigem, setNovoInsumoOrigem] = useState<"EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA">("AGROPECUARIA");
+  const [novoInsumoSemPreco, setNovoInsumoSemPreco] = useState(true); // Padrão: sem preço de referência
   const [novoInsumoFornecedor, setNovoInsumoFornecedor] = useState("");
   const [novoInsumoDarEntradaInicial, setNovoInsumoDarEntradaInicial] = useState(false);
   const [novoInsumoQtdInicial, setNovoInsumoQtdInicial] = useState("");
@@ -120,7 +128,9 @@ export default function EstoqueGeralPage() {
   // Estados para Edição de Insumo (US05 / #174)
   const [modalEdicaoInsumoAberto, setModalEdicaoInsumoAberto] = useState(false);
   const [insumoEmEdicao, setInsumoEmEdicao] = useState<ProdutoResponse | null>(null);
-  const [edicaoUnidade, setEdicaoUnidade] = useState("KG");
+  const [edicaoUnidade, setEdicaoUnidade] = useState("Kg");
+  const [edicaoUnidadeCustomizada, setEdicaoUnidadeCustomizada] = useState("");
+  const [edicaoUsarOutraUnidade, setEdicaoUsarOutraUnidade] = useState(false);
   const [edicaoQtdMinima, setEdicaoQtdMinima] = useState("");
   const [edicaoValorReferencia, setEdicaoValorReferencia] = useState("");
   const [edicaoSemPreco, setEdicaoSemPreco] = useState(false);
@@ -140,6 +150,17 @@ export default function EstoqueGeralPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const entradaAutocompleteRef = useRef<HTMLDivElement>(null);
 
+  const extrairMensagemErro = (err: unknown, fallback: string): string => {
+    if (err && typeof err === "object" && "response" in err) {
+      const res = (err as { response?: { data?: { mensagem?: string; message?: string; erros?: string[] } } }).response;
+      if (res?.data?.mensagem) return res.data.mensagem;
+      if (res?.data?.message) return res.data.message;
+      if (Array.isArray(res?.data?.erros) && res.data.erros.length > 0) return res.data.erros.join(", ");
+    }
+    if (err instanceof Error) return err.message;
+    return fallback;
+  };
+
   // Fecha o dropdown de autocomplete de entrada se clicar fora
   useEffect(() => {
     const handleClickForaEntrada = (e: MouseEvent) => {
@@ -157,10 +178,11 @@ export default function EstoqueGeralPage() {
   const abrirModalNovoInsumo = () => {
     setNovoInsumoNome("");
     setNovoInsumoCategoria("Proteínas & Frios");
-    setNovoInsumoUnidade("KG");
+    setNovoInsumoUnidade("Kg");
+    setNovoInsumoUnidadeCustomizada("");
+    setNovoInsumoUsarOutraUnidade(false);
     setNovoInsumoValor("");
-    setNovoInsumoSemPreco(false);
-    setNovoInsumoOrigem("AGROPECUARIA");
+    setNovoInsumoSemPreco(true); // Padrão: sem preço inicial cadastrado
     setNovoInsumoFornecedor("");
     setNovoInsumoDarEntradaInicial(false);
     setNovoInsumoQtdInicial("");
@@ -175,6 +197,10 @@ export default function EstoqueGeralPage() {
       setErroNovoInsumo("O nome do insumo é obrigatório.");
       return;
     }
+
+    const unidadeFinal = novoInsumoUsarOutraUnidade
+      ? (novoInsumoUnidadeCustomizada.trim() || "Und")
+      : novoInsumoUnidade;
 
     let valorNumerico: number | null = null;
     if (!novoInsumoSemPreco && novoInsumoValor.trim() !== "") {
@@ -192,7 +218,7 @@ export default function EstoqueGeralPage() {
       const novoProduto = await produtoService.cadastrar({
         nome: novoInsumoNome.trim(),
         categoria: novoInsumoCategoria,
-        unidadeMedida: novoInsumoUnidade,
+        unidadeMedida: unidadeFinal,
         valorReferencia: valorNumerico,
       });
 
@@ -207,20 +233,31 @@ export default function EstoqueGeralPage() {
           const valorUnitarioParaEntrada = valorNumerico && valorNumerico > 0 ? valorNumerico : 1.0;
           const valorTotalEntrada = Number((qtdInicialNum * valorUnitarioParaEntrada).toFixed(2)) || 0.01;
 
+          const fTrim = novoInsumoFornecedor.trim();
+          let origemFinal: "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" = "EXTERNA";
+          const fLower = fTrim.toLowerCase();
+          if (fLower.includes("agroind")) {
+            origemFinal = "AGROINDUSTRIA";
+          } else if (fLower.includes("agropec") || fLower.includes("fazenda")) {
+            origemFinal = "AGROPECUARIA";
+          } else if (fLower.includes("interna") || fLower.includes("horta")) {
+            origemFinal = "INTERNA";
+          }
+
           const resEntrada = await registrarEntradaApi({
             produtoId: novoProduto.id,
             localId,
             quantidade: qtdInicialNum,
             data: hojeIso,
-            origem: novoInsumoOrigem,
+            origem: origemFinal,
             valor: valorTotalEntrada,
             dataValidade: novoInsumoValidadeInicial || undefined,
-            fornecedor: novoInsumoFornecedor.trim() || undefined,
+            fornecedor: fTrim || undefined,
           });
 
-          if (resEntrada?.id && novoInsumoFornecedor.trim()) {
+          if (resEntrada?.id && fTrim) {
             try {
-              localStorage.setItem(`@gestao_refeitorio:mov_fornecedor_${resEntrada.id}`, novoInsumoFornecedor.trim());
+              localStorage.setItem(`@gestao_refeitorio:mov_fornecedor_${resEntrada.id}`, fTrim);
             } catch (e) {}
           }
         }
@@ -234,8 +271,7 @@ export default function EstoqueGeralPage() {
         await carregarHistorico();
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro ao cadastrar insumo.";
-      setErroNovoInsumo(msg);
+      setErroNovoInsumo(extrairMensagemErro(err, "Erro ao cadastrar insumo."));
     } finally {
       setSalvandoNovoInsumo(false);
     }
@@ -243,7 +279,22 @@ export default function EstoqueGeralPage() {
 
   const abrirModalEdicaoInsumo = (item: ProdutoResponse) => {
     setInsumoEmEdicao(item);
-    setEdicaoUnidade(item.unidadeMedida || "KG");
+    const uAtual = (item.unidadeMedida || "").trim();
+    const ehSugerida = UNIDADES_MEDIDA_SUGERIDAS.some(
+      (u) => u.sigla.toLowerCase() === uAtual.toLowerCase()
+    );
+    const unidadeNorm = normalizarUnidadeMedida(uAtual);
+
+    if (ehSugerida) {
+      setEdicaoUnidade(unidadeNorm);
+      setEdicaoUsarOutraUnidade(false);
+      setEdicaoUnidadeCustomizada("");
+    } else {
+      setEdicaoUnidade("OUTRA");
+      setEdicaoUsarOutraUnidade(true);
+      setEdicaoUnidadeCustomizada(uAtual);
+    }
+
     setEdicaoQtdMinima(
       item.quantidadeMinima !== undefined && item.quantidadeMinima !== null
         ? String(item.quantidadeMinima)
@@ -265,11 +316,15 @@ export default function EstoqueGeralPage() {
     e.preventDefault();
     if (!insumoEmEdicao) return;
 
+    const unidadeFinal = edicaoUsarOutraUnidade
+      ? (edicaoUnidadeCustomizada.trim() || "Und")
+      : edicaoUnidade;
+
     setSalvandoEdicaoInsumo(true);
     setErroEdicaoInsumo(null);
     try {
-      if (edicaoUnidade !== insumoEmEdicao.unidadeMedida) {
-        await produtoService.atualizarUnidadeMedida(insumoEmEdicao.id, edicaoUnidade);
+      if (unidadeFinal !== insumoEmEdicao.unidadeMedida) {
+        await produtoService.atualizarUnidadeMedida(insumoEmEdicao.id, unidadeFinal);
       }
 
       if (edicaoQtdMinima.trim() !== "") {
@@ -304,8 +359,7 @@ export default function EstoqueGeralPage() {
       setTimeout(() => setSucessoGeral(null), 4000);
       await carregarProdutos();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro ao atualizar insumo.";
-      setErroEdicaoInsumo(msg);
+      setErroEdicaoInsumo(extrairMensagemErro(err, "Erro ao atualizar insumo."));
     } finally {
       setSalvandoEdicaoInsumo(false);
     }
@@ -440,7 +494,7 @@ export default function EstoqueGeralPage() {
 
         // Recupera fornecedor personalizado se foi digitado no momento do registro
         const fornecedorSalvo = typeof window !== "undefined" ? localStorage.getItem(`@gestao_refeitorio:mov_fornecedor_${mov.id}`) : null;
-        const fornecedorFinal = fornecedorSalvo || origemFormatada;
+        const fornecedorFinal = mov.fornecedor || fornecedorSalvo || (mov.tipo === "ENTRADA" ? origemFormatada : undefined);
 
         let saidaFormatada = "Consumo";
         if (mov.tipoSaida === "CONSUMO") saidaFormatada = "Consumo das Refeições";
@@ -465,11 +519,9 @@ export default function EstoqueGeralPage() {
             ? `${mov.responsavelNome} (${mov.responsavelPerfil === 'NUTRICIONISTA' ? 'Nutricionista' : 'Cozinha'})`
             : mov.responsavelNome;
         } else if (mov.responsavelPerfil) {
-          responsavelFormatado = mov.responsavelPerfil === 'NUTRICIONISTA' ? 'Nutricionista (Setor de Nutrição)' : 'Cozinha (Operacional)';
-        } else if (usuario?.nome && mov.tipo === "ENTRADA") {
+          responsavelFormatado = mov.responsavelPerfil === 'NUTRICIONISTA' ? 'Nutricionista' : 'Cozinha';
+        } else if (usuario?.nome) {
           responsavelFormatado = `${usuario.nome} (${perfil === 'NUTRICIONISTA' ? 'Nutricionista' : 'Cozinha'})`;
-        } else if (perfil === "NUTRICIONISTA" && mov.tipo === "ENTRADA") {
-          responsavelFormatado = "Nutricionista (Setor de Nutrição)";
         }
 
         // Saldo atual real
@@ -481,13 +533,15 @@ export default function EstoqueGeralPage() {
           id: mov.id,
           tipo: mov.tipo,
           dataHora: dataFormatada,
-          origemTurno: mov.tipo === "ENTRADA" ? `Entrada • ${fornecedorFinal}` : `Saída • ${saidaFormatada}`,
+          origemTurno: mov.tipo === "ENTRADA" ? (fornecedorFinal || "Entrada no Estoque") : (saidaFormatada || "Saída do Estoque"),
+          motivoSaida: mov.tipo === "SAIDA" ? saidaFormatada : undefined,
           responsavel: responsavelFormatado, 
           fornecedor: mov.tipo === "ENTRADA" ? fornecedorFinal : undefined,
           localArmazenamento: localNome,
           validade: validadeFormatada,
           valor: mov.valor,
           saldoAtual: saldoReal,
+          unidade: unidade,
           itensResumo: `${nomeInsumo} (${mov.tipo === 'ENTRADA' ? '+' : '-'}${mov.quantidade} ${unidade})`,
           detalhesItens: [
             {
@@ -496,9 +550,6 @@ export default function EstoqueGeralPage() {
               unidade: unidade,
             },
           ],
-          observacao: mov.tipo === "ENTRADA" 
-            ? `Entrada recebida de ${fornecedorFinal} e armazenada em ${localNome}.` 
-            : `Saída de insumos registrada via sistema (${saidaFormatada}).`,
         };
       });
 
@@ -563,7 +614,6 @@ export default function EstoqueGeralPage() {
     setItemEntradaId("");
     setBuscaEntrada("");
     setBuscaEntradaFocada(false);
-    setOrigemEntrada("AGROPECUARIA");
     setFornecedorEntrada("");
     setQuantidadeEntrada("");
     setValidadeEntrada("");
@@ -593,11 +643,11 @@ export default function EstoqueGeralPage() {
       return;
     }
 
-    const fornecedorFinal = fornecedorEntrada.trim() || (
-      origemEntrada === "AGROPECUARIA" ? "Agropecuária (Fazenda IFPE)" :
-      origemEntrada === "AGROINDUSTRIA" ? "Agroindústria (IFPE)" :
-      origemEntrada === "EXTERNA" ? "Fornecedor Externo" : "Produção Interna"
-    );
+    const fornecedorFinal = fornecedorEntrada.trim();
+    if (!fornecedorFinal) {
+      alert("Informe o fornecedor ou setor de origem da mercadoria!");
+      return;
+    }
 
     const LOCAL_CONGELADOS = "e10aa4e1-9b74-4791-8b01-1a8efd93af8c";
     const LOCAL_DESPENSA = "eddeb319-7af8-4d68-bd88-8a739c968c74";
@@ -606,13 +656,15 @@ export default function EstoqueGeralPage() {
         ? LOCAL_CONGELADOS
         : LOCAL_DESPENSA;
 
-    const ehAgropec = origemEntrada === "AGROPECUARIA" || fornecedorFinal.toLowerCase().includes("agropec");
-    const ehAgroind = origemEntrada === "AGROINDUSTRIA" || fornecedorFinal.toLowerCase().includes("agroind");
-    const origemFinal: "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" = ehAgropec
-      ? "AGROPECUARIA"
-      : ehAgroind
-      ? "AGROINDUSTRIA"
-      : origemEntrada;
+    const fLower = fornecedorFinal.toLowerCase();
+    let origemFinal: "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" = "EXTERNA";
+    if (fLower.includes("agroind")) {
+      origemFinal = "AGROINDUSTRIA";
+    } else if (fLower.includes("agropec") || fLower.includes("fazenda")) {
+      origemFinal = "AGROPECUARIA";
+    } else if (fLower.includes("interna") || fLower.includes("horta")) {
+      origemFinal = "INTERNA";
+    }
 
     const precoUnitario =
       insumoEntradaSelecionado.valorReferencia && insumoEntradaSelecionado.valorReferencia > 0
@@ -903,7 +955,7 @@ export default function EstoqueGeralPage() {
                             type="button"
                             onClick={() => abrirModalEdicaoInsumo(item)}
                             className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-lg transition-colors cursor-pointer"
-                            title="Editar parâmetros do insumo"
+                            title="Editar parâmetros do insumo (unidade de medida, preço, etc.)"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                             <span>Editar</span>
@@ -958,7 +1010,7 @@ export default function EstoqueGeralPage() {
                         <h4 className="text-sm font-extrabold text-slate-900 truncate">
                           {insumoEntradaSelecionado.nome}
                         </h4>
-                        <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5 flex-wrap">
                           <span className="font-semibold">{insumoEntradaSelecionado.categoria}</span>
                           <span>•</span>
                           <span className="text-emerald-800 font-bold">
@@ -967,15 +1019,26 @@ export default function EstoqueGeralPage() {
                         </div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={limparSelecao}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-rose-700 bg-white hover:bg-rose-50 border border-emerald-300 hover:border-rose-300 rounded-lg transition-colors cursor-pointer shrink-0 shadow-2xs"
-                      title="Trocar insumo selecionado"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      <span>Trocar Insumo</span>
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => abrirModalEdicaoInsumo(insumoEntradaSelecionado)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:text-emerald-800 bg-white hover:bg-emerald-100 border border-slate-300 hover:border-emerald-400 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                        title="Editar parâmetros, unidade ou preço deste insumo"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Editar Insumo</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={limparSelecao}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-rose-700 bg-white hover:bg-rose-50 border border-emerald-300 hover:border-rose-300 rounded-lg transition-colors cursor-pointer shrink-0 shadow-2xs"
+                        title="Trocar insumo selecionado"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Trocar Insumo</span>
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div ref={entradaAutocompleteRef} className="relative">
@@ -1055,48 +1118,19 @@ export default function EstoqueGeralPage() {
                 )}
               </div>
 
-              {/* 2. Origem e Fornecedor */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">
-                    Canal / Origem da Mercadoria *
-                  </label>
-                  <select
-                    value={origemEntrada}
-                    onChange={(e) => {
-                      const novaOrigem = e.target.value as "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA";
-                      setOrigemEntrada(novaOrigem);
-                    }}
-                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
-                  >
-                    <option value="AGROPECUARIA">Agropecuária / Fazenda (IFPE)</option>
-                    <option value="AGROINDUSTRIA">Agroindústria (IFPE)</option>
-                    <option value="EXTERNA">Fornecedor Externo (Compras/Licitação)</option>
-                    <option value="INTERNA">Produção Interna</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>Nome do Fornecedor / Setor *</span>
-                  </label>
-                  <input
-                    type="text"
-                    list="sugestoes-fornecedor-nutri"
-                    value={fornecedorEntrada}
-                    onChange={(e) => setFornecedorEntrada(e.target.value)}
-                    placeholder="Ex.: Agropecuária IFPE, Cooperativa, Distribuidora..."
-                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600"
-                  />
-                  <datalist id="sugestoes-fornecedor-nutri">
-                    <option value="Agropecuária (Fazenda IFPE)" />
-                    <option value="Agroindústria (IFPE)" />
-                    <option value="Distribuidora Agreste" />
-                    <option value="Cooperativa da Agricultura Familiar" />
-                    <option value="Fornecedor Externo / Licitação" />
-                  </datalist>
-                </div>
+              {/* 2. Fornecedor / Setor de Origem */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Fornecedor / Setor de Origem *</span>
+                </label>
+                <input
+                  type="text"
+                  value={fornecedorEntrada}
+                  onChange={(e) => setFornecedorEntrada(e.target.value)}
+                  placeholder="Digite quem forneceu ou o setor (ex: Fazenda IFPE, Distribuidora, Cooperativa...)"
+                  className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600 text-slate-900 placeholder:text-slate-400"
+                />
               </div>
 
               {/* 3. Quantidade e Validade */}
@@ -1293,24 +1327,40 @@ export default function EstoqueGeralPage() {
 
       {itemAuditoriaSelecionado && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-2xl w-full p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-2xl w-full p-6 sm:p-7 space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Cabeçalho */}
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
                 <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
                     itemAuditoriaSelecionado.tipo === "ENTRADA"
-                      ? "bg-emerald-100 text-emerald-800"
-                      : "bg-rose-100 text-rose-800"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-rose-50 text-rose-700 border-rose-200"
                   }`}
                 >
-                  <FileText className="w-4 h-4" />
+                  {itemAuditoriaSelecionado.tipo === "ENTRADA" ? (
+                    <ArrowDownLeft className="w-5 h-5" />
+                  ) : (
+                    <ArrowUpRight className="w-5 h-5" />
+                  )}
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-900 leading-tight">
-                    Ficha de Auditoria do Lançamento
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    ID: {itemAuditoriaSelecionado.id} • {itemAuditoriaSelecionado.dataHora}
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                      Ficha de Auditoria
+                    </h3>
+                    <span
+                      className={`text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full ${
+                        itemAuditoriaSelecionado.tipo === "ENTRADA"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-rose-100 text-rose-800"
+                      }`}
+                    >
+                      {itemAuditoriaSelecionado.tipo === "ENTRADA" ? "Entrada" : "Saída"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Registro #{itemAuditoriaSelecionado.id.slice(0, 8)} • Realizado em {itemAuditoriaSelecionado.dataHora}
                   </p>
                 </div>
               </div>
@@ -1318,136 +1368,189 @@ export default function EstoqueGeralPage() {
               <button
                 type="button"
                 onClick={() => setItemAuditoriaSelecionado(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                title="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-2xl text-xs">
+            {/* Grid com Dados Relevantes e Condizentes */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50/80 border border-slate-100 p-4 rounded-2xl text-xs">
               <div>
-                <span className="text-slate-400 font-bold block text-[10px] uppercase">Tipo / Operação</span>
-                <span className="font-extrabold text-slate-800">{itemAuditoriaSelecionado.origemTurno}</span>
+                <span className="text-slate-400 font-bold block text-[10px] uppercase tracking-wider">
+                  Responsável
+                </span>
+                <span className="font-bold text-slate-800 break-words mt-0.5 block">
+                  {itemAuditoriaSelecionado.responsavel}
+                </span>
               </div>
 
               <div>
-                <span className="text-slate-400 font-bold block text-[10px] uppercase">Responsável</span>
-                <span className="font-semibold text-slate-800">{itemAuditoriaSelecionado.responsavel}</span>
+                <span className="text-slate-400 font-bold block text-[10px] uppercase tracking-wider">
+                  {itemAuditoriaSelecionado.tipo === "ENTRADA" ? "Fornecedor / Origem" : "Motivo da Saída"}
+                </span>
+                <span className="font-bold text-slate-800 break-words mt-0.5 block">
+                  {itemAuditoriaSelecionado.tipo === "ENTRADA"
+                    ? (itemAuditoriaSelecionado.fornecedor || "Não informado")
+                    : (itemAuditoriaSelecionado.motivoSaida || "Consumo da Cozinha")}
+                </span>
               </div>
 
-              {itemAuditoriaSelecionado.fornecedor && (
-                <div>
-                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Fornecedor / Origem</span>
-                  <span className="font-medium text-slate-700">{itemAuditoriaSelecionado.fornecedor}</span>
-                </div>
-              )}
-
-              {itemAuditoriaSelecionado.localArmazenamento && (
-                <div>
-                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Armazenamento</span>
-                  <span className="font-medium text-slate-700">{itemAuditoriaSelecionado.localArmazenamento}</span>
-                </div>
-              )}
+              <div>
+                <span className="text-slate-400 font-bold block text-[10px] uppercase tracking-wider">
+                  Local de Guarda
+                </span>
+                <span className="font-semibold text-slate-700 mt-0.5 block">
+                  {itemAuditoriaSelecionado.localArmazenamento || "Despensa Geral"}
+                </span>
+              </div>
 
               {itemAuditoriaSelecionado.validade && (
                 <div>
-                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Validade</span>
-                  <span className="font-semibold text-slate-800">{itemAuditoriaSelecionado.validade}</span>
+                  <span className="text-slate-400 font-bold block text-[10px] uppercase tracking-wider">
+                    Validade do Lote
+                  </span>
+                  <span className="font-bold text-emerald-800 mt-0.5 block">
+                    {itemAuditoriaSelecionado.validade}
+                  </span>
                 </div>
               )}
 
               {itemAuditoriaSelecionado.lote && (
                 <div>
-                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Lote</span>
-                  <span className="font-medium text-slate-700">{itemAuditoriaSelecionado.lote}</span>
+                  <span className="text-slate-400 font-bold block text-[10px] uppercase tracking-wider">
+                    Nº do Lote
+                  </span>
+                  <span className="font-semibold text-slate-700 mt-0.5 block">
+                    {itemAuditoriaSelecionado.lote}
+                  </span>
                 </div>
               )}
 
-              {itemAuditoriaSelecionado.valor !== undefined && itemAuditoriaSelecionado.valor !== null && (
-                <div>
-                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Valor Total</span>
-                  <span className="font-semibold text-emerald-700">R$ {Number(itemAuditoriaSelecionado.valor).toFixed(2)}</span>
-                </div>
-              )}
+              {itemAuditoriaSelecionado.valor !== undefined &&
+                itemAuditoriaSelecionado.valor !== null &&
+                Number(itemAuditoriaSelecionado.valor) > 0 && (
+                  <div>
+                    <span className="text-slate-400 font-bold block text-[10px] uppercase tracking-wider">
+                      Custo Total
+                    </span>
+                    <span className="font-extrabold text-emerald-700 mt-0.5 block">
+                      R$ {Number(itemAuditoriaSelecionado.valor).toFixed(2).replace(".", ",")}
+                    </span>
+                  </div>
+                )}
 
               {itemAuditoriaSelecionado.saldoAtual !== undefined && itemAuditoriaSelecionado.saldoAtual !== null && (
                 <div>
-                  <span className="text-slate-400 font-bold block text-[10px] uppercase">Saldo Resultante</span>
-                  <span className="font-bold text-slate-900">{itemAuditoriaSelecionado.saldoAtual}</span>
+                  <span className="text-slate-400 font-bold block text-[10px] uppercase tracking-wider">
+                    Saldo Resultante
+                  </span>
+                  <span className="font-black text-slate-900 mt-0.5 block">
+                    {itemAuditoriaSelecionado.saldoAtual} {itemAuditoriaSelecionado.unidade || ""}
+                  </span>
                 </div>
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <span className="text-xs font-bold uppercase text-slate-700 tracking-wide">
-                Discriminação dos Insumos
+            {/* Discriminação dos Insumos */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold uppercase text-slate-600 tracking-wider flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-slate-400" />
+                Discriminação do Lançamento
               </span>
-              <div className="border border-slate-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto">
+              <div className="border border-slate-200/80 rounded-2xl overflow-hidden shadow-xs">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+                  <thead className="bg-slate-50 border-b border-slate-200/80 text-slate-500 font-bold">
                     <tr>
-                      <th className="px-3 py-2">Item</th>
-                      <th className="px-3 py-2 text-right">Quantidade</th>
+                      <th className="px-4 py-2.5">Insumo</th>
+                      <th className="px-4 py-2.5 text-right">Qtd. Movimentada</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-800">
-                    {itemAuditoriaSelecionado.detalhesItens.map((det, index) => (
-                      <tr key={index} className="hover:bg-slate-50/50">
-                        <td className="px-3 py-2 font-medium">{det.insumo}</td>
-                        <td className="px-3 py-2 text-right font-extrabold text-slate-900">
-                          {det.quantidade} {det.unidade}
-                        </td>
-                      </tr>
-                    ))}
+                    {itemAuditoriaSelecionado.detalhesItens.map((det, index) => {
+                      const isEntrada = itemAuditoriaSelecionado.tipo === "ENTRADA";
+                      return (
+                        <tr key={index} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-4 py-3 font-semibold text-slate-900">{det.insumo}</td>
+                          <td className="px-4 py-3 text-right">
+                            <span
+                              className={`font-black text-xs px-2 py-0.5 rounded-lg ${
+                                isEntrada
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-rose-50 text-rose-700"
+                              }`}
+                            >
+                              {isEntrada ? "+" : "-"} {det.quantidade} {det.unidade}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {itemAuditoriaSelecionado.observacao && (
-              <div className="space-y-1">
-                <span className="text-xs font-bold uppercase text-slate-700 tracking-wide">Ocorrências</span>
-                <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 p-3 rounded-xl leading-relaxed">
+            {/* Observações Reais (apenas se houver texto relevante digitado) */}
+            {itemAuditoriaSelecionado.observacao && itemAuditoriaSelecionado.observacao.trim() !== "" && (
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold uppercase text-slate-600 tracking-wider">
+                  Observações do Registro
+                </span>
+                <p className="text-xs text-slate-700 bg-amber-50/60 border border-amber-200/70 p-3 rounded-2xl leading-relaxed">
                   {itemAuditoriaSelecionado.observacao}
                 </p>
               </div>
             )}
 
-            <div className="space-y-1.5 pt-2 border-t border-slate-100">
-              <span className="text-xs font-bold uppercase text-slate-700 tracking-wide">
-                Comprovante / Anexo
+            {/* Comprovante / Anexo */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <span className="text-xs font-bold uppercase text-slate-600 tracking-wider flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
+                Comprovante / Nota Fiscal
               </span>
               {carregandoFotoAuditoria ? (
-                <div className="p-4 text-center text-xs font-medium text-slate-400 bg-slate-50 rounded-xl animate-pulse">
-                  Buscando anexo no servidor...
+                <div className="p-4 text-center text-xs font-medium text-slate-400 bg-slate-50 rounded-2xl animate-pulse">
+                  Buscando comprovante digitalizado...
                 </div>
               ) : fotoAuditoria ? (
-                <div>
-                  <a 
-                    href={fotoAuditoria} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    className="block border border-slate-200 rounded-xl overflow-hidden hover:opacity-90 transition-opacity"
-                    title="Clique para expandir"
+                <div className="space-y-1.5">
+                  <a
+                    href={fotoAuditoria}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block border border-slate-200 rounded-2xl overflow-hidden group relative hover:shadow-md transition-all"
+                    title="Clique para abrir imagem em tamanho original"
                   >
-                    <img src={fotoAuditoria} alt="Comprovante" className="w-full h-36 object-cover" />
+                    <img
+                      src={fotoAuditoria}
+                      alt="Comprovante de entrega"
+                      className="w-full max-h-48 object-contain bg-slate-900/5 group-hover:scale-[1.01] transition-transform duration-200"
+                    />
+                    <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/20 transition-colors flex items-center justify-center">
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur-xs text-slate-800 text-xs font-bold px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Abrir imagem completa
+                      </span>
+                    </div>
                   </a>
-                  <p className="text-[10px] text-slate-400 mt-1 text-right">Clique na imagem para ampliar</p>
                 </div>
               ) : (
-                <div className="p-3 text-center text-xs text-slate-400 bg-slate-50 border border-slate-200 border-dashed rounded-xl">
-                  Nenhum comprovante anexado a este registro.
+                <div className="p-3.5 text-center text-xs text-slate-400 bg-slate-50/80 border border-slate-200/60 border-dashed rounded-2xl">
+                  Nenhum comprovante ou nota fiscal anexada a este lançamento.
                 </div>
               )}
             </div>
 
+            {/* Rodapé */}
             <div className="pt-2 flex justify-end">
               <button
                 type="button"
                 onClick={() => setItemAuditoriaSelecionado(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
               >
-                Fechar Auditoria
+                Fechar Ficha
               </button>
             </div>
           </div>
@@ -1516,15 +1619,34 @@ export default function EstoqueGeralPage() {
                     Unidade de Medida *
                   </label>
                   <select
-                    value={novoInsumoUnidade}
-                    onChange={(e) => setNovoInsumoUnidade(e.target.value)}
+                    value={novoInsumoUsarOutraUnidade ? "OUTRA" : novoInsumoUnidade}
+                    onChange={(e) => {
+                      if (e.target.value === "OUTRA") {
+                        setNovoInsumoUsarOutraUnidade(true);
+                      } else {
+                        setNovoInsumoUsarOutraUnidade(false);
+                        setNovoInsumoUnidade(e.target.value);
+                      }
+                    }}
                     className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
                   >
-                    <option value="KG">Quilograma (KG)</option>
-                    <option value="L">Litro (L)</option>
-                    <option value="UN">Unidade (UN)</option>
-                    <option value="PACOTE">Pacote</option>
+                    {UNIDADES_MEDIDA_SUGERIDAS.map((u) => (
+                      <option key={u.sigla} value={u.sigla}>
+                        {u.nome}
+                      </option>
+                    ))}
+                    <option value="OUTRA">✏️ Outra unidade personalizada...</option>
                   </select>
+                  {novoInsumoUsarOutraUnidade && (
+                    <input
+                      type="text"
+                      required
+                      value={novoInsumoUnidadeCustomizada}
+                      onChange={(e) => setNovoInsumoUnidadeCustomizada(e.target.value)}
+                      placeholder="Ex: Garrafa, Barra, Pote, Balde..."
+                      className="w-full mt-1.5 p-2 bg-emerald-50/50 border border-emerald-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -1561,53 +1683,18 @@ export default function EstoqueGeralPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 uppercase">
-                    Origem / Fornecimento
-                  </label>
-                  <select
-                    value={novoInsumoOrigem}
-                    onChange={(e) => {
-                      const novaOrigem = e.target.value as "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA";
-                      setNovoInsumoOrigem(novaOrigem);
-                      if (novaOrigem === "AGROPECUARIA") {
-                        setNovoInsumoFornecedor("Agropecuária (Fazenda IFPE)");
-                      } else if (novaOrigem === "AGROINDUSTRIA") {
-                        setNovoInsumoFornecedor("Agroindústria (IFPE)");
-                      } else if (novaOrigem === "EXTERNA") {
-                        setNovoInsumoFornecedor("Fornecedor Externo");
-                      }
-                    }}
-                    className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
-                  >
-                    <option value="AGROPECUARIA">Agropecuária / Fazenda (IFPE)</option>
-                    <option value="AGROINDUSTRIA">Agroindústria (IFPE)</option>
-                    <option value="EXTERNA">Fornecedor Externo</option>
-                    <option value="INTERNA">Produção Interna</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 uppercase">
-                    Fornecedor / Cooperativa
-                  </label>
-                  <input
-                    type="text"
-                    list="sugestoes-fornecedor-novo-insumo"
-                    value={novoInsumoFornecedor}
-                    onChange={(e) => setNovoInsumoFornecedor(e.target.value)}
-                    placeholder="Ex: Agropecuária IFPE, Cooperativa..."
-                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs font-semibold focus:outline-none focus:border-emerald-600"
-                  />
-                  <datalist id="sugestoes-fornecedor-novo-insumo">
-                    <option value="Agropecuária (Fazenda IFPE)" />
-                    <option value="Agroindústria (IFPE)" />
-                    <option value="Distribuidora Agreste" />
-                    <option value="Cooperativa da Agricultura Familiar" />
-                    <option value="Fornecedor Externo / Licitação" />
-                  </datalist>
-                </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Fornecedor / Origem da Mercadoria (Opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={novoInsumoFornecedor}
+                  onChange={(e) => setNovoInsumoFornecedor(e.target.value)}
+                  placeholder="Digite quem forneceu ou setor (ex: Fazenda IFPE, Distribuidora, Cooperativa...)"
+                  className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:border-emerald-600 text-slate-900 placeholder:text-slate-400"
+                />
               </div>
 
               <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-2xl space-y-3">
@@ -1720,18 +1807,37 @@ export default function EstoqueGeralPage() {
             <form onSubmit={handleSalvarEdicaoInsumo} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700 uppercase">
-                  Unidade de Medida
+                  Unidade de Medida *
                 </label>
                 <select
-                  value={edicaoUnidade}
-                  onChange={(e) => setEdicaoUnidade(e.target.value)}
+                  value={edicaoUsarOutraUnidade ? "OUTRA" : edicaoUnidade}
+                  onChange={(e) => {
+                    if (e.target.value === "OUTRA") {
+                      setEdicaoUsarOutraUnidade(true);
+                    } else {
+                      setEdicaoUsarOutraUnidade(false);
+                      setEdicaoUnidade(e.target.value);
+                    }
+                  }}
                   className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
                 >
-                  <option value="KG">Quilograma (KG)</option>
-                  <option value="L">Litro (L)</option>
-                  <option value="UN">Unidade (UN)</option>
-                  <option value="PACOTE">Pacote</option>
+                  {UNIDADES_MEDIDA_SUGERIDAS.map((u) => (
+                    <option key={u.sigla} value={u.sigla}>
+                      {u.nome}
+                    </option>
+                  ))}
+                  <option value="OUTRA">✏️ Outra unidade personalizada...</option>
                 </select>
+                {edicaoUsarOutraUnidade && (
+                  <input
+                    type="text"
+                    required
+                    value={edicaoUnidadeCustomizada}
+                    onChange={(e) => setEdicaoUnidadeCustomizada(e.target.value)}
+                    placeholder="Ex: Garrafa, Barra, Pote, Balde..."
+                    className="w-full mt-1.5 p-2 bg-emerald-50/50 border border-emerald-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
+                  />
+                )}
               </div>
 
               <div className="space-y-1">
@@ -1934,6 +2040,7 @@ export default function EstoqueGeralPage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
