@@ -11,13 +11,10 @@ import {
   Check,
   CheckCircle2,
   Calendar,
-  Plus,
-  Trash2,
   Users,
   Utensils,
   RotateCcw,
 } from "lucide-react";
-import { produtoService, ProdutoResponse } from "@/lib/produtos";
 
 type DiaSemana = "Segunda" | "Terça" | "Quarta" | "Quinta" | "Sexta";
 type TipoRefeicaoChave = "cafe" | "almoco" | "jantar";
@@ -340,7 +337,6 @@ export default function CardapioSemanalPage() {
   const [modoEdicao, setModoEdicao] = useState(false);
   const [cardapio, setCardapio] = useState<Record<DiaSemana, DiaCardapio>>(CARDAPIO_INICIAL);
   const [feedbackSalvo, setFeedbackSalvo] = useState(false);
-  const [produtosEstoque, setProdutosEstoque] = useState<ProdutoResponse[]>([]);
 
   useEffect(() => {
     const agora = new Date();
@@ -409,15 +405,6 @@ export default function CardapioSemanalPage() {
     }
   };
 
-  const navegarSemana = (deltaSemanas: number, diaDestino?: DiaSemana) => {
-    const novaData = new Date(segundaSemana);
-    novaData.setDate(novaData.getDate() + deltaSemanas * 7);
-    setDataReferencia(novaData);
-    if (diaDestino) {
-      setDiaSelecionado(diaDestino);
-    }
-  };
-
   const handleSelecionarDia = (dia: DiaSemana) => {
     setDiaSelecionado(dia);
     const info = datasSemana[dia];
@@ -425,20 +412,6 @@ export default function CardapioSemanalPage() {
       setDataReferencia(new Date(info.data));
     }
   };
-
-  // Carrega produtos do estoque apenas como referência/apoio
-  useEffect(() => {
-    produtoService
-      .listar()
-      .then((lista) => {
-        if (lista && lista.length > 0) {
-          setProdutosEstoque(lista);
-        }
-      })
-      .catch((err) => {
-        console.error("Erro ao listar produtos:", err);
-      });
-  }, []);
 
   // Carrega cardápio salvo no localStorage (descarta automaticamente mocks antigos de desenvolvimento)
   useEffect(() => {
@@ -884,6 +857,7 @@ export default function CardapioSemanalPage() {
             rows={tipoChave === "almoco" ? 11 : 8}
             value={textoAtual}
             onChange={(e) => onAtualizarTexto(e.target.value)}
+            placeholder={placeholderExemplo}
             className="w-full p-3.5 text-xs sm:text-sm font-medium leading-relaxed bg-white border-2 border-slate-300 rounded-xl focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs text-slate-900 placeholder:text-slate-400 font-sans"
           />
         </div>

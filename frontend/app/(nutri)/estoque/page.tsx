@@ -529,7 +529,7 @@ export default function EstoqueGeralPage() {
           id: mov.id,
           tipo: mov.tipo,
           dataHora: dataFormatada,
-          origemTurno: mov.tipo === "ENTRADA" ? (fornecedorFinal || "Entrada no Estoque") : (saidaFormatada || "Saída do Estoque"),
+          origemTurno: mov.tipo === "ENTRADA" ? (fornecedorFinal || "Entrada no Estoque") : saidaFormatada,
           motivoSaida: mov.tipo === "SAIDA" ? saidaFormatada : undefined,
           responsavel: responsavelFormatado, 
           fornecedor: mov.tipo === "ENTRADA" ? fornecedorFinal : undefined,
