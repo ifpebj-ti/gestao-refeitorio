@@ -12,14 +12,11 @@ import {
   CheckCircle2,
   Send,
   Info,
-  AlertTriangle,
   AlertCircle,
   Loader2,
   X,
   Package,
   Utensils,
-  Clock,
-  Sparkles,
   Search,
   ChevronDown,
 } from "lucide-react";
@@ -163,13 +160,6 @@ interface ConsumoRefeicaoVisualizacao {
   };
 }
 
-const CATEGORIAS_PADRAO = [
-  "Grãos & Cereais",
-  "Proteínas & Frios",
-  "Hortifrúti",
-  "Laticínios",
-  "Especificações & Condimentos",
-] as const;
 
 const LOCAL_CONGELADOS = "e10aa4e1-9b74-4791-8b01-1a8efd93af8c";
 const LOCAL_DESPENSA = "eddeb319-7af8-4d68-bd88-8a739c968c74";
@@ -675,7 +665,7 @@ export default function ConsumoDiarioPage() {
           const chave = mapearRefeicaoParaChave(tipo);
           const refeicao = diaDados[chave];
 
-          let partes: string[] = [];
+          const partes: string[] = [];
           if (refeicao) {
             setDadosRefeicaoAtual(refeicao);
 
@@ -1327,7 +1317,6 @@ export default function ConsumoDiarioPage() {
                       const limiteAtingido = item.quantidadeConvertida > item.saldoTotal && item.saldoTotal > 0;
                       const unidadesOpcoes = obterUnidadesDisponiveis(item.unidadeBase);
                       const passo = obterPassoIncremento(item.unidadeSelecionada);
-                      const passosRapidos = obterPassosRapidos(item.unidadeSelecionada);
 
                       return (
                         <div
@@ -1482,7 +1471,6 @@ export default function ConsumoDiarioPage() {
                           const limiteAtingido = item.quantidadeConvertida > item.saldoTotal && item.saldoTotal > 0;
                           const unidadesOpcoes = obterUnidadesDisponiveis(item.unidadeBase);
                           const passo = obterPassoIncremento(item.unidadeSelecionada);
-                          const passosRapidos = obterPassosRapidos(item.unidadeSelecionada);
 
                           return (
                             <tr

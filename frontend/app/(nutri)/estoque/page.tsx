@@ -24,11 +24,7 @@ import {
   SlidersHorizontal,
   DollarSign,
   Calendar,
-  MapPin,
-  User,
   ExternalLink,
-  ShieldCheck,
-  Scale,
 } from "lucide-react";
 import { verificarStatusEstoque, CategoriaAlimento } from "@/app/utils/estoqueRules";
 import { produtoService, ProdutoResponse } from "@/lib/produtos";

@@ -10,7 +10,6 @@ import {
   Coffee,
   Moon,
   Radio,
-  Sparkles,
 } from "lucide-react";
 
 type TipoRefeicaoChave = "cafe" | "almoco" | "jantar";
