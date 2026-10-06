@@ -29,10 +29,14 @@ interface AuthContextType {
   fecharMenuMobile: () => void;
   dispensarBannerAlertas: () => void;
 }
-const STORAGE_TOKEN_KEY = "@gestao_refeitorio:token";
-const STORAGE_USER_KEY = "@gestao_refeitorio:user";
-const STORAGE_PERFIL_KEY = "@gestao_refeitorio:perfil_ativo";
-
+import {
+  STORAGE_TOKEN_KEY,
+  STORAGE_USER_KEY,
+  STORAGE_PERFIL_KEY,
+  EVENTO_SESSAO_EXPIRADA,
+  isTokenExpirado,
+  limparSessaoLocal,
+} from "@/lib/authSession";
 import { produtoService } from "@/lib/produtos";
 import { calcularTotalAlertas } from "@/lib/alertasCount";
 
@@ -68,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   };
 
-  // Carrega e atualiza a contagem de alertas automaticamente na inicializacao
+  // Carrega e atualiza a contagem de alertas automaticamente quando o usuário estiver autenticado
   useEffect(() => {
     let montado = true;
     async function carregarAlertasGlobais() {
@@ -82,12 +86,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ignora se offline
       }
     }
-    carregarAlertasGlobais();
+    if (autenticado) {
+      carregarAlertasGlobais();
+    }
     return () => {
       montado = false;
     };
-  }, []);
+  }, [autenticado]);
 
+  // Carrega dados locais na inicialização validando se o token ainda não expirou
   useEffect(() => {
     try {
       const tokenSalvo = localStorage.getItem(STORAGE_TOKEN_KEY);
@@ -95,11 +102,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const perfilSalvo = localStorage.getItem(STORAGE_PERFIL_KEY) as PerfilUsuario | null;
 
       if (tokenSalvo && userSalvo) {
-        const dadosUser: UsuarioAuth = JSON.parse(userSalvo);
-        setToken(tokenSalvo);
-        setUsuario(dadosUser);
-        setPerfil(perfilSalvo || dadosUser.perfil);
-        setAutenticado(true);
+        if (isTokenExpirado(tokenSalvo)) {
+          // Token expirado: invalida e limpa sessão
+          limparSessaoLocal();
+          setToken(null);
+          setUsuario(null);
+          setAutenticado(false);
+        } else {
+          const dadosUser: UsuarioAuth = JSON.parse(userSalvo);
+          setToken(tokenSalvo);
+          setUsuario(dadosUser);
+          setPerfil(perfilSalvo || dadosUser.perfil);
+          setAutenticado(true);
+        }
       } else {
         setToken(null);
         setUsuario(null);
@@ -107,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (e) {
       console.error("Erro ao ler sessão local:", e);
+      limparSessaoLocal();
       setToken(null);
       setUsuario(null);
       setAutenticado(false);
@@ -114,6 +130,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCarregando(false);
     }
   }, []);
+
+  // Monitora expiração de sessão em tempo real (mudança de aba, foco, eventos e intervalo)
+  useEffect(() => {
+    const handleSessaoExpirada = () => {
+      limparSessaoLocal();
+      setToken(null);
+      setUsuario(null);
+      setPerfil("COZINHA");
+      setAutenticado(false);
+      setMenuMobileAberto(false);
+      router.replace("/");
+    };
+
+    const verificarValidadeAtiva = () => {
+      try {
+        const tokenAtual = localStorage.getItem(STORAGE_TOKEN_KEY);
+        if (tokenAtual && isTokenExpirado(tokenAtual)) {
+          handleSessaoExpirada();
+        }
+      } catch {}
+    };
+
+    window.addEventListener(EVENTO_SESSAO_EXPIRADA, handleSessaoExpirada);
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_TOKEN_KEY && !e.newValue) {
+        handleSessaoExpirada();
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        verificarValidadeAtiva();
+      }
+    };
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", verificarValidadeAtiva);
+
+    // Checagem periódica a cada 1 minuto para abas mantidas abertas
+    const intervalId = setInterval(verificarValidadeAtiva, 60000);
+
+    return () => {
+      window.removeEventListener(EVENTO_SESSAO_EXPIRADA, handleSessaoExpirada);
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", verificarValidadeAtiva);
+      clearInterval(intervalId);
+    };
+  }, [router]);
 
   const toggleMenuMobile = () => setMenuMobileAberto((prev) => !prev);
   const fecharMenuMobile = () => setMenuMobileAberto(false);
@@ -158,13 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    try {
-      localStorage.removeItem(STORAGE_TOKEN_KEY);
-      localStorage.removeItem(STORAGE_USER_KEY);
-      localStorage.removeItem(STORAGE_PERFIL_KEY);
-    } catch (e) {
-      console.error("Erro ao limpar sessão local no logout:", e);
-    }
+    limparSessaoLocal();
     setToken(null);
     setUsuario(null);
     setPerfil("COZINHA");

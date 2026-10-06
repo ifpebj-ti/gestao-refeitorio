@@ -28,8 +28,13 @@ import {
 } from "lucide-react";
 import { verificarStatusEstoque, CategoriaAlimento } from "@/app/utils/estoqueRules";
 import { produtoService, ProdutoResponse } from "@/lib/produtos";
-import { registrarEntradaApi, listarHistoricoApi } from "@/lib/movimentacoes"; 
+import { registrarEntradaApi, listarHistoricoApi } from "@/lib/movimentacoes";
 import { UNIDADES_MEDIDA_SUGERIDAS, normalizarUnidadeMedida } from "@/lib/unidades"; 
+import {
+  STORAGE_TOKEN_KEY,
+  isTokenExpirado,
+  tratarSessaoExpiradaSe401,
+} from "@/lib/authSession";
 
 interface ItemMovimentadoDetalhe {
   insumo: string;
@@ -437,14 +442,20 @@ export default function EstoqueGeralPage() {
     const buscarFoto = async (id: string) => {
       setCarregandoFotoAuditoria(true);
       try {
-        const token = localStorage.getItem("@gestao_refeitorio:token");
-        const res = await fetch(`http://localhost:8080/api/movimentacoes/${id}/foto`, {
+        const token = localStorage.getItem(STORAGE_TOKEN_KEY);
+        if (!token || isTokenExpirado(token)) {
+          setFotoAuditoria(null);
+          return;
+        }
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+        const res = await fetch(`${baseUrl}/movimentacoes/${id}/foto`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
           const blob = await res.blob();
           setFotoAuditoria(URL.createObjectURL(blob));
         } else {
+          tratarSessaoExpiradaSe401(res.status);
           setFotoAuditoria(null);
         }
       } catch (e) {

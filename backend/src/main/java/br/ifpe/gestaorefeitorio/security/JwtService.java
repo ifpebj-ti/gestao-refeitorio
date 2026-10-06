@@ -15,8 +15,11 @@ public class JwtService {
     @Value("${security.jwt.secret}")
     private String secret;
 
-    @Value("${security.jwt.expiration-ms}")
+    @Value("${security.jwt.expiration-ms:86400000}")
     private long expirationMs;
+
+    @Value("${security.jwt.expiration-cozinha-ms:259200000}")
+    private long expirationCozinhaMs;
 
     private SecretKey key() {
         return Keys.hmacShaKeyFor(secret.getBytes());
@@ -24,7 +27,8 @@ public class JwtService {
 
     public String gerarToken(String email, String perfil) {
         Date agora = new Date();
-        Date expira = new Date(agora.getTime() + expirationMs);
+        long tempoExpiracao = "COZINHA".equalsIgnoreCase(perfil) ? expirationCozinhaMs : expirationMs;
+        Date expira = new Date(agora.getTime() + tempoExpiracao);
         return Jwts.builder()
                 .subject(email)
                 .claim("perfil", perfil)
