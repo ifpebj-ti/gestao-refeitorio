@@ -1,4 +1,22 @@
+import {
+  STORAGE_TOKEN_KEY,
+  isTokenExpirado,
+  limparSessaoLocal,
+  notificarSessaoExpirada,
+  tratarSessaoExpiradaSe401,
+} from "./authSession";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+
+function getToken(): string {
+  const token = typeof window !== "undefined" ? localStorage.getItem(STORAGE_TOKEN_KEY) : null;
+  if (!token || isTokenExpirado(token)) {
+    limparSessaoLocal();
+    notificarSessaoExpirada();
+    throw new Error("Sessão expirada. Faça login novamente.");
+  }
+  return token;
+}
 
 export interface MovimentacaoEntradaRequest {
   produtoId: string;
@@ -43,11 +61,7 @@ export const registrarEntradaApi = async (
   dados: MovimentacaoEntradaRequest,
   arquivoFoto?: File | null
 ): Promise<MovimentacaoResponse> => {
-  const token = typeof window !== "undefined" ? localStorage.getItem("@gestao_refeitorio:token") : null;
-
-  if (!token) {
-    throw new Error("Token de autenticação não encontrado. Faça login na Área do Nutricionista.");
-  }
+  const token = getToken();
 
   const url = `${BASE_URL}/movimentacoes/entrada`;
 
@@ -61,6 +75,7 @@ export const registrarEntradaApi = async (
   });
 
   if (!res.ok) {
+    tratarSessaoExpiradaSe401(res.status);
     const errorText = await res.text();
     console.error(">>> Resposta de erro do backend:", res.status, errorText);
     throw new Error(`Erro na API (${res.status}): ${errorText || "Falha na requisição"}`);
@@ -71,13 +86,16 @@ export const registrarEntradaApi = async (
   if (arquivoFoto && movimentacaoCriada?.id) {
     const formData = new FormData();
     formData.append("arquivo", arquivoFoto);
-    await fetch(`${BASE_URL}/movimentacoes/${movimentacaoCriada.id}/foto`, {
+    const resFoto = await fetch(`${BASE_URL}/movimentacoes/${movimentacaoCriada.id}/foto`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
       },
       body: formData,
     });
+    if (!resFoto.ok) {
+      tratarSessaoExpiradaSe401(resFoto.status);
+    }
   }
 
   return movimentacaoCriada;
@@ -86,11 +104,7 @@ export const registrarEntradaApi = async (
 export const registrarSaidaApi = async (
   dados: MovimentacaoSaidaRequest
 ): Promise<MovimentacaoResponse> => {
-  const token = typeof window !== "undefined" ? localStorage.getItem("@gestao_refeitorio:token") : null;
-
-  if (!token) {
-    throw new Error("Token de autenticação não encontrado. Faça login na Área do Nutricionista.");
-  }
+  const token = getToken();
 
   const url = `${BASE_URL}/movimentacoes/saida`;
 
@@ -104,6 +118,7 @@ export const registrarSaidaApi = async (
   });
 
   if (!res.ok) {
+    tratarSessaoExpiradaSe401(res.status);
     const errorText = await res.text();
     console.error(">>> Resposta de erro do backend:", res.status, errorText);
     throw new Error(`Erro na API (${res.status}): ${errorText || "Falha na requisição"}`);
@@ -113,8 +128,7 @@ export const registrarSaidaApi = async (
 };
 
 export const listarHistoricoApi = async (): Promise<MovimentacaoResponse[]> => {
-  const token = typeof window !== "undefined" ? localStorage.getItem("@gestao_refeitorio:token") : null;
-  if (!token) throw new Error("Token de autenticação não encontrado.");
+  const token = getToken();
 
   const url = `${BASE_URL}/movimentacoes`;
 
@@ -127,6 +141,7 @@ export const listarHistoricoApi = async (): Promise<MovimentacaoResponse[]> => {
   });
 
   if (!res.ok) {
+    tratarSessaoExpiradaSe401(res.status);
     const errorText = await res.text();
     throw new Error(`Erro ao buscar histórico (${res.status}): ${errorText || "Falha na requisição"}`);
   }

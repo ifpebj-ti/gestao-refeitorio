@@ -17,6 +17,14 @@ export interface UsuarioRequestDTO {
   perfil: PerfilUsuario;
 }
 
+import {
+  STORAGE_TOKEN_KEY,
+  isTokenExpirado,
+  limparSessaoLocal,
+  notificarSessaoExpirada,
+  tratarSessaoExpiradaSe401,
+} from "./authSession";
+
 export interface UsuarioEdicaoDTO {
   nome: string;
   perfil: PerfilUsuario;
@@ -25,11 +33,13 @@ export interface UsuarioEdicaoDTO {
 function getToken(): string {
   const token =
     typeof window !== "undefined"
-      ? localStorage.getItem("@gestao_refeitorio:token")
+      ? localStorage.getItem(STORAGE_TOKEN_KEY)
       : null;
-  if (!token) {
+  if (!token || isTokenExpirado(token)) {
+    limparSessaoLocal();
+    notificarSessaoExpirada();
     throw new Error(
-      "Token de autenticação não encontrado. Faça login como Administrador."
+      "Sessão expirada. Faça login novamente como Administrador."
     );
   }
   return token;
@@ -45,6 +55,7 @@ export async function listarUsuarios(): Promise<UsuarioDTO[]> {
   });
 
   if (!res.ok) {
+    tratarSessaoExpiradaSe401(res.status);
     const errorData = await res.json().catch(() => null);
     throw new Error(
       errorData?.mensagem ||
@@ -70,6 +81,7 @@ export async function cadastrarUsuario(
   });
 
   if (!res.ok) {
+    tratarSessaoExpiradaSe401(res.status);
     const errorData = await res.json().catch(() => null);
     throw new Error(
       errorData?.mensagem ||
@@ -96,6 +108,7 @@ export async function editarUsuario(
   });
 
   if (!res.ok) {
+    tratarSessaoExpiradaSe401(res.status);
     const errorData = await res.json().catch(() => null);
     throw new Error(
       errorData?.mensagem ||
@@ -117,6 +130,7 @@ export async function desativarUsuario(id: string): Promise<UsuarioDTO> {
   });
 
   if (!res.ok) {
+    tratarSessaoExpiradaSe401(res.status);
     const errorData = await res.json().catch(() => null);
     throw new Error(
       errorData?.mensagem ||
