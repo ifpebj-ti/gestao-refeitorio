@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import SeletorRefeicao, { TipoRefeicao, obterRefeicaoPorHorario } from "@/app/components/SeletorRefeicao";
-import CardapioCard from "@/app/components/CardapioCard";
 import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
 import {
@@ -1085,15 +1084,7 @@ export default function ConsumoDiarioPage() {
         </div>
       )}
 
-      {/* Cardápio do dia expandido e compacto */}
-      <div className="pt-0.5 pb-1">
-        <CardapioCard
-          refeicao={tipoRefeicao}
-          descricao={cardapioAtual}
-          dadosRefeicao={dadosRefeicaoAtual}
-          modoFixo={true}
-        />
-      </div>
+
 
       {/* ============================================================== */}
       {/* 1. VISÃO EXCLUSIVA DO NUTRICIONISTA: Somente Visualização Enxuta */}

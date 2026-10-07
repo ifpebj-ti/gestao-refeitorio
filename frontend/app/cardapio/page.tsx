@@ -767,12 +767,6 @@ export default function CardapioSemanalPage() {
       .map((l) => l.trim())
       .filter(Boolean);
 
-    const placeholderExemplo =
-      tipoChave === "cafe"
-        ? `- Batata doce (20 kg)\n- Isca de frango cozida (7,5 kg)\n- Mungunzá (1 kg)\n- Pão francês (40 und) - ofertar margarina\n- Biscoito Cream Cracker\n- Café/ACHOCOLATADO`
-        : tipoChave === "almoco"
-        ? `Salada:\nBeterraba cozida (5 kg) + Cenoura cozida (5 kg) + Pepino (5 kg) + Jerimum em cubos (10 kg) + Azeitona (2 kg)\n\n- Picadinho suíno assado (70 kg)\n- Arroz c/ cenoura (22 kg)\n- Feijão preto (17 kg)\n- Purê de jerimum (15 kg)\n- Batata doce gratinada\n- Ovo cozido (5 bandejas)\n- Farofa temperada (6 kg)`
-        : `- Macaxeira (20 kg)\n- Picadinho suíno\n- Sopa de frango (3 kg de coxa de frango)\n- Pão francês (90 und)\n- Biscoito Cream cracker\n- Café/leite`;
 
     return (
       <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
@@ -822,7 +816,7 @@ export default function CardapioSemanalPage() {
                 type="text"
                 value={dadosRefeicao.quantidadePessoas || ""}
                 onChange={(e) => onAtualizarCampo("quantidadePessoas", e.target.value)}
-                placeholder={tipoChave === "cafe" ? "50" : tipoChave === "almoco" ? "350" : "150"}
+                placeholder=""
                 className="w-16 font-extrabold text-xs text-slate-800 bg-white border border-slate-300 rounded px-1.5 py-0.5 text-center focus:outline-none focus:border-emerald-600"
                 title="Previsão de pessoas para esta refeição"
               />
@@ -857,7 +851,7 @@ export default function CardapioSemanalPage() {
             rows={tipoChave === "almoco" ? 11 : 8}
             value={textoAtual}
             onChange={(e) => onAtualizarTexto(e.target.value)}
-            placeholder={placeholderExemplo}
+            placeholder="Digite os itens do cardápio desta refeição..."
             className="w-full p-3.5 text-xs sm:text-sm font-medium leading-relaxed bg-white border-2 border-slate-300 rounded-xl focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs text-slate-900 placeholder:text-slate-400 font-sans"
           />
         </div>
