@@ -43,7 +43,7 @@ export default function Sidebar() {
     { href: "/consumo", label: "Consumo Diário", icon: Utensils },
     { href: "/estoque", label: "Entradas & Estoque", icon: Boxes },
     { href: "/cardapio", label: "Cardápio Semanal", icon: CalendarDays },
-    { href: "/cardapio-tv", label: "Cardápio na TV", icon: Tv },
+    { href: "/cardapio-tv", label: "TV da Cozinha", icon: Tv },
     { href: "/relatorios", label: "Relatórios & Indicadores", icon: BarChart3 },
     { href: "/alertas", label: "Central de Alertas", icon: Bell },
   ];
