@@ -112,41 +112,61 @@ export default function TvMuralPage() {
   }, []);
 
   // 2. Leitura e sincronização automática do cardápio semanal
-  const carregarCardapio = () => {
+  const carregarCardapio = async () => {
     try {
       const agora = new Date();
-      const ano = agora.getFullYear();
-      const mes = String(agora.getMonth() + 1).padStart(2, "0");
-      const dia = String(agora.getDate()).padStart(2, "0");
-      const dataIso = `${ano}-${mes}-${dia}`;
-
+      const diaNum = agora.getDay();
+      const diaDetectado = DIAS_NOMES[diaNum] || "Segunda";
       const refChave = obterRefeicaoAtivaPorHorario(agora);
 
       let dadosRef: any = null;
 
-      // 1. Prioridade: Snapshot datado do dia (se houver)
-      const chaveData = `@gestao_refeitorio:cardapio_data_${dataIso}`;
-      const salvoDatado = localStorage.getItem(chaveData);
-      if (salvoDatado) {
-        try {
-          const parsedDatado = JSON.parse(salvoDatado);
-          if (parsedDatado && parsedDatado[refChave]) {
-            dadosRef = parsedDatado[refChave];
+      // 1. Prioridade: Servidor compartilhado (permite Smart TVs e múltiplos perfis de navegador sincronizarem em tempo real)
+      try {
+        const res = await fetch("/api/cardapio-semanal", { cache: "no-store" });
+        if (res.ok) {
+          const dadosServidor = await res.json();
+          if (dadosServidor && typeof dadosServidor === "object") {
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(dadosServidor));
+            } catch {}
+            if (dadosServidor[diaDetectado] && dadosServidor[diaDetectado][refChave]) {
+              dadosRef = dadosServidor[diaDetectado][refChave];
+            }
           }
-        } catch {
-          // segue para semanal
+        }
+      } catch {
+        // segue para caches locais se offline
+      }
+
+      // 2. Snapshot datado do dia (se houver)
+      if (!dadosRef) {
+        const ano = agora.getFullYear();
+        const mes = String(agora.getMonth() + 1).padStart(2, "0");
+        const dia = String(agora.getDate()).padStart(2, "0");
+        const dataIso = `${ano}-${mes}-${dia}`;
+        const chaveData = `@gestao_refeitorio:cardapio_data_${dataIso}`;
+        const salvoDatado = localStorage.getItem(chaveData);
+        if (salvoDatado) {
+          try {
+            const parsedDatado = JSON.parse(salvoDatado);
+            if (parsedDatado && parsedDatado[refChave]) {
+              dadosRef = parsedDatado[refChave];
+            }
+          } catch {}
         }
       }
 
-      // 2. Fallback: Cardápio Semanal
+      // 3. Fallback: Cardápio Semanal no localStorage
       if (!dadosRef) {
         const salvoSemanal = localStorage.getItem(STORAGE_KEY);
         if (salvoSemanal) {
-          const parsed = JSON.parse(salvoSemanal);
-          const diaDetectado = DIAS_NOMES[agora.getDay()] || "Segunda";
-          if (parsed[diaDetectado] && parsed[diaDetectado][refChave]) {
-            dadosRef = parsed[diaDetectado][refChave];
-          }
+          try {
+            const parsed = JSON.parse(salvoSemanal);
+            if (parsed[diaDetectado] && parsed[diaDetectado][refChave]) {
+              dadosRef = parsed[diaDetectado][refChave];
+            }
+          } catch {}
         }
       }
 

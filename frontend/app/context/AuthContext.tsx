@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 export type PerfilUsuario = "ADMIN" | "NUTRICIONISTA" | "COZINHA";
 
@@ -44,6 +44,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [perfil, setPerfil] = useState<PerfilUsuario>("COZINHA");
   const [usuario, setUsuario] = useState<UsuarioAuth | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -133,6 +134,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Monitora expiração de sessão em tempo real (mudança de aba, foco, eventos e intervalo)
   useEffect(() => {
+    const isRotaPublica = () => {
+      const currentPath = typeof window !== "undefined" ? window.location.pathname : pathname;
+      return currentPath === "/tv" || currentPath.startsWith("/tv");
+    };
+
     const handleSessaoExpirada = () => {
       limparSessaoLocal();
       setToken(null);
@@ -140,10 +146,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setPerfil("COZINHA");
       setAutenticado(false);
       setMenuMobileAberto(false);
-      router.replace("/");
+
+      // Nunca redireciona rotas públicas como a tela da TV (/tv) para o login
+      if (!isRotaPublica()) {
+        router.replace("/");
+      }
     };
 
     const verificarValidadeAtiva = () => {
+      if (isRotaPublica()) return;
       try {
         const tokenAtual = localStorage.getItem(STORAGE_TOKEN_KEY);
         if (tokenAtual && isTokenExpirado(tokenAtual)) {
@@ -179,7 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("focus", verificarValidadeAtiva);
       clearInterval(intervalId);
     };
-  }, [router]);
+  }, [pathname, router]);
 
   const toggleMenuMobile = () => setMenuMobileAberto((prev) => !prev);
   const fecharMenuMobile = () => setMenuMobileAberto(false);
@@ -230,7 +241,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPerfil("COZINHA");
     setAutenticado(false);
     setMenuMobileAberto(false);
-    router.replace("/");
+
+    const currentPath = typeof window !== "undefined" ? window.location.pathname : pathname;
+    const isTv = currentPath === "/tv" || currentPath.startsWith("/tv");
+    if (!isTv) {
+      router.replace("/");
+    }
   };
 
   const dispensarBannerAlertas = () => {

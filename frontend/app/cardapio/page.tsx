@@ -413,29 +413,58 @@ export default function CardapioSemanalPage() {
     }
   };
 
-  // Carrega cardápio salvo no localStorage (descarta automaticamente mocks antigos de desenvolvimento)
+  // Carrega cardápio salvo no localStorage e no servidor compartilhado
   useEffect(() => {
-    try {
-      const salvo = localStorage.getItem(STORAGE_KEY);
-      if (salvo) {
-        const parsed = JSON.parse(salvo);
-        const ehMockAntigo =
-          JSON.stringify(parsed).includes("seg-c1") ||
-          JSON.stringify(parsed).includes("ter-c1") ||
-          JSON.stringify(parsed).includes("qua-c1");
-        if (ehMockAntigo) {
-          localStorage.removeItem(STORAGE_KEY);
-          setCardapio(CARDAPIO_INICIAL);
-          return;
+    async function sincronizarInicial() {
+      let dadosEncontrados = null;
+      try {
+        const salvo = localStorage.getItem(STORAGE_KEY);
+        if (salvo) {
+          const parsed = JSON.parse(salvo);
+          const ehMockAntigo =
+            JSON.stringify(parsed).includes("seg-c1") ||
+            JSON.stringify(parsed).includes("ter-c1") ||
+            JSON.stringify(parsed).includes("qua-c1");
+          if (ehMockAntigo) {
+            localStorage.removeItem(STORAGE_KEY);
+          } else {
+            dadosEncontrados = parsed;
+          }
         }
-        setCardapio(parsed);
+      } catch (e) {
+        console.error("Erro ao carregar cardápio salvo:", e);
+      }
+
+      // Se já temos dados no navegador da nutricionista, sincroniza com o servidor central para as TVs
+      if (dadosEncontrados) {
+        setCardapio(dadosEncontrados);
+        try {
+          fetch("/api/cardapio-semanal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(dadosEncontrados),
+          }).catch(() => {});
+        } catch {}
       } else {
+        // Se o localStorage deste perfil estiver vazio, busca do servidor compartilhado
+        try {
+          const res = await fetch("/api/cardapio-semanal", { cache: "no-store" });
+          if (res.ok) {
+            const dadosServidor = await res.json();
+            if (dadosServidor && typeof dadosServidor === "object") {
+              setCardapio(dadosServidor);
+              try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(dadosServidor));
+              } catch {}
+              return;
+            }
+          }
+        } catch {}
         setCardapio(CARDAPIO_INICIAL);
       }
-    } catch (e) {
-      console.error("Erro ao carregar cardápio salvo:", e);
-      setCardapio(CARDAPIO_INICIAL);
     }
+
+    sincronizarInicial();
   }, []);
 
   const handleAtualizarTextoRefeicao = (
@@ -491,7 +520,7 @@ export default function CardapioSemanalPage() {
     });
   };
 
-  const handleSalvarCardapio = () => {
+  const handleSalvarCardapio = async () => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cardapio));
       if (usuario?.nome) {
@@ -499,6 +528,17 @@ export default function CardapioSemanalPage() {
           "@gestao_refeitorio:cardapio_nutricionista",
           `Nutricionista ${usuario.nome}`
         );
+      }
+
+      // Sincroniza com o servidor central para as TVs da Cozinha e outros navegadores/perfis
+      try {
+        await fetch("/api/cardapio-semanal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cardapio),
+        });
+      } catch (err) {
+        console.warn("Aviso ao sincronizar cardápio com o servidor:", err);
       }
 
       // Salva snapshot datado para os dias da semana de referência como evidência histórica perene
@@ -529,6 +569,11 @@ export default function CardapioSemanalPage() {
       setCardapio(CARDAPIO_INICIAL);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(CARDAPIO_INICIAL));
+        fetch("/api/cardapio-semanal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(CARDAPIO_INICIAL),
+        }).catch(() => {});
         const chavesParaRemover: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
