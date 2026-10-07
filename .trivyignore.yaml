@@ -20,3 +20,9 @@ vulnerabilities:
       Transitive dependency bundled by the official node:26-alpine image. npm is
       used only as a process launcher and does not handle WebSocket traffic.
     expired_at: 2026-10-30
+  - id: CVE-2026-93749
+    statement: >-
+      Transitive dependency of postcss/next.js (source-map-js). Source maps are
+      used only during build/compilation and not exposed to untrusted external input.
+    expired_at: 2026-10-30
+
