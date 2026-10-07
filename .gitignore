@@ -9,6 +9,7 @@ frontend/.next/
 frontend/out/
 frontend/.env.local
 frontend/package-lock.json
+frontend/.cardapio-data/
 
 # Env
 .env

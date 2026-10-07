@@ -511,6 +511,18 @@ export default function ConsumoDiarioPage() {
     try {
       setCarregando(true);
       setErroEnvio(null);
+
+      // Sincroniza cardápio central se disponível
+      try {
+        const resCardapio = await fetch("/api/cardapio-semanal", { cache: "no-store" });
+        if (resCardapio.ok) {
+          const dadosCardapio = await resCardapio.json();
+          if (dadosCardapio && typeof dadosCardapio === "object") {
+            localStorage.setItem("@gestao_refeitorio:cardapio_semanal", JSON.stringify(dadosCardapio));
+          }
+        }
+      } catch {}
+
       const catalogo = await produtoService.listar();
       setCatalogoBase(catalogo);
 
