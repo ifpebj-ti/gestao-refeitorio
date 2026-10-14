@@ -48,4 +48,10 @@ public class UsuarioController {
     public UsuarioResponseDTO desativar(@PathVariable UUID id, @AuthenticationPrincipal Usuario adminAutenticado) {
         return usuarioService.desativar(id, adminAutenticado);
     }
+
+    @PostMapping("/{id}/convite")
+    public ResponseEntity<Void> reenviarConvite(@PathVariable UUID id) {
+        usuarioService.reenviarConvite(id);
+        return ResponseEntity.noContent().build();
+    }
 }

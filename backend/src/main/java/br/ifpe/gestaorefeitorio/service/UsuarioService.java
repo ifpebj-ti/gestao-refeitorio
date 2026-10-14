@@ -18,4 +18,6 @@ public interface UsuarioService {
     UsuarioResponseDTO editar(UUID id, UsuarioEdicaoDTO request);
 
     UsuarioResponseDTO desativar(UUID id, Usuario adminAutenticado);
+
+    void reenviarConvite(UUID id);
 }
