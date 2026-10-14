@@ -2,10 +2,10 @@ name: CI / Security / Release
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
   push:
-    branches: [main, develop]
+    branches: [main]
 
   schedule:
     - cron: "0 6 * * 1"
@@ -253,7 +253,7 @@ jobs:
       - name: Log in to GHCR
         if: >-
           (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-          (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+          (github.ref == 'refs/heads/main')
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ${{ env.REGISTRY }}
@@ -275,10 +275,6 @@ jobs:
 
             tags="$image:sha-$SHORT_SHA"
 
-            if [ "$GITHUB_REF" = "refs/heads/develop" ]; then
-              tags="$tags"$'\n'"$image:dev-$SHORT_SHA"$'\n'"$image:dev"
-            fi
-
             {
               echo "${app}<<EOF"
               printf '%s\n' "$tags"
@@ -299,7 +295,7 @@ jobs:
 
           push: >-
             ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-            && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') }}
+            && (github.ref == 'refs/heads/main') }}
 
           tags: ${{ steps.image-tags.outputs.frontend }}
 
