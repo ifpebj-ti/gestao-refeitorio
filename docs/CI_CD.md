@@ -14,29 +14,35 @@ Antes desta revisão, as automações tinham cinco problemas bloqueantes:
 - o CI chamava `npm test`, mas esse script não existe;
 - o backend Maven estava configurado como npm no Dependabot;
 - a versão dependia da criação manual de tags e havia dois workflows publicando as mesmas imagens;
-- o deploy de produção usava a tag fixa `0.0.1`, e o deploy de desenvolvimento não aguardava o CI.
+- o deploy de produção usava a tag fixa `0.0.1` e havia sobreposição entre fluxos de publicação.
 
 ## Fluxo proposto
 
 ```text
-feature/* -> pull request -> develop -> imagem dev-<sha> -> ambiente development
-                 |              |
-                 |              +-- somente após CI aprovado
-                 |
-                 +-- lint + tipos + build + 120 testes + Trivy + Docker build/scan
-
-develop -> pull request -> main -> Release Please -> PR de release
-                                           |
-                                   merge do PR de release
-                                           |
-                         tag vX.Y.Z + GitHub Release + imagens X.Y.Z
-                                           |
-                         aprovação do environment production -> deploy
+feature/* | fix/* | chore/*
+             |
+             v
+pull request -> main -> lint + tipos + build + testes + SAST + Trivy
+                         |
+                         v
+                imagens sha-<commit> no GHCR
+                         |
+                         v
+                  Release Please
+                         |
+                         v
+                    PR de release
+                         |
+                         v
+        tag vX.Y.Z + GitHub Release + imagens X.Y.Z
+                         |
+                         v
+              environment production -> deploy
 ```
 
-O artefato implantado sempre é identificado por uma tag imutável (`dev-<sha>` em desenvolvimento
-e `X.Y.Z` em produção). As tags móveis `dev` e `latest` existem apenas para conveniência e nunca
-são usadas pelo script de deploy.
+O artefato implantado sempre é identificado por uma tag imutável (`sha-<commit>` durante a
+validação e `X.Y.Z` na release). A tag móvel `latest` existe apenas para conveniência e não é usada
+como referência de rollback pelo script de deploy.
 
 ## Versionamento automático
 
@@ -78,24 +84,23 @@ respectivas equipes antes da promoção da imagem.
 
 ## Deploy e rollback
 
-`develop` é implantada somente após a conclusão bem-sucedida do workflow consolidado. O pipeline
-compila a revisão exata, verifica e publica as imagens `dev-<sha>` antes de acionar o deploy.
-
 Em produção, a imagem `sha-<commit>` já analisada é promovida, sem rebuild, para as tags `X.Y.Z`,
 `vX.Y.Z` e `latest`. O job usa o GitHub Environment
-`production`, onde deve haver aprovação manual. Depois do `docker compose up`, o servidor testa
+`production`, que pode exigir aprovação manual por meio de suas regras de proteção. Depois do `docker compose up`, o servidor testa
 o Actuator e a página inicial por até 180 segundos. Falha de saúde restaura automaticamente a
 última tag bem-sucedida registrada no host.
 
+A aplicação é disponibilizada por Nginx em `https://gestao-refeitorio-ifpe.duckdns.org`, com `/`
+encaminhado ao frontend e `/api/` ao backend. O TLS é fornecido pelo Let's Encrypt e sua renovação
+foi validada com `certbot renew --dry-run`.
+
 ## Configuração necessária no GitHub
 
-Crie os environments `development` e `production`; no segundo, configure required reviewers e
-restrinja o branch a `main`. Cadastre:
+Use o environment `production`; quando aplicável, configure required reviewers e restrinja o
+deploy à branch protegida `main`. Cadastre:
 
 | Environment | Secret/variable | Uso |
 |---|---|---|
-| development | `DEV_HOST`, `DEV_USER`, `DEV_SSH_KEY`, `DEV_SSH_KNOWN_HOSTS` | acesso SSH |
-| development | `DEVELOPMENT_URL` (variable) | URL exibida no deployment |
 | production | `PRODUCTION_HOST`, `PRODUCTION_USER`, `PRODUCTION_SSH_KEY`, `PRODUCTION_SSH_KNOWN_HOSTS` | acesso SSH |
 | production | `PRODUCTION_URL` (variable) | URL exibida no deployment |
 | repository | `RELEASE_PLEASE_TOKEN` | token de GitHub App/PAT para o PR de release disparar o CI |
@@ -110,14 +115,14 @@ novos workflows para o PR criado por esse token. Para que o PR automático receb
 obrigatórios, prefira um GitHub App token ou PAT de uma conta técnica com acesso mínimo a
 contents e pull requests.
 
-Proteja `develop` e `main` exigindo os jobs de frontend, backend, segurança e imagens do workflow
-`CI / Security / Release`; em `main`, exija também o CodeQL padrão se o plano do GitHub oferecer
-Advanced Security. Desabilite push direto e exija ao menos uma revisão.
+Proteja `main` exigindo os jobs de frontend, backend, segurança e imagens do workflow
+`CI / Security / Release`; exija também o CodeQL padrão se o plano do GitHub oferecer Advanced
+Security. Desabilite push direto e exija ao menos uma revisão.
 
 ## Evolução recomendada
 
 1. versionar o lockfile e adicionar testes de componentes/E2E do frontend quando a equipe autorizar;
 2. publicar SBOM e assinar imagens com OIDC/Sigstore;
 3. mover o JWT do `localStorage` para cookie `HttpOnly`, aplicar CSP e parametrizar CORS;
-4. colocar TLS/reverse proxy na frente dos containers e automatizar backup/restore do PostgreSQL;
+4. monitorar a renovação do TLS e automatizar backup/restore do PostgreSQL;
 5. adotar migração expand/contract para permitir rollback de aplicação após mudanças de schema.

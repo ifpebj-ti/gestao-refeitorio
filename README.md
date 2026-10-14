@@ -48,9 +48,11 @@ estoque-cozinha-ifpe/
 
 ## CI/CD e releases
 
-Pull requests passam por build, testes do backend, análise estática, detecção de segredos e scan
-das imagens. `develop` publica automaticamente o ambiente de desenvolvimento após o CI; merges
-em `main` alimentam um PR de release e geram versões SemVer a partir de Conventional Commits.
+Pull requests direcionados à `main` passam por lint, build, testes do backend, análise estática,
+detecção de segredos e análise das imagens. Após o merge na `main`, as imagens são publicadas no
+GHCR e o Release Please mantém o PR de release, as versões SemVer, as tags e o changelog a partir
+de Conventional Commits. Quando uma release é criada, a esteira promove as imagens versionadas e
+executa o deploy de produção.
 
 Configuração, secrets, promoção para produção e rollback estão documentados em
 [`docs/CI_CD.md`](docs/CI_CD.md).
