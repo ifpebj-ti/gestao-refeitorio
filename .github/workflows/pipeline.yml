@@ -311,7 +311,7 @@ jobs:
 
           push: >-
             ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-            && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') }}
+            && (github.ref == 'refs/heads/main') }}
 
           tags: ${{ steps.image-tags.outputs.backend }}
 
