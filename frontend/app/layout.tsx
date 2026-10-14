@@ -124,7 +124,9 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+  const clientId =
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+    "411051502805-kktsu5dn98f504upsj8jlh1qmroq9k48.apps.googleusercontent.com";
 
   return (
     <html lang="pt-BR" className="h-full">
