@@ -1,72 +1,77 @@
 # Changelog
 
-Todas as mudanças relevantes deste projeto são registradas neste arquivo. O versionamento segue o [Versionamento Semântico](https://semver.org/lang/pt-BR/) e as próximas versões são mantidas automaticamente pelo Release Please a partir de commits no padrão Conventional Commits.
+## [0.3.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.2.0...gestao-refeitorio-v0.3.0) (2026-09-24)
 
-## [Não publicado]
 
-### Adicionado
+### Features
 
-- Build e publicação das imagens de frontend e backend para `linux/amd64` e `linux/arm64`.
-- Modelagem de dados baseada nas migrations Flyway e entidades JPA atuais.
+* **cardapio:** implementa interface de visualizacao e gestao de cardapio semanal ([c834741](https://github.com/ifpebj-ti/gestao-refeitorio/commit/c834741b2f2f455525e40dd3030fc96219dba081))
+* **cardapio:** interface de visualização e gestão de cardápio semanal ([#58](https://github.com/ifpebj-ti/gestao-refeitorio/issues/58)) ([086cd19](https://github.com/ifpebj-ti/gestao-refeitorio/commit/086cd1959ff76b5bcb00d5fb7c1dddee531401ac))
+* **cozinha:** implementa tela de recebimento e conferência de insumos ([6a21581](https://github.com/ifpebj-ti/gestao-refeitorio/commit/6a21581b1e621bd0fc049dbb0a05a181c6b8ebb9))
+* **cozinha:** tela de registro de consumo diário e validação de saldo ([#55](https://github.com/ifpebj-ti/gestao-refeitorio/issues/55)) ([3b7b3e9](https://github.com/ifpebj-ti/gestao-refeitorio/commit/3b7b3e9c8bd4b44337896446e5d0248a180d37e0))
+* **estoque:** central de alertas de estoque baixo e controle de validade ([#57](https://github.com/ifpebj-ti/gestao-refeitorio/issues/57)) ([a4ef314](https://github.com/ifpebj-ti/gestao-refeitorio/commit/a4ef3145ddb97249f443340773cc1c0396bf9b11))
+* implementa splash screen de seleção de perfil e corrige layout condicional ([50e716d](https://github.com/ifpebj-ti/gestao-refeitorio/commit/50e716ddaa088f3a6787678b7f11b9dd31c8e7d9))
+* melhorar responsividade mobile com cards e realizar limpeza de codigo ([cba868f](https://github.com/ifpebj-ti/gestao-refeitorio/commit/cba868f335bc773fc0429de979f075f46c0d2cf8))
 
-### Alterado
 
-- Promoção das imagens de release por manifesto OCI, preservando todas as arquiteturas publicadas.
-- Consolidação dos workflows de CI, segurança, publicação, release e deploy.
-- Fortalecimento das verificações de segurança com Semgrep, Trivy e análise de dependências.
+### Bug Fixes
 
-### Corrigido
+* ajustes de responsividade mobile com cards e limpeza geral de código ([1edaf4b](https://github.com/ifpebj-ti/gestao-refeitorio/commit/1edaf4b8db6a865621a6f8ae53ba2f8468277f7e))
 
-- Compatibilidade do build do backend com Java 21.
-- Isolamento da análise do repositório contra falsos positivos de dependências Maven.
-- Tratamento de falhas e limites de conexão no deploy por SSH.
+## [0.2.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.1.0...gestao-refeitorio-v0.2.0) (2026-09-22)
 
-## [0.3.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.2.0...gestao-refeitorio-v0.3.0) — 2026-09-24
 
-### Adicionado
+### Features
 
-- Interface de visualização e gestão de cardápio semanal.
-- Telas de recebimento de insumos e registro de consumo diário.
-- Central de alertas de estoque baixo e controle de validade.
-- Splash screen para seleção de perfil.
+* adiciona anexar e consultar foto de movimentacao via multipart [#88](https://github.com/ifpebj-ti/gestao-refeitorio/issues/88) ([d8f6bd3](https://github.com/ifpebj-ti/gestao-refeitorio/commit/d8f6bd3d2ec3a90b38d387f6d65b720b88641173))
+* adiciona cadastro de produto com DTO, validacao e interface de service [#74](https://github.com/ifpebj-ti/gestao-refeitorio/issues/74) ([14cd28a](https://github.com/ifpebj-ti/gestao-refeitorio/commit/14cd28a855cc6a529213b557807ed1d7b95bec04))
+* adiciona consulta de saldo total e por local do produto [#94](https://github.com/ifpebj-ti/gestao-refeitorio/issues/94) ([3da4ef8](https://github.com/ifpebj-ti/gestao-refeitorio/commit/3da4ef8bf47ed3c44f11ebbbf7b577f71e999dbe))
+* adiciona edicao de unidade de medida via DTO com rastreabilidade em log [#77](https://github.com/ifpebj-ti/gestao-refeitorio/issues/77) ([aae683b](https://github.com/ifpebj-ti/gestao-refeitorio/commit/aae683bb894058aa8ecbcfdb09f8d6ba6670b8f6))
+* adiciona filtro por categoria na listagem de produtos [#80](https://github.com/ifpebj-ti/gestao-refeitorio/issues/80) ([9964d0e](https://github.com/ifpebj-ti/gestao-refeitorio/commit/9964d0e3ff47f621296638ffa7a83a0b86c27ca2))
+* adiciona historico de movimentacoes do produto [#97](https://github.com/ifpebj-ti/gestao-refeitorio/issues/97) ([dd96418](https://github.com/ifpebj-ti/gestao-refeitorio/commit/dd96418b850783c44cc23dc0b6213ab49bb76db1))
+* adiciona registro de entrada de produto via POST /api/movimentacoes/entrada [#84](https://github.com/ifpebj-ti/gestao-refeitorio/issues/84) ([a6d836c](https://github.com/ifpebj-ti/gestao-refeitorio/commit/a6d836c960173b5fdf256b626f12cf4e91521f74))
+* adiciona registro de saida de produto com tipoSaida [#91](https://github.com/ifpebj-ti/gestao-refeitorio/issues/91) ([c8b953d](https://github.com/ifpebj-ti/gestao-refeitorio/commit/c8b953dc2a88a6671adc8e0cd5367e6d969c29e0))
+* adiciona testes automatizados da edicao de unidade de medida [#78](https://github.com/ifpebj-ti/gestao-refeitorio/issues/78) ([60363eb](https://github.com/ifpebj-ti/gestao-refeitorio/commit/60363eb1b1d5d560e98743a4d8f55847c3391583))
+* adiciona testes automatizados de anexar e consultar foto de movimentacao [#89](https://github.com/ifpebj-ti/gestao-refeitorio/issues/89) ([ff3a615](https://github.com/ifpebj-ti/gestao-refeitorio/commit/ff3a615b1b2b9b7ffe364259d2eac868ff1fc326))
+* adiciona testes automatizados do cadastro de produto [#75](https://github.com/ifpebj-ti/gestao-refeitorio/issues/75) ([afb0631](https://github.com/ifpebj-ti/gestao-refeitorio/commit/afb0631534092d456041e448bbf10b438289e317))
+* adiciona testes automatizados do filtro de produtos por categoria [#81](https://github.com/ifpebj-ti/gestao-refeitorio/issues/81) ([e27f531](https://github.com/ifpebj-ti/gestao-refeitorio/commit/e27f531121b4579493ddd7caaa0e2cd4ea528059))
+* adiciona testes automatizados do LocalArmazenamentoRepository [#85](https://github.com/ifpebj-ti/gestao-refeitorio/issues/85) ([d3c8f8a](https://github.com/ifpebj-ti/gestao-refeitorio/commit/d3c8f8a03adc9c2e1c54da884611091efc48b6b4))
+* adiciona testes automatizados do registro de entrada de produto [#86](https://github.com/ifpebj-ti/gestao-refeitorio/issues/86) ([6d02ea1](https://github.com/ifpebj-ti/gestao-refeitorio/commit/6d02ea12b02d49f596b14d92adc351c0047a72e1))
+* adiciona testes automatizados do registro de saida de produto [#92](https://github.com/ifpebj-ti/gestao-refeitorio/issues/92) ([b9c0843](https://github.com/ifpebj-ti/gestao-refeitorio/commit/b9c0843bc54884ebd238c3eca39ebb57b445c2d7))
+* adicionar cadastro, edicao e desativacao de usuarios pelo admin [#71](https://github.com/ifpebj-ti/gestao-refeitorio/issues/71) ([2418e0b](https://github.com/ifpebj-ti/gestao-refeitorio/commit/2418e0b442b5402abad203bf7c367618c29db745))
+* **auth:** integra autenticacao via google oauth2 e jwt (closes [#11](https://github.com/ifpebj-ti/gestao-refeitorio/issues/11), closes [#53](https://github.com/ifpebj-ti/gestao-refeitorio/issues/53)) ([b497b57](https://github.com/ifpebj-ti/gestao-refeitorio/commit/b497b57d442d0618039ee7f81b1f13e6c18a4af1))
+* **auth:** integração completa de autenticação com Google OAuth2 e JWT (US01) ([0c0f923](https://github.com/ifpebj-ti/gestao-refeitorio/commit/0c0f923823e0bf510466c9236313b69868be7334))
+* endpoint GET /api/auth/me para o frontend restaurar o perfil autenticado refs [#68](https://github.com/ifpebj-ti/gestao-refeitorio/issues/68) ([75df4a2](https://github.com/ifpebj-ti/gestao-refeitorio/commit/75df4a22266e3b829ad4a79eaef37c24d07b335e))
+* endpoint POST /api/auth/google para login via Google OAuth2 [#62](https://github.com/ifpebj-ti/gestao-refeitorio/issues/62) ([d8b0617](https://github.com/ifpebj-ti/gestao-refeitorio/commit/d8b0617ce23ef9db8b4443d60e483e3ee6bc1040))
+* **estoque:** finaliza tela de inventario e integra historico de auditoria com backend ([409d10c](https://github.com/ifpebj-ti/gestao-refeitorio/commit/409d10c286ca883ff2f8a714564e5cceae812176))
+* **estoque:** integra inventario e historico de auditoria com o backend ([#54](https://github.com/ifpebj-ti/gestao-refeitorio/issues/54)) ([1c69af9](https://github.com/ifpebj-ti/gestao-refeitorio/commit/1c69af9554995000909783e03ae6e7eb42a6e515))
+* exceções de autenticação e tratamento no GlobalExceptionHandler [#62](https://github.com/ifpebj-ti/gestao-refeitorio/issues/62) ([34f54bf](https://github.com/ifpebj-ti/gestao-refeitorio/commit/34f54bfc80cc52e3835ce530ae1de1a687db9228))
+* move foto de Movimentacao para tabela separada MovimentacaoFoto [#88](https://github.com/ifpebj-ti/gestao-refeitorio/issues/88) ([66ce602](https://github.com/ifpebj-ti/gestao-refeitorio/commit/66ce602d3ecd07fb650154c5177e0ab81f5b2eff))
+* move origem de Produto para Movimentacao e adiciona local/valor [#84](https://github.com/ifpebj-ti/gestao-refeitorio/issues/84) ([8cafcde](https://github.com/ifpebj-ti/gestao-refeitorio/commit/8cafcde01af709b5e91fe083b14ff5b7590ecf1b))
+* **produtos:** integra catalogo de inventario com api e adiciona seed flyway de 58 itens ([#54](https://github.com/ifpebj-ti/gestao-refeitorio/issues/54)) ([586fa3c](https://github.com/ifpebj-ti/gestao-refeitorio/commit/586fa3cbb4359167f2e0d586fb171273d03b1b81))
+* RBAC de perfis (E1) ([a299b93](https://github.com/ifpebj-ti/gestao-refeitorio/commit/a299b93597e756a0bb461d43d043b33f55526d7b))
+* tratar AccessDeniedException do PreAuthorize como 403 com log de auditoria refs [#68](https://github.com/ifpebj-ti/gestao-refeitorio/issues/68) ([fdc6778](https://github.com/ifpebj-ti/gestao-refeitorio/commit/fdc6778d6d462f77f7bcfee4bd0ac8a0bf0907aa))
+* validador do id_token do Google (GoogleIdTokenVerifier) [#62](https://github.com/ifpebj-ti/gestao-refeitorio/issues/62) ([4384cb3](https://github.com/ifpebj-ti/gestao-refeitorio/commit/4384cb390c34a1843f27f145501e3008bfc14bbf))
 
-### Alterado
 
-- Melhorias de responsividade para dispositivos móveis.
-- Ajustes gerais de layout e limpeza de código.
+### Bug Fixes
 
-## [0.2.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/0.0.1...gestao-refeitorio-v0.2.0) — 2026-09-22
-
-### Adicionado
-
-- Autenticação por Google OAuth2, emissão de JWT e controle de acesso por perfil.
-- Gestão de usuários pelo perfil administrador.
-- Cadastro, consulta, edição e filtros de produtos.
-- Registro de entradas e saídas de estoque com validação de saldo.
-- Histórico de movimentações, saldo total e saldo por local.
-- Anexo e consulta de fotos das movimentações.
-- Catálogo inicial de produtos por migration Flyway.
-- Conteinerização para desenvolvimento e workflows iniciais de CI/CD e segurança.
-
-### Alterado
-
-- Atualização do backend para Spring Boot 4 e Java 21.
-- Atualização do frontend para React 19 e Next.js 16.
-- Separação das fotos de movimentações em tabela própria.
-- Transferência da origem do produto para a movimentação de entrada.
-
-### Corrigido
-
-- Compatibilidade dos builds e migrations na pipeline.
-- Usuários não privilegiados nas imagens Docker.
-- Tratamento de respostas `401` e `403` na camada de segurança.
-- Sincronização do lockfile de dependências do frontend.
-
-## [0.0.1](https://github.com/ifpebj-ti/gestao-refeitorio/releases/tag/0.0.1) — 2026-09-17
-
-### Adicionado
-
-- Estrutura inicial do projeto.
-- Primeira tag de versionamento do repositório.
-
-[Não publicado]: https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.3.0...HEAD
+* adapta backend e frontend para Spring Boot 4 e React 19 ([66c09a7](https://github.com/ifpebj-ti/gestao-refeitorio/commit/66c09a7641548588ca8101bc55a5e6c405df1962))
+* adiciona AuthenticationEntryPoint para retornar 401 em requisicao nao autenticada [#68](https://github.com/ifpebj-ti/gestao-refeitorio/issues/68) ([cbfdf88](https://github.com/ifpebj-ti/gestao-refeitorio/commit/cbfdf880e3aeddb72262c4adf13c0ef528ba9958))
+* ajusta asercao desatualizada de POST /api/produtos para 201 [#75](https://github.com/ifpebj-ti/gestao-refeitorio/issues/75) ([0ffe7eb](https://github.com/ifpebj-ti/gestao-refeitorio/commit/0ffe7ebe0a6d03fa8aa92b88fd418618a8c8b032))
+* ajusta coluna origem de produtos para opcional [#74](https://github.com/ifpebj-ti/gestao-refeitorio/issues/74) ([992f9d0](https://github.com/ifpebj-ti/gestao-refeitorio/commit/992f9d0f8077859594223e23fa3cc8bb37e9f2b9))
+* ajusta declaração de service antes dos serviços em si ([7dd742e](https://github.com/ifpebj-ti/gestao-refeitorio/commit/7dd742ebd7e17db643cfdffb6e529c5801c4276f))
+* **ci:** align backend image with Java 21 ([33be4ea](https://github.com/ifpebj-ti/gestao-refeitorio/commit/33be4eabc339b2ff700717ce49dfae5fb1da02b9))
+* **ci:** restore migrations and remove duplicate CodeQL ([6d5f3ce](https://github.com/ifpebj-ti/gestao-refeitorio/commit/6d5f3cec90170966d1b30411452beb76e52d88eb))
+* **ci:** unblock develop deployment pipeline ([13c90e4](https://github.com/ifpebj-ti/gestao-refeitorio/commit/13c90e464236b2a64aeedba53baafb94036c4616))
+* **ci:** unblock develop deployment pipeline ([dad4b8e](https://github.com/ifpebj-ti/gestao-refeitorio/commit/dad4b8e1573ecf22fac854a977e8e122b44e65e8))
+* corrige pacote AutoConfigureTestDatabase e adiciona starter jdbc-test ([13d1b5d](https://github.com/ifpebj-ti/gestao-refeitorio/commit/13d1b5d46c31b567ee1a3e82b78e372f7ac17fd2))
+* **docker:** corrige usuarios nao-root nos dockerfiles e versoes de teste no pom ([e28d9b6](https://github.com/ifpebj-ti/gestao-refeitorio/commit/e28d9b66c4c26ada6ba27aa11ff470323577a6a4))
+* **estoque:** resolve falha silenciosa no registro de entradas e corrige chamadas da API ([ef126ad](https://github.com/ifpebj-ti/gestao-refeitorio/commit/ef126adb7b434a33a62ec86db62976bd0fa6f29e))
+* **frontend:** consolida alteracoes da tela de inventario ([f3d33e1](https://github.com/ifpebj-ti/gestao-refeitorio/commit/f3d33e1386909972d28b1c8863ebc884f7cc84e4))
+* **frontend:** regenera package-lock limpo e alinha dependencias ([7b3ea0c](https://github.com/ifpebj-ti/gestao-refeitorio/commit/7b3ea0c326c074c67f4c6dee3a0d440f3de8fb8f))
+* JwtAuthFilter não autentica usuário desativado [#62](https://github.com/ifpebj-ti/gestao-refeitorio/issues/62) ([6444f2b](https://github.com/ifpebj-ti/gestao-refeitorio/commit/6444f2b14fc1b908f530f97c2320cf6eba3aa1eb))
+* regenera package-lock.json sincronizado com package.json ([ba65dcb](https://github.com/ifpebj-ti/gestao-refeitorio/commit/ba65dcbeacf362dcd7c199d77c0fbd55a149fe6d))
+* remove caractere '&gt;' indevido ([5bfd2d9](https://github.com/ifpebj-ti/gestao-refeitorio/commit/5bfd2d933f4394bba76bd9e73be57d72a5587afd))
+* remove caractere '&gt;' indevido ([16eb5c3](https://github.com/ifpebj-ti/gestao-refeitorio/commit/16eb5c30a17235e69665ff0f7e1d7f8b739b8151))
+* restringe permitAll a /api/auth/google, nao a todo /api/auth/** refs [#68](https://github.com/ifpebj-ti/gestao-refeitorio/issues/68) ([ae217bb](https://github.com/ifpebj-ti/gestao-refeitorio/commit/ae217bbccf7aa1724710bea6e32e41c141685a43))
