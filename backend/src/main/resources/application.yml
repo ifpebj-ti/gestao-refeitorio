@@ -52,6 +52,9 @@ google:
 
 email:
   remetente: ${MAIL_FROM:nao-responda@localhost}
+  alerta:
+    # Desligado por padrão: com false, os jobs de alerta só logam e não tocam no SMTP (#203).
+    habilitado: ${ALERTA_EMAIL_HABILITADO:false}
 
 management:
   endpoints:

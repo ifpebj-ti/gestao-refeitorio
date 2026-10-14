@@ -35,6 +35,13 @@ public interface MovimentacaoRepository extends JpaRepository<Movimentacao, UUID
             """)
     BigDecimal calcularSaldoTotal(@Param("produtoId") UUID produtoId);
 
+    // Data exibida no e-mail de alerta de validade (#203): o lote não vencido que vence primeiro.
+    @Query("""
+            select min(m.dataValidade) from Movimentacao m
+            where m.produto.id = :produtoId and m.dataValidade >= :hoje
+            """)
+    LocalDate buscarValidadeMaisProxima(@Param("produtoId") UUID produtoId, @Param("hoje") LocalDate hoje);
+
     // Só retorna locais onde o produto já teve alguma movimentação (saldo zero é implícito
     // pra qualquer outro local).
     @Query("""
