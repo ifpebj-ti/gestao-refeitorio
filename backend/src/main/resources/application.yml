@@ -19,6 +19,22 @@ spring:
       # Spring rejeite antes mesmo de chegar no controller (default do Boot é 1MB).
       max-file-size: 5MB
       max-request-size: 5MB
+  mail:
+    # Padrão localhost só pra o JavaMailSender existir sem SMTP configurado; o envio falha
+    # com EnvioEmailException, mas a aplicação sobe normalmente.
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:true}
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 security:
   jwt:
@@ -34,11 +50,18 @@ google:
   oauth:
     client-id: ${GOOGLE_CLIENT_ID:}
 
+email:
+  remetente: ${MAIL_FROM:nao-responda@localhost}
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+  health:
+    mail:
+      # SMTP fora do ar deixaria o /actuator/health DOWN e o deploy faria rollback.
+      enabled: false
 
 springdoc:
   swagger-ui:
