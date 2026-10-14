@@ -4,7 +4,9 @@ import br.ifpe.gestaorefeitorio.dto.UsuarioEdicaoDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioResponseDTO;
 import br.ifpe.gestaorefeitorio.exception.AutoDesativacaoNaoPermitidaException;
+import br.ifpe.gestaorefeitorio.exception.ConviteNaoPermitidoException;
 import br.ifpe.gestaorefeitorio.exception.EmailJaCadastradoException;
+import br.ifpe.gestaorefeitorio.exception.EnvioEmailException;
 import br.ifpe.gestaorefeitorio.exception.UsuarioNaoEncontradoPorIdException;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.repository.UsuarioRepository;
@@ -21,6 +23,7 @@ import java.util.UUID;
 public class UsuarioServiceImpl implements UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
+    private final ConviteService conviteService;
 
     @Override
     public UsuarioResponseDTO cadastrar(UsuarioRequestDTO request) {
@@ -37,7 +40,35 @@ public class UsuarioServiceImpl implements UsuarioService {
         usuario = usuarioRepository.save(usuario);
 
         log.info("Usuário cadastrado: {} (perfil {})", usuario.getEmail(), usuario.getPerfil());
-        return paraDTO(usuario);
+        return paraDTO(usuario, tentarEnviarConvite(usuario));
+    }
+
+    // Falha de e-mail não desfaz o cadastro (#208): o ADMIN vê conviteEnviado=false e pode reenviar.
+    private boolean tentarEnviarConvite(Usuario usuario) {
+        try {
+            conviteService.enviarConvite(usuario);
+            log.info("Convite enviado para {}", usuario.getEmail());
+            return true;
+        } catch (EnvioEmailException e) {
+            log.error("Convite não enviado para {}; o usuário continua cadastrado", usuario.getEmail());
+            return false;
+        }
+    }
+
+    @Override
+    public void reenviarConvite(UUID id) {
+        Usuario usuario = buscarEntidade(id);
+
+        if (!usuario.isAtivo()) {
+            throw new ConviteNaoPermitidoException("Não é possível reenviar convite para usuário inativo");
+        }
+        if (usuario.getPrimeiroAcessoEm() != null) {
+            throw new ConviteNaoPermitidoException("Usuário já acessou o sistema; não é preciso reenviar o convite");
+        }
+
+        // Aqui a EnvioEmailException sobe (503): o reenvio foi pedido explicitamente pelo ADMIN.
+        conviteService.enviarConvite(usuario);
+        log.info("Convite reenviado para {}", usuario.getEmail());
     }
 
     @Override
@@ -85,12 +116,18 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     private UsuarioResponseDTO paraDTO(Usuario usuario) {
+        return paraDTO(usuario, null);
+    }
+
+    private UsuarioResponseDTO paraDTO(Usuario usuario, Boolean conviteEnviado) {
         return new UsuarioResponseDTO(
                 usuario.getId(),
                 usuario.getNome(),
                 usuario.getEmail(),
                 usuario.getPerfil(),
                 usuario.isAtivo(),
-                usuario.getCriadoEm());
+                usuario.getCriadoEm(),
+                usuario.getPrimeiroAcessoEm(),
+                conviteEnviado);
     }
 }

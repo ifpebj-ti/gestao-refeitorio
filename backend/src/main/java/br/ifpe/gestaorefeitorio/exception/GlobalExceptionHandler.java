@@ -62,7 +62,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({ EmailJaCadastradoException.class, AutoDesativacaoNaoPermitidaException.class,
-            SaldoInsuficienteException.class, ProdutoComMovimentacoesException.class })
+            SaldoInsuficienteException.class, ProdutoComMovimentacoesException.class,
+            ConviteNaoPermitidoException.class })
     public ResponseEntity<Map<String, Object>> handleConflito(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo(ex.getMessage()));
     }

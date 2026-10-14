@@ -55,6 +55,10 @@ email:
   alerta:
     # Desligado por padrão: com false, os jobs de alerta só logam e não tocam no SMTP (#203).
     habilitado: ${ALERTA_EMAIL_HABILITADO:false}
+  convite:
+    # Link único da tela de login no e-mail de convite (#208). Não dá pra reaproveitar
+    # app.url-frontend, que é uma lista de origens do CORS.
+    url-login: ${APP_URL_LOGIN:http://localhost:3000/login}
 
 management:
   endpoints:

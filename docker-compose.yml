@@ -30,6 +30,7 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       APP_URL_FRONTEND: ${APP_URL_FRONTEND:-http://localhost:3000,https://gestao-refeitorio-ifpe.duckdns.org}
       ALERTA_EMAIL_HABILITADO: ${ALERTA_EMAIL_HABILITADO:-false}
+      APP_URL_LOGIN: ${APP_URL_LOGIN:-http://localhost:3000/login}
       # MAIL_* chegam pelo env_file (.env) de propósito: repassar aqui com `${VAR:-}` criaria a
       # variável vazia quando ausente e anularia os padrões do application.yml.
     depends_on:

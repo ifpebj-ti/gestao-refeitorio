@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -39,6 +41,12 @@ public class AuthServiceImpl implements AuthService {
         if (!usuario.isAtivo()) {
             log.info("Login negado: usuário {} está inativo", email);
             throw new UsuarioInativoException();
+        }
+
+        if (usuario.getPrimeiroAcessoEm() == null) {
+            usuario.setPrimeiroAcessoEm(Instant.now());
+            usuarioRepository.save(usuario);
+            log.info("Primeiro acesso registrado: {}", email);
         }
 
         String token = jwtService.gerarToken(usuario.getEmail(), usuario.getPerfil().name());
