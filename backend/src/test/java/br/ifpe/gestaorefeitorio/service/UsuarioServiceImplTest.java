@@ -35,6 +35,9 @@ class UsuarioServiceImplTest {
     @Mock
     private UsuarioRepository usuarioRepository;
 
+    @Mock
+    private ConviteService conviteService;
+
     @InjectMocks
     private UsuarioServiceImpl usuarioService;
 
