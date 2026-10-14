@@ -28,6 +28,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      APP_URL_FRONTEND: ${APP_URL_FRONTEND:-http://localhost:3000}
     depends_on:
       db:
         condition: service_healthy
