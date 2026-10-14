@@ -36,4 +36,6 @@ public class Usuario {
 
     @Column(nullable = false, updatable = false)
     private Instant criadoEm = Instant.now();
+
+    private Instant primeiroAcessoEm;
 }
