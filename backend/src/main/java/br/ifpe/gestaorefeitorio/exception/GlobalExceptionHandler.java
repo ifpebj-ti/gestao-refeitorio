@@ -80,6 +80,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(ex.getMessage()));
     }
 
+    @ExceptionHandler(EnvioEmailException.class)
+    public ResponseEntity<Map<String, Object>> handleEnvioEmail(EnvioEmailException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(corpo(ex.getMessage()));
+    }
+
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<Map<String, Object>> handleParametroAusente(MissingServletRequestParameterException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
