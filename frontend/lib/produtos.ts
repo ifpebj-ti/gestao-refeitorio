@@ -5,21 +5,25 @@ export interface ProdutoResponse {
   nome: string;
   categoria: string;
   unidadeMedida: string;
-  valorReferencia: number;
+  valorReferencia?: number | null;
+  quantidadeMinima?: number;
+  controlaValidade?: boolean;
   saldoTotal: number;
+  podeExcluir?: boolean;
 }
+
+export type Produto = ProdutoResponse;
 
 export interface ProdutoRequest {
   nome: string;
   categoria: string;
   unidadeMedida: string;
-  valorReferencia: number;
+  valorReferencia?: number | null;
 }
 
 export const produtoService = {
   listar: async (categoria?: string): Promise<ProdutoResponse[]> => {
     const params = categoria && categoria !== "Todos" ? { categoria } : {};
-    // Alterado de /api/produtos para /produtos pois baseURL ja tem /api
     const response = await api.get<ProdutoResponse[]>("/produtos", { params });
     return response.data;
   },
@@ -39,5 +43,30 @@ export const produtoService = {
       unidadeMedida,
     });
     return response.data;
+  },
+
+  atualizarQuantidadeMinima: async (id: string, quantidadeMinima: number): Promise<ProdutoResponse> => {
+    const response = await api.patch<ProdutoResponse>(`/produtos/${id}/quantidade-minima`, {
+      quantidadeMinima,
+    });
+    return response.data;
+  },
+
+  atualizarControleValidade: async (id: string, controlaValidade: boolean): Promise<ProdutoResponse> => {
+    const response = await api.patch<ProdutoResponse>(`/produtos/${id}/controle-validade`, {
+      controlaValidade,
+    });
+    return response.data;
+  },
+
+  atualizarValorReferencia: async (id: string, valorReferencia: number | null): Promise<ProdutoResponse> => {
+    const response = await api.patch<ProdutoResponse>(`/produtos/${id}/valor-referencia`, {
+      valorReferencia,
+    });
+    return response.data;
+  },
+
+  excluir: async (id: string): Promise<void> => {
+    await api.delete(`/produtos/${id}`);
   },
 };

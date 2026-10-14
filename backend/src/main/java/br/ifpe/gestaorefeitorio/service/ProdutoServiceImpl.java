@@ -1,22 +1,34 @@
 package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.MovimentacaoHistoricoDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoControleValidadeDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoQuantidadeMinimaDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.ProdutoUnidadeMedidaDTO;
+import br.ifpe.gestaorefeitorio.dto.ProdutoValorReferenciaDTO;
 import br.ifpe.gestaorefeitorio.dto.SaldoPorLocalDTO;
+import br.ifpe.gestaorefeitorio.exception.ProdutoComMovimentacoesException;
 import br.ifpe.gestaorefeitorio.exception.ProdutoNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.Movimentacao;
 import br.ifpe.gestaorefeitorio.model.Produto;
+import br.ifpe.gestaorefeitorio.model.ProducaoInterna;
 import br.ifpe.gestaorefeitorio.model.Usuario;
+import br.ifpe.gestaorefeitorio.repository.ItemCardapioRepository;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
+import br.ifpe.gestaorefeitorio.repository.ProducaoInternaRepository;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -25,6 +37,8 @@ public class ProdutoServiceImpl implements ProdutoService {
 
     private final ProdutoRepository produtoRepository;
     private final MovimentacaoRepository movimentacaoRepository;
+    private final ProducaoInternaRepository producaoInternaRepository;
+    private final ItemCardapioRepository itemCardapioRepository;
 
     @Override
     public ProdutoResponseDTO cadastrar(ProdutoRequestDTO request) {
@@ -41,14 +55,14 @@ public class ProdutoServiceImpl implements ProdutoService {
 
     @Override
     public List<ProdutoResponseDTO> listarTodos() {
-        return produtoRepository.findAll().stream()
+        return produtoRepository.findAllByOrderByNomeAsc().stream()
                 .map(this::paraDTO)
                 .toList();
     }
 
     @Override
     public List<ProdutoResponseDTO> listarPorCategoria(String categoria) {
-        return produtoRepository.findByCategoriaIgnoreCase(categoria).stream()
+        return produtoRepository.findByCategoriaIgnoreCaseOrderByNomeAsc(categoria).stream()
                 .map(this::paraDTO)
                 .toList();
     }
@@ -73,6 +87,48 @@ public class ProdutoServiceImpl implements ProdutoService {
     }
 
     @Override
+    public ProdutoResponseDTO atualizarQuantidadeMinima(UUID id, ProdutoQuantidadeMinimaDTO request, Usuario responsavel) {
+        Produto produto = buscarEntidade(id);
+        BigDecimal quantidadeAnterior = produto.getQuantidadeMinima();
+        produto.setQuantidadeMinima(request.quantidadeMinima());
+        produto = produtoRepository.save(produto);
+
+        log.info("Quantidade mínima alterada: produto {} ({}), {} -> {}, por {}",
+                produto.getId(), produto.getNome(), quantidadeAnterior, produto.getQuantidadeMinima(),
+                responsavel.getEmail());
+
+        return paraDTO(produto);
+    }
+
+    @Override
+    public ProdutoResponseDTO atualizarValorReferencia(UUID id, ProdutoValorReferenciaDTO request, Usuario responsavel) {
+        Produto produto = buscarEntidade(id);
+        BigDecimal valorAnterior = produto.getValorReferencia();
+        produto.setValorReferencia(request.valorReferencia());
+        produto = produtoRepository.save(produto);
+
+        log.info("Valor de referência alterado: produto {} ({}), {} -> {}, por {}",
+                produto.getId(), produto.getNome(), valorAnterior, produto.getValorReferencia(),
+                responsavel.getEmail());
+
+        return paraDTO(produto);
+    }
+
+    @Override
+    public ProdutoResponseDTO atualizarControleValidade(UUID id, ProdutoControleValidadeDTO request, Usuario responsavel) {
+        Produto produto = buscarEntidade(id);
+        Boolean controlaValidadeAnterior = produto.getControlaValidade();
+        produto.setControlaValidade(request.controlaValidade());
+        produto = produtoRepository.save(produto);
+
+        log.info("Controle de validade alterado: produto {} ({}), {} -> {}, por {}",
+                produto.getId(), produto.getNome(), controlaValidadeAnterior, produto.getControlaValidade(),
+                responsavel.getEmail());
+
+        return paraDTO(produto);
+    }
+
+    @Override
     public List<SaldoPorLocalDTO> listarSaldoPorLocal(UUID produtoId) {
         buscarEntidade(produtoId); // valida que o produto existe (404 se não)
         return movimentacaoRepository.listarSaldoPorLocal(produtoId);
@@ -81,9 +137,31 @@ public class ProdutoServiceImpl implements ProdutoService {
     @Override
     public List<MovimentacaoHistoricoDTO> listarHistorico(UUID produtoId) {
         buscarEntidade(produtoId); // valida que o produto existe (404 se não)
-        return movimentacaoRepository.findByProdutoIdOrderByDataDesc(produtoId).stream()
-                .map(this::paraHistoricoDTO)
+        List<Movimentacao> movimentacoes = movimentacaoRepository.findByProdutoIdOrderByDataDesc(produtoId);
+
+        // Só movimentações de produção interna (US13) têm registro em ProducaoInterna —
+        // busca em lote pra não gerar uma query por linha do histórico.
+        Map<UUID, ProducaoInterna> producoesPorMovimentacao = producaoInternaRepository
+                .findByMovimentacaoIdIn(movimentacoes.stream().map(Movimentacao::getId).toList())
+                .stream()
+                .collect(Collectors.toMap(pi -> pi.getMovimentacao().getId(), Function.identity()));
+
+        return movimentacoes.stream()
+                .map(movimentacao -> paraHistoricoDTO(movimentacao, producoesPorMovimentacao.get(movimentacao.getId())))
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public void excluir(UUID id) {
+        Produto produto = buscarEntidade(id);
+
+        if (movimentacaoRepository.existsByProdutoId(id) || itemCardapioRepository.existsByProdutoId(id)) {
+            throw new ProdutoComMovimentacoesException();
+        }
+
+        produtoRepository.delete(produto);
+        log.info("Produto excluído: {} ({})", produto.getNome(), produto.getId());
     }
 
     private Produto buscarEntidade(UUID id) {
@@ -92,16 +170,25 @@ public class ProdutoServiceImpl implements ProdutoService {
     }
 
     private ProdutoResponseDTO paraDTO(Produto produto) {
+        BigDecimal saldoTotal = movimentacaoRepository.calcularSaldoTotal(produto.getId());
+        boolean temMovimentacoes = movimentacaoRepository.existsByProdutoId(produto.getId());
+        boolean temCardapio = itemCardapioRepository.existsByProdutoId(produto.getId());
+        boolean temSaldo = saldoTotal != null && saldoTotal.compareTo(BigDecimal.ZERO) > 0;
+        boolean podeExcluir = !temMovimentacoes && !temCardapio && !temSaldo;
+
         return new ProdutoResponseDTO(
                 produto.getId(),
                 produto.getNome(),
                 produto.getCategoria(),
                 produto.getUnidadeMedida(),
                 produto.getValorReferencia(),
-                movimentacaoRepository.calcularSaldoTotal(produto.getId()));
+                produto.getQuantidadeMinima(),
+                produto.getControlaValidade(),
+                saldoTotal,
+                podeExcluir);
     }
 
-    private MovimentacaoHistoricoDTO paraHistoricoDTO(Movimentacao movimentacao) {
+    private MovimentacaoHistoricoDTO paraHistoricoDTO(Movimentacao movimentacao, ProducaoInterna producaoInterna) {
         return new MovimentacaoHistoricoDTO(
                 movimentacao.getId(),
                 movimentacao.getTipo(),
@@ -112,7 +199,10 @@ public class ProdutoServiceImpl implements ProdutoService {
                 movimentacao.getOrigem(),
                 movimentacao.getTipoSaida(),
                 movimentacao.getValor(),
+                movimentacao.getDataValidade(),
                 movimentacao.getResponsavel().getNome(),
-                movimentacao.getResponsavel().getEmail());
+                movimentacao.getResponsavel().getEmail(),
+                producaoInterna != null ? producaoInterna.getSetor().getNome() : null,
+                producaoInterna != null ? producaoInterna.getResponsavelSetor() : null);
     }
 }

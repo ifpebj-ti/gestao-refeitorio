@@ -1,0 +1,33 @@
+vulnerabilities:
+  - id: CVE-2026-102276
+    paths:
+      - "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+    statement: >-
+      Transitive dependency bundled by the official node:26-alpine image. npm is
+      used only to launch next start; crafted brace patterns are not processed.
+    expired_at: 2026-10-30
+  - id: CVE-2026-102278
+    paths:
+      - "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json"
+    statement: >-
+      Transitive dependency bundled by the official node:26-alpine image. npm is
+      used only to launch next start; crafted brace patterns are not processed.
+    expired_at: 2026-10-30
+  - id: CVE-2026-19534
+    paths:
+      - "usr/local/lib/node_modules/npm/node_modules/undici/package.json"
+    statement: >-
+      Transitive dependency bundled by the official node:26-alpine image. npm is
+      used only as a process launcher and does not handle WebSocket traffic.
+    expired_at: 2026-10-30
+  - id: CVE-2026-93749
+    statement: >-
+      Transitive dependency of postcss/next.js (source-map-js). Source maps are
+      used only during build/compilation and not exposed to untrusted external input.
+    expired_at: 2026-10-30
+  - id: CVE-2026-94483
+    statement: >-
+      Next.js Image Optimization SSRF (fixed in 16.3.8). The application does not
+      configure or use remotePatterns for image fetching; static assets only.
+    expired_at: 2026-10-30
+

@@ -6,12 +6,13 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import {
   Utensils,
-  PackagePlus,
   Bell,
   Boxes,
   CalendarDays,
+  Tv,
   BarChart3,
-  Lock,
+  Users,
+  ArrowLeft,
   LogOut,
   X,
 } from "lucide-react";
@@ -20,16 +21,20 @@ export default function Sidebar() {
   const pathname = usePathname();
   const {
     perfil,
-    voltarParaCozinha,
+    logout,
     menuMobileAberto,
     setMenuMobileAberto,
     totalAlertasPendentes,
   } = useAuth();
 
+  // Links do Admin (gestão restrita de usuários)
+  const linksAdmin = [
+    { href: "/usuarios", label: "Gestão de Usuários", icon: Users },
+  ];
+
   // Links da Cozinha (operacionais)
   const linksCozinha = [
     { href: "/consumo", label: "Consumo Diário", icon: Utensils },
-    { href: "/recebimento", label: "Entradas", icon: PackagePlus },
     { href: "/alertas", label: "Central de Alertas", icon: Bell },
   ];
 
@@ -38,15 +43,18 @@ export default function Sidebar() {
     { href: "/consumo", label: "Consumo Diário", icon: Utensils },
     { href: "/estoque", label: "Entradas & Estoque", icon: Boxes },
     { href: "/cardapio", label: "Cardápio Semanal", icon: CalendarDays },
+    { href: "/cardapio-tv", label: "TV da Cozinha", icon: Tv },
     { href: "/relatorios", label: "Relatórios & Indicadores", icon: BarChart3 },
     { href: "/alertas", label: "Central de Alertas", icon: Bell },
   ];
 
-  const linksAtuais = perfil === "COZINHA" ? linksCozinha : linksNutri;
+  const linksAtuais =
+    perfil === "ADMIN"
+      ? linksAdmin
+      : perfil === "COZINHA"
+      ? linksCozinha
+      : linksNutri;
 
-  const handleVoltarParaCozinha = () => {
-    voltarParaCozinha();
-  };
 
   return (
     <>
@@ -129,37 +137,22 @@ export default function Sidebar() {
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400 font-medium">Perfil Atual:</span>
             <span className="font-bold text-slate-800 uppercase text-[11px] bg-white border border-slate-200 px-2 py-0.5 rounded-md">
-              {perfil === "COZINHA" ? "Cozinha" : "Nutricionista"}
+              {perfil === "ADMIN"
+                ? "Administrador"
+                : perfil === "COZINHA"
+                ? "Cozinha"
+                : "Nutricionista"}
             </span>
           </div>
 
-          {perfil === "COZINHA" ? (
-            <Link
-              href="/login"
-              onClick={() => setMenuMobileAberto(false)}
-              className="w-full flex items-center justify-center gap-2 py-2 bg-white hover:bg-emerald-50 hover:text-emerald-800 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Área do Nutricionista</span>
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={handleVoltarParaCozinha}
-              className="w-full flex items-center justify-center gap-2 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Voltar para a cozinha</span>
-            </button>
-          )}
-
-          <Link
-            href="/"
-            onClick={() => setMenuMobileAberto(false)}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+          <button
+            type="button"
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-2 py-2.5 bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors cursor-pointer shadow-2xs"
           >
-            <span>Trocar de Perfil / Início</span>
-          </Link>
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Encerrar Sessão</span>
+          </button>
         </div>
       </aside>
     </>

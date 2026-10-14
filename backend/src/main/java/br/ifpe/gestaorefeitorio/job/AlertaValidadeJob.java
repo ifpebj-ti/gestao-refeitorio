@@ -10,10 +10,13 @@ import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
- * Job diário que verifica produtos com validade próxima do limite
- * (principalmente frios). Requisito levantado pelo cliente.
+ * Job diário que verifica produtos com validade próxima do limite. Requisito
+ * levantado pelo cliente. Produtos com controlaValidade = true ("frio") têm
+ * destaque/prioridade maior no alerta (US16/#151) — os demais também são
+ * alertados, só que com prioridade normal.
  * Hoje apenas loga; evoluir para notificação in-app / e-mail.
  */
 @Component
@@ -29,9 +32,22 @@ public class AlertaValidadeJob {
         LocalDate limite = LocalDate.now().plusDays(3); // janela padrão; pode virar config por produto
         List<Produto> proximosDoVencimento = produtoRepository.buscarComValidadeProxima(limite);
 
-        if (!proximosDoVencimento.isEmpty()) {
-            log.warn("{} produto(s) com validade próxima do limite", proximosDoVencimento.size());
-            // TODO: disparar notificação (in-app / e-mail) para o perfil NUTRICIONISTA
+        if (proximosDoVencimento.isEmpty()) {
+            return;
         }
+
+        var porPrioridade = proximosDoVencimento.stream()
+                .collect(Collectors.partitioningBy(p -> Boolean.TRUE.equals(p.getControlaValidade())));
+        List<Produto> altaPrioridade = porPrioridade.get(true);
+        List<Produto> prioridadeNormal = porPrioridade.get(false);
+
+        if (!altaPrioridade.isEmpty()) {
+            log.warn("[ALTA PRIORIDADE] {} produto(s) frio(s) com validade próxima do limite: {}",
+                    altaPrioridade.size(), altaPrioridade.stream().map(Produto::getNome).toList());
+        }
+        if (!prioridadeNormal.isEmpty()) {
+            log.warn("{} produto(s) com validade próxima do limite", prioridadeNormal.size());
+        }
+        // TODO: disparar notificação (in-app / e-mail) para o perfil NUTRICIONISTA
     }
 }

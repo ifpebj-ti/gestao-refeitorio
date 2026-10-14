@@ -19,9 +19,13 @@
 
     <properties>
         <java.version>21</java.version>
+        <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
+        <jackson-bom.version>3.1.7</jackson-bom.version>
         <jjwt.version>0.13.0</jjwt.version>
         <google-api-client.version>2.9.1</google-api-client.version>
         <tomcat.version>11.0.25</tomcat.version>
+        <pdfbox.version>3.0.3</pdfbox.version>
+        <poi.version>5.4.0</poi.version>
     </properties>
 
     <dependencies>
@@ -80,6 +84,18 @@
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client</artifactId>
             <version>${google-api-client.version}</version>
+        </dependency>
+
+        <!-- Exportação de relatórios (US20/#163) -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
         </dependency>
 
         <!-- Jobs agendados -->

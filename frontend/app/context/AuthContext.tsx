@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 export type PerfilUsuario = "ADMIN" | "NUTRICIONISTA" | "COZINHA";
 
@@ -24,24 +24,27 @@ interface AuthContextType {
   setTotalAlertasPendentes: (total: number) => void;
   bannerAlertasVisivel: boolean;
   loginComGoogle: (idToken: string) => Promise<void>;
-  validarPin: (pin: string) => boolean;
   logout: () => void;
-  voltarParaCozinha: () => void;
-  entrarComoCozinha: () => void;
   toggleMenuMobile: () => void;
   fecharMenuMobile: () => void;
   dispensarBannerAlertas: () => void;
 }
-
-const PIN_MESTRE_NUTRI = "1234";
-const STORAGE_TOKEN_KEY = "@gestao_refeitorio:token";
-const STORAGE_USER_KEY = "@gestao_refeitorio:user";
-const STORAGE_PERFIL_KEY = "@gestao_refeitorio:perfil_ativo";
+import {
+  STORAGE_TOKEN_KEY,
+  STORAGE_USER_KEY,
+  STORAGE_PERFIL_KEY,
+  EVENTO_SESSAO_EXPIRADA,
+  isTokenExpirado,
+  limparSessaoLocal,
+} from "@/lib/authSession";
+import { produtoService } from "@/lib/produtos";
+import { calcularTotalAlertas } from "@/lib/alertasCount";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [perfil, setPerfil] = useState<PerfilUsuario>("COZINHA");
   const [usuario, setUsuario] = useState<UsuarioAuth | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -49,8 +52,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [carregando, setCarregando] = useState(true);
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const [bannerAlertasVisivel, setBannerAlertasVisivel] = useState(true);
-  const [totalAlertasPendentes, setTotalAlertasPendentes] = useState<number>(0);
 
+  // Inicializa com 0 para evitar hydration mismatch no SSR, carregando do localStorage após montagem
+  const [totalAlertasPendentes, setTotalAlertasPendentesState] = useState<number>(0);
+
+  useEffect(() => {
+    try {
+      const salvo = localStorage.getItem("@gestao_refeitorio:total_alertas");
+      if (salvo !== null) {
+        const parsed = parseInt(salvo, 10);
+        if (!isNaN(parsed)) setTotalAlertasPendentesState(parsed);
+      }
+    } catch {}
+  }, []);
+
+  const setTotalAlertasPendentes = (total: number) => {
+    setTotalAlertasPendentesState(total);
+    try {
+      localStorage.setItem("@gestao_refeitorio:total_alertas", String(total));
+    } catch {}
+  };
+
+  // Carrega e atualiza a contagem de alertas automaticamente quando o usuário estiver autenticado
+  useEffect(() => {
+    let montado = true;
+    async function carregarAlertasGlobais() {
+      try {
+        const prods = await produtoService.listar();
+        if (montado && prods && prods.length > 0) {
+          const total = calcularTotalAlertas(prods);
+          setTotalAlertasPendentes(total);
+        }
+      } catch (err) {
+        // ignora se offline
+      }
+    }
+    if (autenticado) {
+      carregarAlertasGlobais();
+    }
+    return () => {
+      montado = false;
+    };
+  }, [autenticado]);
+
+  // Carrega dados locais na inicialização validando se o token ainda não expirou
   useEffect(() => {
     try {
       const tokenSalvo = localStorage.getItem(STORAGE_TOKEN_KEY);
@@ -58,26 +103,101 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const perfilSalvo = localStorage.getItem(STORAGE_PERFIL_KEY) as PerfilUsuario | null;
 
       if (tokenSalvo && userSalvo) {
-        const dadosUser: UsuarioAuth = JSON.parse(userSalvo);
-        setToken(tokenSalvo);
-        setUsuario(dadosUser);
-        setPerfil(perfilSalvo || dadosUser.perfil);
-        setAutenticado(true);
-      } else if (perfilSalvo) {
-        setPerfil(perfilSalvo);
+        if (isTokenExpirado(tokenSalvo)) {
+          // Token expirado: invalida e limpa sessão
+          limparSessaoLocal();
+          setToken(null);
+          setUsuario(null);
+          setAutenticado(false);
+        } else {
+          const dadosUser: UsuarioAuth = JSON.parse(userSalvo);
+          setToken(tokenSalvo);
+          setUsuario(dadosUser);
+          setPerfil(perfilSalvo || dadosUser.perfil);
+          setAutenticado(true);
+        }
+      } else {
+        setToken(null);
+        setUsuario(null);
+        setAutenticado(false);
       }
     } catch (e) {
       console.error("Erro ao ler sessão local:", e);
+      limparSessaoLocal();
+      setToken(null);
+      setUsuario(null);
+      setAutenticado(false);
     } finally {
       setCarregando(false);
     }
   }, []);
 
+  // Monitora expiração de sessão em tempo real (mudança de aba, foco, eventos e intervalo)
+  useEffect(() => {
+    const isRotaPublica = () => {
+      const currentPath = typeof window !== "undefined" ? window.location.pathname : pathname;
+      return currentPath === "/tv" || currentPath.startsWith("/tv");
+    };
+
+    const handleSessaoExpirada = () => {
+      limparSessaoLocal();
+      setToken(null);
+      setUsuario(null);
+      setPerfil("COZINHA");
+      setAutenticado(false);
+      setMenuMobileAberto(false);
+
+      // Nunca redireciona rotas públicas como a tela da TV (/tv) para o login
+      if (!isRotaPublica()) {
+        router.replace("/");
+      }
+    };
+
+    const verificarValidadeAtiva = () => {
+      if (isRotaPublica()) return;
+      try {
+        const tokenAtual = localStorage.getItem(STORAGE_TOKEN_KEY);
+        if (tokenAtual && isTokenExpirado(tokenAtual)) {
+          handleSessaoExpirada();
+        }
+      } catch {}
+    };
+
+    window.addEventListener(EVENTO_SESSAO_EXPIRADA, handleSessaoExpirada);
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_TOKEN_KEY && !e.newValue) {
+        handleSessaoExpirada();
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        verificarValidadeAtiva();
+      }
+    };
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", verificarValidadeAtiva);
+
+    // Checagem periódica a cada 1 minuto para abas mantidas abertas
+    const intervalId = setInterval(verificarValidadeAtiva, 60000);
+
+    return () => {
+      window.removeEventListener(EVENTO_SESSAO_EXPIRADA, handleSessaoExpirada);
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", verificarValidadeAtiva);
+      clearInterval(intervalId);
+    };
+  }, [pathname, router]);
+
   const toggleMenuMobile = () => setMenuMobileAberto((prev) => !prev);
   const fecharMenuMobile = () => setMenuMobileAberto(false);
 
   const loginComGoogle = async (idToken: string) => {
-    const response = await fetch("http://localhost:8080/api/auth/google", {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+    const response = await fetch(`${baseUrl}/auth/google`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -87,7 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!response.ok) {
       const erro = await response.json().catch(() => null);
-      throw new Error(erro?.message || "Falha na autenticação institucional com Google.");
+      throw new Error(erro?.mensagem || erro?.message || "E-mail não autorizado ou inativo no sistema.");
     }
 
     const data: { token: string; nome: string; email: string; perfil: PerfilUsuario } = await response.json();
@@ -107,57 +227,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(dadosUsuario));
     localStorage.setItem(STORAGE_PERFIL_KEY, data.perfil);
 
-    if (data.perfil === "COZINHA") {
-      router.push("/consumo");
+    if (data.perfil === "ADMIN") {
+      router.push("/usuarios");
     } else {
-      router.push("/estoque");
+      router.push("/consumo");
     }
-  };
-
-  const validarPin = (pinDigitado: string): boolean => {
-    if (pinDigitado === PIN_MESTRE_NUTRI) {
-      setPerfil("NUTRICIONISTA");
-      setAutenticado(true);
-      return true;
-    }
-    return false;
   };
 
   const logout = () => {
-    try {
-      localStorage.removeItem(STORAGE_TOKEN_KEY);
-      localStorage.removeItem(STORAGE_USER_KEY);
-      localStorage.removeItem(STORAGE_PERFIL_KEY);
-    } catch (e) {
-      console.error("Erro ao limpar sessão local no logout:", e);
-    }
+    limparSessaoLocal();
     setToken(null);
     setUsuario(null);
     setPerfil("COZINHA");
     setAutenticado(false);
-    router.push("/consumo");
-  };
-
-  const voltarParaCozinha = () => {
-    try {
-      localStorage.setItem(STORAGE_PERFIL_KEY, "COZINHA");
-    } catch (e) {
-      console.error("Erro ao salvar perfil da cozinha:", e);
-    }
-    setPerfil("COZINHA");
     setMenuMobileAberto(false);
-    router.push("/consumo");
-  };
 
-  const entrarComoCozinha = () => {
-    try {
-      localStorage.setItem(STORAGE_PERFIL_KEY, "COZINHA");
-    } catch (e) {
-      console.error("Erro ao salvar perfil da cozinha:", e);
+    const currentPath = typeof window !== "undefined" ? window.location.pathname : pathname;
+    const isTv = currentPath === "/tv" || currentPath.startsWith("/tv");
+    if (!isTv) {
+      router.replace("/");
     }
-    setPerfil("COZINHA");
-    setMenuMobileAberto(false);
-    router.push("/consumo");
   };
 
   const dispensarBannerAlertas = () => {
@@ -179,10 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTotalAlertasPendentes,
         bannerAlertasVisivel,
         loginComGoogle,
-        validarPin,
         logout,
-        voltarParaCozinha,
-        entrarComoCozinha,
         toggleMenuMobile,
         fecharMenuMobile,
         dispensarBannerAlertas,

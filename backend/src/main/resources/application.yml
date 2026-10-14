@@ -12,6 +12,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    validate-on-migrate: false
   servlet:
     multipart:
       # Limite próprio (5MB) validado em MovimentacaoFotoServiceImpl; isso só evita que o
@@ -22,7 +23,12 @@ spring:
 security:
   jwt:
     secret: ${JWT_SECRET:troque-este-segredo-em-producao-min-32-chars}
-    expiration-ms: 86400000 # 24h
+    expiration-ms: 86400000 # 24h para nutricionista e admin
+    expiration-cozinha-ms: 259200000 # 72h (3 dias) para perfil COZINHA
+
+app:
+  # Origem(ns) do frontend aceitas no CORS, separadas por vírgula.
+  url-frontend: ${APP_URL_FRONTEND:http://localhost:3000}
 
 google:
   oauth:

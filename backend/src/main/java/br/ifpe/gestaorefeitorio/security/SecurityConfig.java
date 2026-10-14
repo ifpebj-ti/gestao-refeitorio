@@ -2,10 +2,12 @@ package br.ifpe.gestaorefeitorio.security;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -31,7 +33,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable) // API stateless com JWT
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(Customizer.withDefaults()) // usa o bean corsConfigurationSource abaixo
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // Sem isso, o Spring Security cai no Http403ForbiddenEntryPoint padrão e
                 // devolve 403 tanto pra quem não está autenticado quanto pra quem tem perfil insuficiente.
@@ -57,9 +59,12 @@ public class SecurityConfig {
         };
     }
 
-    private CorsConfigurationSource corsConfigurationSource() {
+    // Origem vem do ambiente (APP_URL_FRONTEND) porque o front publicado chama a API direto,
+    // sem proxy — com origem fixa, o navegador bloqueia todas as chamadas fora do localhost.
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource(@Value("${app.url-frontend}") List<String> origensPermitidas) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:3000")); // ajustar em produção
+        config.setAllowedOrigins(origensPermitidas);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

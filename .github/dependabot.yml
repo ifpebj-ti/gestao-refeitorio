@@ -5,6 +5,8 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       frontend-minor-patch:
         update-types: [minor, patch]
@@ -14,6 +16,8 @@ updates:
     directory: /backend
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       backend-minor-patch:
         update-types: [minor, patch]
@@ -23,16 +27,22 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: docker
     directory: /backend
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       github-actions:
         patterns: ["*"]

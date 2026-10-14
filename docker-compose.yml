@@ -28,12 +28,17 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      APP_URL_FRONTEND: ${APP_URL_FRONTEND:-http://localhost:3000}
     depends_on:
       db:
         condition: service_healthy
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     env_file:
       - .env
     environment:

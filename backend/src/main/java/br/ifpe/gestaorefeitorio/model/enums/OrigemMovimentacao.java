@@ -4,5 +4,6 @@ package br.ifpe.gestaorefeitorio.model.enums;
 public enum OrigemMovimentacao {
     EXTERNA, // comprado de fornecedor externo
     AGROINDUSTRIA, // recebido da Agroindústria do campus
+    AGROPECUARIA, // recebido do setor de Agropecuária / Fazenda do campus
     INTERNA // outras áreas produtivas do campus
 }
