@@ -7,7 +7,21 @@ services:
   backend:
     ports:
       - "8080:8080"
+    # Em dev, todo e-mail vai pro Mailpit (http://localhost:8025) em vez de um SMTP real.
+    environment:
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_SMTP_AUTH: "false"
+      MAIL_SMTP_STARTTLS: "false"
+    depends_on:
+      - mailpit
 
   frontend:
     ports:
       - "3000:3000"
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "1025:1025"
+      - "8025:8025"
