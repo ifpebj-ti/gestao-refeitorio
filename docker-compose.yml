@@ -26,9 +26,9 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-411051502805-kktsu5dn98f504upsj8jlh1qmroq9k48.apps.googleusercontent.com}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      APP_URL_FRONTEND: ${APP_URL_FRONTEND:-http://localhost:3000}
+      APP_URL_FRONTEND: ${APP_URL_FRONTEND:-http://localhost:3000,https://gestao-refeitorio-ifpe.duckdns.org}
       # MAIL_* chegam pelo env_file (.env) de propósito: repassar aqui com `${VAR:-}` criaria a
       # variável vazia quando ausente e anularia os padrões do application.yml.
     depends_on:
@@ -40,12 +40,12 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api}
-        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-411051502805-kktsu5dn98f504upsj8jlh1qmroq9k48.apps.googleusercontent.com}
     env_file:
       - .env
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
-      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-411051502805-kktsu5dn98f504upsj8jlh1qmroq9k48.apps.googleusercontent.com}
     depends_on:
       - backend
 

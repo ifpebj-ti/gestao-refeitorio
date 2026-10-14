@@ -44,11 +44,11 @@ security:
 
 app:
   # Origem(ns) do frontend aceitas no CORS, separadas por vírgula.
-  url-frontend: ${APP_URL_FRONTEND:http://localhost:3000}
+  url-frontend: ${APP_URL_FRONTEND:http://localhost:3000,https://gestao-refeitorio-ifpe.duckdns.org}
 
 google:
   oauth:
-    client-id: ${GOOGLE_CLIENT_ID:}
+    client-id: ${GOOGLE_CLIENT_ID:411051502805-kktsu5dn98f504upsj8jlh1qmroq9k48.apps.googleusercontent.com}
 
 email:
   remetente: ${MAIL_FROM:nao-responda@localhost}
