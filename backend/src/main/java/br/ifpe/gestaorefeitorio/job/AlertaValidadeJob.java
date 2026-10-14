@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import br.ifpe.gestaorefeitorio.model.Produto;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
+import br.ifpe.gestaorefeitorio.service.NotificacaoEmailService;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -16,8 +17,7 @@ import java.util.stream.Collectors;
  * Job diário que verifica produtos com validade próxima do limite. Requisito
  * levantado pelo cliente. Produtos com controlaValidade = true ("frio") têm
  * destaque/prioridade maior no alerta (US16/#151) — os demais também são
- * alertados, só que com prioridade normal.
- * Hoje apenas loga; evoluir para notificação in-app / e-mail.
+ * alertados, só que com prioridade normal. O resumo vai por e-mail às nutricionistas (#203).
  */
 @Component
 @RequiredArgsConstructor
@@ -25,12 +25,14 @@ import java.util.stream.Collectors;
 public class AlertaValidadeJob {
 
     private final ProdutoRepository produtoRepository;
+    private final NotificacaoEmailService notificacaoEmailService;
 
-    // Roda todo dia às 06:00.
-    @Scheduled(cron = "0 0 6 * * *")
+    // Roda todo dia às 06:00 no horário de Brasília — sem a zone, o cron usaria o fuso do container (UTC).
+    @Scheduled(cron = "0 0 6 * * *", zone = "America/Recife")
     public void verificarValidades() {
-        LocalDate limite = LocalDate.now().plusDays(3); // janela padrão; pode virar config por produto
-        List<Produto> proximosDoVencimento = produtoRepository.buscarComValidadeProxima(limite);
+        LocalDate hoje = LocalDate.now();
+        LocalDate limite = hoje.plusDays(3); // janela padrão; pode virar config por produto
+        List<Produto> proximosDoVencimento = produtoRepository.buscarComValidadeProxima(hoje, limite);
 
         if (proximosDoVencimento.isEmpty()) {
             return;
@@ -48,6 +50,6 @@ public class AlertaValidadeJob {
         if (!prioridadeNormal.isEmpty()) {
             log.warn("{} produto(s) com validade próxima do limite", prioridadeNormal.size());
         }
-        // TODO: disparar notificação (in-app / e-mail) para o perfil NUTRICIONISTA
+        notificacaoEmailService.enviarAlertaValidade(altaPrioridade, prioridadeNormal);
     }
 }

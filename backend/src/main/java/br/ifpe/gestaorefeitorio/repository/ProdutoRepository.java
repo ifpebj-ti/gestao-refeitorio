@@ -19,13 +19,13 @@ public interface ProdutoRepository extends JpaRepository<Produto, UUID> {
     // Base para o job de alerta (US16/#151): todo produto com validade próxima entra no
     // alerta, independente da categoria — controlaValidade só define destaque/prioridade
     // maior (produtos "frio"), não é mais um filtro de exclusão.
+    // Lotes já vencidos ficam de fora (#203): sem controle por lote, apareceriam no alerta todo dia, pra sempre.
     @org.springframework.data.jpa.repository.Query("""
             select distinct p from Produto p
             join Movimentacao m on m.produto = p
-            where m.dataValidade is not null
-              and m.dataValidade <= :limite
+            where m.dataValidade between :hoje and :limite
             """)
-    List<Produto> buscarComValidadeProxima(LocalDate limite);
+    List<Produto> buscarComValidadeProxima(LocalDate hoje, LocalDate limite);
 
     // Base para o job de alerta de estoque baixo (US15/#148): saldo total do produto (soma de
     // todos os locais, CLAUDE.md seção 4 — quantidadeMinima é atributo do produto, não do local)
