@@ -47,6 +47,9 @@ Depois, edite o `.env` e ajuste:
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Credenciais OAuth2 do Google (login é exclusivo via Google, ver `CLAUDE.md` seção 5) | **Sim** — sem isso o login não valida o `id_token` de verdade. Cria em https://console.cloud.google.com/apis/credentials |
 | `NEXT_PUBLIC_API_URL` | URL que o frontend usa pra chamar o backend | Não, em dev local (já aponta pro `localhost:8080/api`) |
 | `APP_URL_FRONTEND` | Origem do frontend que o backend aceita no CORS (várias separadas por vírgula, ex: `http://localhost:3000,http://136.248.103.235:3000`) | Não, em dev local. **Sim, no servidor** — tem que ser exatamente o endereço que aparece na barra do navegador ao abrir o front (esquema + host + porta, sem barra no final), senão o navegador bloqueia todas as chamadas à API |
+| `MAIL_HOST`, `MAIL_PORT` | Servidor SMTP usado pra enviar e-mails (porta padrão 587, com STARTTLS) | Não, em dev local (o override usa o Mailpit). **Sim, no servidor**, quando o SMTP de produção for definido |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | Credenciais do SMTP (no Gmail, uma senha de app, não a senha da conta) | Só no servidor. Nunca no `.env.example` |
+| `MAIL_FROM` | Endereço de remetente dos e-mails do sistema | Só no servidor |
 
 O frontend tem seu próprio arquivo de exemplo separado:
 
@@ -69,6 +72,17 @@ host:
   `/actuator/health`)
 - Frontend: `http://localhost:3000`
 - Postgres: `localhost:5432` (útil pra conectar com um client de banco tipo DBeaver/pgAdmin)
+- Mailpit: `http://localhost:8025` (ver abaixo)
+
+### Ver os e-mails em dev (Mailpit)
+
+Em dev, o override sobe o [Mailpit](https://mailpit.axllent.org/), um servidor SMTP de teste: todo
+e-mail que o backend envia (código de primeiro acesso, convite, alertas) é capturado por ele e
+**não sai pra internet**. Pra ver as mensagens, abra `http://localhost:8025`. As variáveis `MAIL_*`
+do `.env` são ignoradas em dev, porque o override aponta o backend pro Mailpit.
+
+O Mailpit fica só no `docker-compose.override.yml`, então não vai pro servidor: o deploy usa
+`docker-compose.yml` + `docker-compose.prod.yml`, sem o override.
 
 O `backend` só sobe depois que o `db` responde saudável (`depends_on: condition: service_healthy`
 no `docker-compose.yml`), então não tem corrida entre a migration do Flyway e o banco ainda não
