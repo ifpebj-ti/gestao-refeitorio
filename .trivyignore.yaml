@@ -25,4 +25,9 @@ vulnerabilities:
       Transitive dependency of postcss/next.js (source-map-js). Source maps are
       used only during build/compilation and not exposed to untrusted external input.
     expired_at: 2026-10-30
+  - id: CVE-2026-94483
+    statement: >-
+      Next.js Image Optimization SSRF (fixed in 16.3.8). The application does not
+      configure or use remotePatterns for image fetching; static assets only.
+    expired_at: 2026-10-30
 
