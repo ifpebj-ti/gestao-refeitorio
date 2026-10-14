@@ -50,6 +50,7 @@ Depois, edite o `.env` e ajuste:
 | `MAIL_HOST`, `MAIL_PORT` | Servidor SMTP usado pra enviar e-mails (porta padrão 587, com STARTTLS) | Não, em dev local (o override usa o Mailpit). **Sim, no servidor**, quando o SMTP de produção for definido |
 | `MAIL_USERNAME` / `MAIL_PASSWORD` | Credenciais do SMTP (no Gmail, uma senha de app, não a senha da conta) | Só no servidor. Nunca no `.env.example` |
 | `MAIL_FROM` | Endereço de remetente dos e-mails do sistema | Só no servidor |
+| `ALERTA_EMAIL_HABILITADO` | Liga o envio diário dos alertas de estoque baixo (06:05) e validade (06:00, horário de Brasília) para as nutricionistas ativas. Com `false`, os jobs só registram no log | Padrão `false`. Ligar no servidor só depois de o SMTP de produção estar configurado |
 
 O frontend tem seu próprio arquivo de exemplo separado:
 
@@ -83,6 +84,15 @@ do `.env` são ignoradas em dev, porque o override aponta o backend pro Mailpit.
 
 O Mailpit fica só no `docker-compose.override.yml`, então não vai pro servidor: o deploy usa
 `docker-compose.yml` + `docker-compose.prod.yml`, sem o override.
+
+Pra testar os alertas de estoque baixo e validade sem esperar o horário dos jobs:
+
+1. No `.env`, defina `ALERTA_EMAIL_HABILITADO=true` e garanta que existe uma nutricionista ativa cadastrada.
+2. Deixe algum produto em alerta: uma `quantidadeMinima` maior que o saldo, ou uma entrada com validade
+   entre hoje e daqui a 3 dias.
+3. Mude temporariamente o `cron` do `AlertaEstoqueBaixoJob`/`AlertaValidadeJob` pra alguns minutos à
+   frente (**não commite essa mudança**) e suba com `docker compose up --build`.
+4. Confira o e-mail em `http://localhost:8025`.
 
 O `backend` só sobe depois que o `db` responde saudável (`depends_on: condition: service_healthy`
 no `docker-compose.yml`), então não tem corrida entre a migration do Flyway e o banco ainda não
