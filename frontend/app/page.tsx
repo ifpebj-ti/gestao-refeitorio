@@ -5,15 +5,14 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { GoogleLogin, CredentialResponse } from "@react-oauth/google";
 import { useAuth } from "./context/AuthContext";
-import { ShieldCheck, AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 
-export default function UnifiedLoginPage() {
+export default function LoginPage() {
   const router = useRouter();
   const { loginComGoogle, autenticado, perfil, carregando } = useAuth();
   const [erro, setErro] = useState<string | null>(null);
   const [processando, setProcessando] = useState(false);
 
-  // Redireciona automaticamente se já estiver autenticado
   useEffect(() => {
     if (!carregando && autenticado) {
       if (perfil === "ADMIN") {
@@ -50,88 +49,98 @@ export default function UnifiedLoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex flex-col items-center justify-between p-4 sm:p-8 bg-slate-50 overflow-hidden select-none">
-      {/* Efeitos visuais de fundo: Mesh Gradients Suaves */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-300/30 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-teal-300/30 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[580px] h-[580px] bg-emerald-100/40 rounded-full blur-3xl pointer-events-none" />
+    <div className="relative min-h-screen w-full flex flex-col justify-between p-6 sm:p-10 bg-slate-50 overflow-hidden select-none">
+      {/* Efeitos visuais de fundo: Mesh Gradients modernos e suaves */}
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-teal-400/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-100/30 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Espaçador superior para equilíbrio de centralização */}
-      <div className="w-full max-w-md pt-2" />
+      {/* Espaço superior para equilíbrio */}
+      <div className="w-full" />
 
-      {/* Card Principal de Autenticação Unificada */}
-      <main className="relative z-10 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-3xl shadow-xl hover:shadow-2xl transition-all max-w-md w-full p-8 sm:p-10 space-y-6 my-auto">
-        {/* Topo do Card: Badge Institucional + Logo IFPE */}
-        <div className="text-center space-y-3">
-          <div className="flex justify-center">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-emerald-50 border border-emerald-200/80 rounded-full text-emerald-800 text-[11px] font-extrabold uppercase tracking-wider shadow-2xs">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              Acesso ao Sistema
+      {/* Bloco Central: Layout Minimalista, Amplo e Moderno */}
+      <main className="relative z-10 w-full max-w-5xl mx-auto my-auto flex flex-col md:flex-row items-center justify-between gap-12 lg:gap-16">
+        {/* Lado Esquerdo: Identidade do Refeitório IFPE com Grande Impacto Visual */}
+        <div className="text-center md:text-left space-y-4 max-w-xl">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-emerald-100/80 border border-emerald-300/60 rounded-full shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+            <span className="text-xs sm:text-sm font-extrabold tracking-wider text-emerald-800 uppercase">
+              IFPE • Campus Belo Jardim
             </span>
           </div>
 
-          <div className="flex justify-center py-2">
-            <div className="relative w-36 h-18">
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-slate-900 tracking-tight leading-[1.05]">
+            Refeitório{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700">
+              IFPE
+            </span>
+          </h1>
+
+          <p className="text-base sm:text-lg lg:text-xl text-slate-500 font-normal leading-relaxed max-w-md">
+            Sistema integrado de gestão alimentar e controle de refeições do campus.
+          </p>
+        </div>
+
+        {/* Lado Direito: Modal de Login Clean */}
+        <div className="w-full max-w-md bg-white/90 backdrop-blur-xl border border-slate-200/80 rounded-3xl shadow-xl shadow-slate-900/5 p-8 sm:p-10 space-y-6">
+          <div className="flex flex-col items-center text-center space-y-3">
+            <div className="relative w-36 h-16">
               <Image
                 src="/ifpe_bjpng.png"
-                alt="Logo IFPE Campus Belo Jardim"
+                alt="Logo IFPE"
                 fill
                 sizes="144px"
                 priority
                 className="object-contain"
               />
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Gestão de Refeitório
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 max-w-xs mx-auto leading-relaxed">
-              Entre com sua conta Google para acessar seu ambiente de trabalho (Cozinha, Nutrição ou Administração).
-            </p>
-          </div>
-        </div>
-
-        {/* Mensagem de Erro */}
-        {erro && (
-          <div className="p-3.5 text-xs bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl flex items-start gap-2.5 animate-in fade-in duration-200">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-            <span className="font-semibold leading-relaxed">{erro}</span>
-          </div>
-        )}
-
-        {/* Botão Oficial do Google Login */}
-        <div className="flex flex-col items-center justify-center pt-2 space-y-4">
-          {processando ? (
-            <div className="py-3 px-6 bg-slate-50 border border-slate-200 rounded-full flex items-center gap-2.5 text-xs font-bold text-slate-700 shadow-2xs">
-              <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
-              <span>Autenticando credenciais...</span>
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">
+                Iniciar Sessão
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Entre com sua conta Google autorizada
+              </p>
             </div>
-          ) : (
-            <div className="shadow-2xs rounded-full overflow-hidden">
-              <GoogleLogin
-                onSuccess={handleSucesso}
-                onError={handleErro}
-                shape="pill"
-                size="large"
-                width="300"
-                text="signin_with"
-              />
+          </div>
+
+          {/* Feedback de Erro */}
+          {erro && (
+            <div className="p-3 text-xs bg-rose-50 border border-rose-200 text-rose-700 rounded-xl flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+              <span className="font-medium leading-relaxed">{erro}</span>
             </div>
           )}
 
-          <p className="text-[11px] text-slate-400 text-center max-w-xs leading-normal">
-            Acesso restrito. O direcionamento para a sua área é automático de acordo com o seu perfil cadastrado.
-          </p>
+          {/* Botão de Login Google */}
+          <div className="flex flex-col items-center justify-center space-y-3 pt-1">
+            {processando ? (
+              <div className="w-full py-3 bg-slate-50 border border-slate-200 rounded-full flex items-center justify-center gap-2 text-xs font-semibold text-slate-600">
+                <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
+                <span>Autenticando...</span>
+              </div>
+            ) : (
+              <div className="w-full flex justify-center shadow-2xs rounded-full overflow-hidden">
+                <GoogleLogin
+                  onSuccess={handleSucesso}
+                  onError={handleErro}
+                  shape="pill"
+                  size="large"
+                  width="280"
+                  text="signin_with"
+                />
+              </div>
+            )}
+            <p className="text-[11px] text-slate-400 text-center">
+              O acesso é direcionado de acordo com seu perfil.
+            </p>
+          </div>
         </div>
       </main>
 
-      {/* Rodapé Institucional Limpo */}
-      <footer className="relative z-10 w-full text-center pb-2">
-        <p className="text-xs text-slate-400 font-medium">
-          Instituto Federal de Pernambuco — Campus Belo Jardim
-        </p>
+      {/* Rodapé Simples */}
+      <footer className="relative z-10 w-full text-center py-2 text-xs text-slate-400">
+        Instituto Federal de Pernambuco — Campus Belo Jardim
       </footer>
     </div>
   );
