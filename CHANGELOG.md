@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.5.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.4.0...gestao-refeitorio-v0.5.0) (2026-10-17)
+
+
+### Features
+
+* adiciona EmailService com SMTP configurável por variáveis de ambiente [#211](https://github.com/ifpebj-ti/gestao-refeitorio/issues/211) ([36f67e7](https://github.com/ifpebj-ti/gestao-refeitorio/commit/36f67e7a26a4077ce969de79f8045e327620b3ce))
+* **consumo:** melhorar ergonomia e responsividade do stepper de quantidade no mobile ([3e09fa2](https://github.com/ifpebj-ti/gestao-refeitorio/commit/3e09fa214ab9fddbd726f9612e4853e68eb3a1f2))
+* convite por e-mail no cadastro de usuário e registro do primeiro acesso ([#208](https://github.com/ifpebj-ti/gestao-refeitorio/issues/208)) ([bededf8](https://github.com/ifpebj-ti/gestao-refeitorio/commit/bededf811cc7ff4964927564ed1bfede805a2d94))
+* envia alertas de estoque baixo e validade por e-mail ([#203](https://github.com/ifpebj-ti/gestao-refeitorio/issues/203)) ([721d403](https://github.com/ifpebj-ti/gestao-refeitorio/commit/721d4039ac662fcf2a4bc8758259177d57d503de))
+* envia alertas de estoque baixo e validade por e-mail para nutricionistas [#203](https://github.com/ifpebj-ti/gestao-refeitorio/issues/203) ([64bf781](https://github.com/ifpebj-ti/gestao-refeitorio/commit/64bf7810c4a4da8ca177c4438e2916cc1eac6c57))
+* envia convite por e-mail no cadastro de usuário e permite reenvio [#208](https://github.com/ifpebj-ti/gestao-refeitorio/issues/208) ([b3b3ee2](https://github.com/ifpebj-ti/gestao-refeitorio/commit/b3b3ee25098e128306fb5565721d85ba1aa1b14f))
+* **frontend:** modernizar tela de boas-vindas splash ([d372568](https://github.com/ifpebj-ti/gestao-refeitorio/commit/d372568d52d4c52437cd6edad5b98812f62f278e))
+* infraestrutura de envio de e-mail com SMTP configurável e Mailpit em dev ([#211](https://github.com/ifpebj-ti/gestao-refeitorio/issues/211)) ([1aedb2d](https://github.com/ifpebj-ti/gestao-refeitorio/commit/1aedb2dc3cf2a9eab3b95e2acc33dff2be628ca0))
+* registra primeiro acesso do usuário no login com Google [#208](https://github.com/ifpebj-ti/gestao-refeitorio/issues/208) ([07b4600](https://github.com/ifpebj-ti/gestao-refeitorio/commit/07b4600dcd6f1c605814608e3094af203e4920ad))
+
+
+### Bug Fixes
+
+* **auth:** adiciona fallbacks de oauth e cors para ambiente de producao ([3d288a2](https://github.com/ifpebj-ti/gestao-refeitorio/commit/3d288a27e30abadc54afb773a6cd70ac962df1f0))
+* **auth:** adiciona fallbacks de oauth e cors para producao duckdns ([8215291](https://github.com/ifpebj-ti/gestao-refeitorio/commit/821529188ceea9e229be7fa5f5a17d354aa486f5))
+* **security:** exigir autenticacao em produtos e desabilitar swagger em prod ([#222](https://github.com/ifpebj-ti/gestao-refeitorio/issues/222)) ([30d8536](https://github.com/ifpebj-ti/gestao-refeitorio/commit/30d8536a9d67582d79c26f1361221dd22856a3ed))
+* **security:** exigir autenticacao em produtos e desabilitar swagger em prod ([#222](https://github.com/ifpebj-ti/gestao-refeitorio/issues/222)) ([cd55732](https://github.com/ifpebj-ti/gestao-refeitorio/commit/cd5573214bcac411d89260671cdd9f274f9db606))
+
 ## [0.4.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.3.0...gestao-refeitorio-v0.4.0) (2026-10-14)
 
 
