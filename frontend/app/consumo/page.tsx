@@ -1384,10 +1384,10 @@ export default function ConsumoDiarioPage() {
                             </div>
                           </div>
 
-                          {/* Linha de Quantidade Mobile: Apenas Stepper Limpo sem botões automáticos */}
-                          <div className="mt-2 flex items-center justify-between gap-2">
+                          {/* Linha de Quantidade Mobile: Stepper Estendido e Ergonômico */}
+                          <div className="mt-2.5 flex items-center gap-2">
                             <div
-                              className={`inline-flex items-center border-2 rounded-xl bg-white shadow-2xs overflow-hidden transition-all ${
+                              className={`w-full flex items-center justify-between border-2 rounded-xl bg-white shadow-2xs overflow-hidden transition-all h-11 ${
                                 semEstoque
                                   ? "border-slate-200 bg-slate-50 opacity-70"
                                   : limiteAtingido
@@ -1401,9 +1401,10 @@ export default function ConsumoDiarioPage() {
                                 type="button"
                                 onClick={() => alterarQuantidade(item.id, -passo)}
                                 disabled={item.quantidadeDigitada <= 0 || semEstoque}
-                                className="w-10 h-10 flex items-center justify-center text-slate-600 hover:text-rose-600 active:bg-rose-100 disabled:opacity-20 disabled:cursor-not-allowed transition-all cursor-pointer"
+                                aria-label="Diminuir quantidade"
+                                className="w-16 sm:w-20 h-full flex items-center justify-center text-slate-600 hover:text-rose-600 hover:bg-rose-50 active:bg-rose-100 disabled:opacity-20 disabled:cursor-not-allowed transition-all cursor-pointer shrink-0 border-r border-slate-200"
                               >
-                                <Minus className="w-4 h-4" />
+                                <Minus className="w-5 h-5" />
                               </button>
 
                               <input
@@ -1414,16 +1415,17 @@ export default function ConsumoDiarioPage() {
                                 placeholder="0"
                                 onFocus={(e) => e.target.select()}
                                 onChange={(e) => definirQuantidadeDireta(item.id, e.target.value)}
-                                className="w-16 text-center font-black text-slate-900 text-base py-1 bg-transparent focus:outline-none disabled:text-slate-400 disabled:cursor-not-allowed"
+                                className="flex-1 min-w-0 h-full text-center font-black text-slate-900 text-lg py-1 bg-transparent focus:outline-none disabled:text-slate-400 disabled:cursor-not-allowed"
                               />
 
                               <button
                                 type="button"
                                 onClick={() => alterarQuantidade(item.id, passo)}
                                 disabled={semEstoque}
-                                className="w-10 h-10 flex items-center justify-center text-emerald-700 hover:bg-emerald-50 active:bg-emerald-100 disabled:opacity-20 disabled:cursor-not-allowed transition-all cursor-pointer"
+                                aria-label="Aumentar quantidade"
+                                className="w-16 sm:w-20 h-full flex items-center justify-center text-emerald-700 hover:bg-emerald-50 active:bg-emerald-100 disabled:opacity-20 disabled:cursor-not-allowed transition-all cursor-pointer shrink-0 border-l border-slate-200"
                               >
-                                <Plus className="w-4 h-4" />
+                                <Plus className="w-5 h-5" />
                               </button>
                             </div>
                           </div>
