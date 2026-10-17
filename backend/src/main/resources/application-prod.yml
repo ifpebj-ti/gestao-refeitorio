@@ -1,0 +1,9 @@
+# =====================================================================
+# Configurações do perfil de produção (SPRING_PROFILES_ACTIVE=prod)
+# =====================================================================
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

@@ -144,7 +144,7 @@ class ProdutoRepositoryTest {
         Usuario responsavel = criarUsuario();
         registrarEntrada(produto, local, responsavel, "10", LocalDate.now().plusDays(1));
 
-        List<Produto> resultado = produtoRepository.buscarComValidadeProxima(LocalDate.now().plusDays(3));
+        List<Produto> resultado = produtoRepository.buscarComValidadeProxima(LocalDate.now(), LocalDate.now().plusDays(3));
 
         assertThat(resultado).extracting(Produto::getId).contains(produto.getId());
     }
@@ -156,7 +156,7 @@ class ProdutoRepositoryTest {
         Usuario responsavel = criarUsuario();
         registrarEntrada(produto, local, responsavel, "10", LocalDate.now().plusDays(1));
 
-        List<Produto> resultado = produtoRepository.buscarComValidadeProxima(LocalDate.now().plusDays(3));
+        List<Produto> resultado = produtoRepository.buscarComValidadeProxima(LocalDate.now(), LocalDate.now().plusDays(3));
 
         assertThat(resultado).extracting(Produto::getId).contains(produto.getId());
     }
@@ -170,7 +170,7 @@ class ProdutoRepositoryTest {
         registrarEntrada(semValidade, local, responsavel, "10");
         registrarEntrada(validadeDistante, local, responsavel, "10", LocalDate.now().plusDays(30));
 
-        List<Produto> resultado = produtoRepository.buscarComValidadeProxima(LocalDate.now().plusDays(3));
+        List<Produto> resultado = produtoRepository.buscarComValidadeProxima(LocalDate.now(), LocalDate.now().plusDays(3));
 
         assertThat(resultado).extracting(Produto::getId)
                 .doesNotContain(semValidade.getId(), validadeDistante.getId());

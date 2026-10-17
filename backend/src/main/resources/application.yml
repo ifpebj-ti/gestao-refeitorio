@@ -44,14 +44,21 @@ security:
 
 app:
   # Origem(ns) do frontend aceitas no CORS, separadas por vírgula.
-  url-frontend: ${APP_URL_FRONTEND:http://localhost:3000}
+  url-frontend: ${APP_URL_FRONTEND:http://localhost:3000,https://gestao-refeitorio-ifpe.duckdns.org}
 
 google:
   oauth:
-    client-id: ${GOOGLE_CLIENT_ID:}
+    client-id: ${GOOGLE_CLIENT_ID:411051502805-kktsu5dn98f504upsj8jlh1qmroq9k48.apps.googleusercontent.com}
 
 email:
   remetente: ${MAIL_FROM:nao-responda@localhost}
+  alerta:
+    # Desligado por padrão: com false, os jobs de alerta só logam e não tocam no SMTP (#203).
+    habilitado: ${ALERTA_EMAIL_HABILITADO:false}
+  convite:
+    # Link único da tela de login no e-mail de convite (#208). Não dá pra reaproveitar
+    # app.url-frontend, que é uma lista de origens do CORS.
+    url-login: ${APP_URL_LOGIN:http://localhost:3000/login}
 
 management:
   endpoints:
@@ -64,5 +71,8 @@ management:
       enabled: false
 
 springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
   swagger-ui:
     path: /swagger-ui.html
+    enabled: ${SWAGGER_ENABLED:true}

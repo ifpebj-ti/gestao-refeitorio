@@ -29,6 +29,9 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
 
+    @Value("${springdoc.swagger-ui.enabled:true}")
+    private boolean swaggerEnabled;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -38,12 +41,15 @@ public class SecurityConfig {
                 // Sem isso, o Spring Security cai no Http403ForbiddenEntryPoint padrão e
                 // devolve 403 tanto pra quem não está autenticado quanto pra quem tem perfil insuficiente.
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint()))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/google", "/actuator/health", "/swagger-ui/**", "/v3/api-docs/**")
-                        .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/produtos", "/api/produtos/**")
-                        .permitAll()
-                        .anyRequest().authenticated())
+                .authorizeHttpRequests(auth -> {
+                    var matcherRegistry = auth
+                            .requestMatchers("/api/auth/google", "/actuator/health")
+                            .permitAll();
+                    if (swaggerEnabled) {
+                        matcherRegistry.requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll();
+                    }
+                    matcherRegistry.anyRequest().authenticated();
+                })
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
