@@ -193,6 +193,18 @@ class ProdutoControllerIntegrationTest {
     }
 
     @Test
+    void deveRetornar401QuandoUsuarioNaoAutenticadoTentaConsultarProdutos() throws Exception {
+        mockMvc.perform(get("/api/produtos"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deveRetornar401QuandoUsuarioNaoAutenticadoTentaBuscarProdutoPorId() throws Exception {
+        mockMvc.perform(get("/api/produtos/" + UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void deveRetornar403QuandoPerfilNaoNutricionistaTentaCadastrar() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
 
