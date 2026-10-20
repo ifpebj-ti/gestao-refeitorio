@@ -30,4 +30,9 @@ vulnerabilities:
       Next.js Image Optimization SSRF (fixed in 16.3.8). The application does not
       configure or use remotePatterns for image fetching; static assets only.
     expired_at: 2026-10-30
+  - id: CVE-2026-77214
+    statement: >-
+      Heap buffer over-read in libexpat bundled in base container image. The service
+      does not process untrusted XML input.
+    expired_at: 2026-11-30
 
