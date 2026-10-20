@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Upload,
   Camera,
+  Barcode,
   FileText,
   Eye,
   X,
@@ -106,6 +107,7 @@ export default function EstoqueGeralPage() {
   const [itemEntradaId, setItemEntradaId] = useState<string>("");
   const [fornecedorEntrada, setFornecedorEntrada] = useState("");
   const [quantidadeEntrada, setQuantidadeEntrada] = useState("");
+  const [unidadeEntrada, setUnidadeEntrada] = useState("");
   const [validadeEntrada, setValidadeEntrada] = useState("");
   const [loteEntrada, setLoteEntrada] = useState("");
   const [fotoMercadoria, setFotoMercadoria] = useState<string | null>(null);
@@ -622,6 +624,7 @@ export default function EstoqueGeralPage() {
       limparSelecao();
     } else {
       setItemEntradaId(item.id);
+      setUnidadeEntrada(item.unidadeMedida);
       setBuscaEntrada(item.nome);
       setBuscaEntradaFocada(false);
     }
@@ -629,6 +632,7 @@ export default function EstoqueGeralPage() {
 
   const limparSelecao = () => {
     setItemEntradaId("");
+    setUnidadeEntrada("");
     setBuscaEntrada("");
     setBuscaEntradaFocada(false);
     setFornecedorEntrada("");
@@ -654,11 +658,18 @@ export default function EstoqueGeralPage() {
       return;
     }
 
-    const qtdNum = parseFloat(quantidadeEntrada);
+    const qtdNum = parseFloat(quantidadeEntrada.replace(",", "."));
     if (isNaN(qtdNum) || qtdNum <= 0) {
       alert("Informe uma quantidade válida maior que zero!");
       return;
     }
+
+    const unidadeEscolhida = unidadeEntrada || insumoEntradaSelecionado.unidadeMedida;
+    const qtdConvertida = converterParaUnidadeBase(
+      qtdNum,
+      unidadeEscolhida,
+      insumoEntradaSelecionado.unidadeMedida
+    );
 
     const fornecedorFinal = fornecedorEntrada.trim();
     if (!fornecedorFinal) {
@@ -687,7 +698,7 @@ export default function EstoqueGeralPage() {
       insumoEntradaSelecionado.valorReferencia && insumoEntradaSelecionado.valorReferencia > 0
         ? insumoEntradaSelecionado.valorReferencia
         : 1.0;
-    const valorTotal = Number((qtdNum * precoUnitario).toFixed(2)) || 0.01;
+    const valorTotal = Number((qtdConvertida * precoUnitario).toFixed(2)) || 0.01;
 
     const hojeIso = new Date().toISOString().split("T")[0];
 
@@ -699,7 +710,7 @@ export default function EstoqueGeralPage() {
         {
           produtoId: insumoEntradaSelecionado.id,
           localId,
-          quantidade: qtdNum,
+          quantidade: qtdConvertida,
           data: hojeIso,
           origem: origemFinal,
           valor: valorTotal,
@@ -1106,6 +1117,7 @@ export default function EstoqueGeralPage() {
                               type="button"
                               onClick={() => {
                                 setItemEntradaId(item.id);
+                                setUnidadeEntrada(item.unidadeMedida);
                                 setBuscaEntrada("");
                                 setBuscaEntradaFocada(false);
                               }}
@@ -1151,58 +1163,100 @@ export default function EstoqueGeralPage() {
               </div>
 
               {/* 3. Quantidade e Validade */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">
-                    Quantidade Recebida {insumoEntradaSelecionado ? `(${insumoEntradaSelecionado.unidadeMedida})` : ""} *
+                  <label className="h-5 flex items-center text-xs font-bold text-slate-700 uppercase">
+                    Quantidade Recebida *
                   </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0.1"
-                    value={quantidadeEntrada}
-                    onChange={(e) => setQuantidadeEntrada(e.target.value)}
-                    placeholder="Ex.: 30"
-                    className="w-full p-2.5 border-2 border-slate-300 rounded-xl text-sm sm:text-base font-black text-slate-900 focus:outline-none focus:border-emerald-600"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.001"
+                      value={quantidadeEntrada}
+                      onChange={(e) => setQuantidadeEntrada(e.target.value)}
+                      placeholder="Ex.: 30"
+                      className="w-full h-[46px] p-2.5 border-2 border-slate-300 rounded-xl text-sm sm:text-base font-black text-slate-900 focus:outline-none focus:border-emerald-600"
+                    />
+                    <select
+                      value={unidadeEntrada || insumoEntradaSelecionado?.unidadeMedida || "Kg"}
+                      onChange={(e) => setUnidadeEntrada(e.target.value)}
+                      disabled={!insumoEntradaSelecionado}
+                      className="h-[46px] p-2.5 border-2 border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 bg-white focus:outline-none focus:border-emerald-600 shrink-0 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
+                    >
+                      {(() => {
+                        const base = insumoEntradaSelecionado?.unidadeMedida || "Kg";
+                        const compativeis = obterUnidadesDisponiveis(base);
+                        const opcoes = [...compativeis];
+                        UNIDADES_MEDIDA_SUGERIDAS.forEach((u) => {
+                          if (!opcoes.includes(u.sigla)) opcoes.push(u.sigla);
+                        });
+                        return opcoes.map((sigla) => (
+                          <option key={sigla} value={sigla}>
+                            {sigla}
+                          </option>
+                        ));
+                      })()}
+                    </select>
+                  </div>
+                  {(() => {
+                    if (!insumoEntradaSelecionado) return null;
+                    const base = insumoEntradaSelecionado.unidadeMedida;
+                    const unidadeAtual = unidadeEntrada || base;
+                    const num = parseFloat(quantidadeEntrada.replace(",", "."));
+                    if (
+                      !isNaN(num) &&
+                      num > 0 &&
+                      unidadeAtual.toLowerCase() !== base.toLowerCase()
+                    ) {
+                      const convertido = converterParaUnidadeBase(num, unidadeAtual, base);
+                      return (
+                        <span className="text-xs text-emerald-800 font-semibold block mt-1">
+                          Equivalente a: <strong>{convertido} {base}</strong> no estoque
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">
+                  <label className="h-5 flex items-center text-xs font-bold text-slate-700 uppercase">
                     Data de Validade (opcional)
                   </label>
                   <input
                     type="date"
                     value={validadeEntrada}
                     onChange={(e) => setValidadeEntrada(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-600"
+                    className="w-full h-[46px] p-2.5 border-2 border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
                   />
                 </div>
               </div>
 
               {/* 4. Lote e Foto */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">
-                    Número do Lote (opcional)
+                  <label className="h-5 flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
+                    <Barcode className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    <span>Número do Lote (opcional)</span>
                   </label>
                   <input
                     type="text"
                     value={loteEntrada}
                     onChange={(e) => setLoteEntrada(e.target.value)}
                     placeholder="Ex: LT-2026-04"
-                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-600"
+                    className="w-full h-[42px] px-3 py-2 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-600"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
-                    <Camera className="w-3.5 h-3.5 text-emerald-700" />
+                  <label className="h-5 flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
+                    <Camera className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                     <span>Foto / Canhoto (Opcional)</span>
                   </label>
-                  <div className="border border-slate-300 rounded-xl p-2 text-center hover:bg-slate-50 transition-colors">
+                  <div className="w-full h-[42px] border border-slate-300 rounded-xl px-3 flex items-center justify-center hover:bg-slate-50 transition-colors">
                     {fotoMercadoria ? (
-                      <div className="flex items-center justify-between text-xs text-emerald-800 font-bold bg-emerald-50 p-1.5 rounded-lg border border-emerald-200">
+                      <div className="w-full flex items-center justify-between text-xs text-emerald-800 font-bold bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
                         <div className="flex items-center gap-2 truncate">
                           <ImageIcon className="w-4 h-4 text-emerald-600 shrink-0" />
                           <span className="truncate">Foto anexada</span>
@@ -1210,14 +1264,14 @@ export default function EstoqueGeralPage() {
                         <button
                           type="button"
                           onClick={removerFoto}
-                          className="text-slate-400 hover:text-slate-700 underline text-[11px] cursor-pointer ml-2"
+                          className="text-slate-400 hover:text-slate-700 underline text-[11px] cursor-pointer ml-2 shrink-0"
                         >
                           Remover
                         </button>
                       </div>
                     ) : (
-                      <label className="cursor-pointer flex items-center justify-center gap-2 text-xs font-semibold text-slate-600 py-0.5">
-                        <Upload className="w-4 h-4 text-slate-400" />
+                      <label className="cursor-pointer flex items-center justify-center gap-2 text-xs font-semibold text-slate-600 w-full h-full">
+                        <Upload className="w-4 h-4 text-slate-400 shrink-0" />
                         <span>Fotografar ou anexar canhoto</span>
                         <input
                           type="file"
