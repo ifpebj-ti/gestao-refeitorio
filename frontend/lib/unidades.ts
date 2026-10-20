@@ -45,3 +45,86 @@ export function normalizarUnidadeMedida(unidade?: string): string {
 
   return u;
 }
+
+/**
+ * Retorna as unidades de medida compatíveis/sugeridas para uma dada unidade base.
+ */
+export function obterUnidadesDisponiveis(unidadeBase: string): string[] {
+  const base = normalizarUnidadeMedida(unidadeBase).toLowerCase();
+  
+  if (base === "kg") {
+    return ["Kg", "g"];
+  }
+  if (base === "g") {
+    return ["g", "Kg"];
+  }
+  if (base === "lt") {
+    return ["Lt", "ml"];
+  }
+  if (base === "ml") {
+    return ["ml", "Lt"];
+  }
+  if (base === "pct") {
+    return ["Pct", "Und", "Cx", "g", "Kg"];
+  }
+  if (base === "und") {
+    return ["Und", "Pct", "Cx", "Dúzia"];
+  }
+  if (base === "cx") {
+    return ["Cx", "Und", "Pct"];
+  }
+  if (base === "maço") {
+    return ["Maço", "Und"];
+  }
+  if (base === "lata") {
+    return ["Lata", "Und"];
+  }
+  if (base === "vidro") {
+    return ["Vidro", "Und"];
+  }
+
+  // Se for unidade personalizada ou não mapeada, oferece a própria unidade e as comuns
+  const lista = [unidadeBase || "Und"];
+  if (!lista.includes("Und")) lista.push("Und");
+  if (!lista.includes("Kg")) lista.push("Kg");
+  if (!lista.includes("g")) lista.push("g");
+  return lista;
+}
+
+/**
+ * Converte um valor da unidade escolhida para a unidade base do insumo.
+ */
+export function converterParaUnidadeBase(
+  valor: number,
+  unidadeEscolhida: string,
+  unidadeBase: string
+): number {
+  if (!valor || valor <= 0) return 0;
+  const esc = (unidadeEscolhida || "").toLowerCase().trim();
+  const base = (unidadeBase || "").toLowerCase().trim();
+
+  if (esc === base) return valor;
+
+  // g -> kg (ex: 500g = 0.5kg)
+  if (esc === "g" && (base === "kg" || base === "quilo" || base === "quilograma")) {
+    return Number((valor / 1000).toFixed(4));
+  }
+  // kg -> g (ex: 2kg = 2000g)
+  if ((esc === "kg" || esc === "quilo" || esc === "quilograma") && base === "g") {
+    return Number((valor * 1000).toFixed(2));
+  }
+  // ml -> lt (ex: 500ml = 0.5lt)
+  if (esc === "ml" && (base === "lt" || base === "l" || base === "litro" || base === "litros")) {
+    return Number((valor / 1000).toFixed(4));
+  }
+  // lt -> ml (ex: 1lt = 1000ml)
+  if ((esc === "lt" || esc === "l" || esc === "litro" || esc === "litros") && base === "ml") {
+    return Number((valor * 1000).toFixed(2));
+  }
+  // dúzia -> und
+  if ((esc === "dúzia" || esc === "duzia") && (base === "und" || base === "unidade")) {
+    return Number((valor * 12).toFixed(2));
+  }
+
+  return valor;
+}
