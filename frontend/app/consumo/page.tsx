@@ -570,8 +570,6 @@ function BadgeValidadeFEFO({
   } else if (status === "ATENCAO") {
     estiloBadge = "bg-amber-50 text-amber-800 border-amber-300 font-semibold";
     textoPrazo = `Vence em ${diasParaVencer}d (${dataFmt})`;
-  } else {
-    textoPrazo = `Validade: ${dataFmt}`;
   }
 
   return (
