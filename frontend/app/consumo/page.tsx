@@ -584,10 +584,10 @@ function BadgeValidadeFEFO({
 
       {temMultiplosLotes && (
         <span
-          title={`${totalLotesComValidade} lotes com validades distintas. Priorizar o consumo deste lote indicado.`}
-          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold"
+          title={`${totalLotesComValidade} lotes com validades distintas no estoque. Consumo orientado pelo critério FEFO.`}
+          className="text-[10px] font-medium text-slate-400"
         >
-          <span>Priorizar lote (FEFO)</span>
+          • Priorizando este lote (FEFO)
         </span>
       )}
     </div>

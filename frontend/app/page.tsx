@@ -62,16 +62,15 @@ export default function LoginPage() {
       <main className="relative z-10 w-full max-w-5xl mx-auto my-auto flex flex-col md:flex-row items-center justify-between gap-12 lg:gap-16">
         {/* Lado Esquerdo: Identidade do Refeitório IFPE com Grande Impacto Visual */}
         <div className="text-center md:text-left space-y-4 max-w-xl">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-emerald-100/80 border border-emerald-300/60 rounded-full shadow-2xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-            <span className="text-xs sm:text-sm font-extrabold tracking-wider text-emerald-800 uppercase">
-              IFPE • Campus Belo Jardim
+          <div>
+            <span className="text-xs sm:text-sm font-bold tracking-wider text-emerald-800">
+              IFPE — <span className="italic">Campus</span> Belo Jardim
             </span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-slate-900 tracking-tight leading-[1.05]">
             Refeitório{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700">
+            <span className="text-emerald-700">
               IFPE
             </span>
           </h1>
@@ -140,7 +139,7 @@ export default function LoginPage() {
 
       {/* Rodapé Simples */}
       <footer className="relative z-10 w-full text-center py-2 text-xs text-slate-400">
-        Instituto Federal de Pernambuco — Campus Belo Jardim
+        Instituto Federal de Pernambuco — <span className="italic">Campus</span> Belo Jardim
       </footer>
     </div>
   );
