@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
 import {
   Calendar,
+  CalendarClock,
   Plus,
   Minus,
   CheckCircle2,
@@ -20,7 +21,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { produtoService, Produto } from "@/lib/produtos";
-import { registrarSaidaApi } from "@/lib/movimentacoes";
+import { registrarSaidaApi, listarHistoricoApi, MovimentacaoResponse } from "@/lib/movimentacoes";
 
 interface ItemFicha {
   id: string;
@@ -34,6 +35,81 @@ interface ItemFicha {
   categoria: string;
   planejadoCardapio?: boolean;
   quantidadePlanejada?: number;
+  dataValidadeMaisProxima?: string;
+  diasParaVencer?: number;
+  totalLotesComValidade?: number;
+  statusValidade?: "VENCIDO" | "CRITICA" | "ATENCAO" | "REGULAR";
+}
+
+export interface InfoValidadeFEFO {
+  dataValidadeMaisProxima?: string;
+  diasParaVencer?: number;
+  totalLotesComValidade?: number;
+  statusValidade?: "VENCIDO" | "CRITICA" | "ATENCAO" | "REGULAR";
+}
+
+export function formatarDataBr(dataIso?: string): string {
+  if (!dataIso) return "";
+  const partes = dataIso.split("-");
+  if (partes.length === 3) {
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+  }
+  return dataIso;
+}
+
+export function calcularValidadeFEFO(
+  produtoId: string,
+  historico: MovimentacaoResponse[]
+): InfoValidadeFEFO {
+  if (!historico || historico.length === 0) return {};
+
+  const entradasValidas = historico.filter(
+    (m) => m.produtoId === produtoId && m.tipo === "ENTRADA" && Boolean(m.dataValidade)
+  );
+
+  if (entradasValidas.length === 0) return {};
+
+  const datasUnicas = Array.from(
+    new Set(entradasValidas.map((e) => e.dataValidade as string))
+  ).sort();
+
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+
+  // Seleciona a primeira data de validade >= hoje (menor prazo que ainda não expirou)
+  let dataEscolhida = datasUnicas.find((d) => {
+    const [ano, mes, dia] = d.split("-").map(Number);
+    const dataObj = new Date(ano, mes - 1, dia);
+    return dataObj >= hoje;
+  });
+
+  // Se todas já venceram, pega a mais recente entre elas
+  if (!dataEscolhida && datasUnicas.length > 0) {
+    dataEscolhida = datasUnicas[datasUnicas.length - 1];
+  }
+
+  if (!dataEscolhida) return {};
+
+  const [ano, mes, dia] = dataEscolhida.split("-").map(Number);
+  const dataObj = new Date(ano, mes - 1, dia);
+  const diffTime = dataObj.getTime() - hoje.getTime();
+  const diffDias = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  let statusValidade: "VENCIDO" | "CRITICA" | "ATENCAO" | "REGULAR" = "REGULAR";
+  if (diffDias < 0) {
+    statusValidade = "VENCIDO";
+  } else if (diffDias <= 3) {
+    statusValidade = "CRITICA";
+  } else if (diffDias <= 7) {
+    statusValidade = "ATENCAO";
+  }
+
+  return {
+    dataValidadeMaisProxima: dataEscolhida,
+    diasParaVencer: diffDias,
+    totalLotesComValidade: datasUnicas.length,
+    statusValidade,
+  };
 }
 
 export function obterUnidadesDisponiveis(unidadeBase: string): string[] {
@@ -458,6 +534,68 @@ const encontrarPlanejado = (prod: Produto, planejados: InsumoPlanejadoCardapio[]
   return total > 0 ? Number(total.toFixed(3)) : undefined;
 };
 
+interface ValidadeFEFOProps {
+  dataValidadeMaisProxima?: string;
+  statusValidade?: "VENCIDO" | "CRITICA" | "ATENCAO" | "REGULAR";
+  diasParaVencer?: number;
+  totalLotesComValidade?: number;
+}
+
+function BadgeValidadeFEFO({
+  dataValidadeMaisProxima,
+  statusValidade,
+  diasParaVencer,
+  totalLotesComValidade,
+}: ValidadeFEFOProps) {
+  if (!dataValidadeMaisProxima) return null;
+
+  const dataFmt = formatarDataBr(dataValidadeMaisProxima);
+  const status = statusValidade || "REGULAR";
+  const temMultiplosLotes = (totalLotesComValidade || 0) > 1;
+
+  let estiloBadge = "bg-slate-100 text-slate-700 border-slate-200";
+  let textoPrazo = `Validade: ${dataFmt}`;
+
+  if (status === "VENCIDO") {
+    estiloBadge = "bg-rose-50 text-rose-700 border-rose-200 font-semibold";
+    textoPrazo = `Venceu em ${dataFmt}`;
+  } else if (status === "CRITICA") {
+    estiloBadge = "bg-rose-100 text-rose-800 border-rose-300 font-bold";
+    textoPrazo =
+      diasParaVencer === 0
+        ? `Vence HOJE (${dataFmt})`
+        : diasParaVencer === 1
+        ? `Vence AMANHÃ (${dataFmt})`
+        : `Vence em ${diasParaVencer}d (${dataFmt})`;
+  } else if (status === "ATENCAO") {
+    estiloBadge = "bg-amber-50 text-amber-800 border-amber-300 font-semibold";
+    textoPrazo = `Vence em ${diasParaVencer}d (${dataFmt})`;
+  } else {
+    textoPrazo = `Validade: ${dataFmt}`;
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap mt-1">
+      <span
+        title="Critério FEFO (Primeiro que Vence, Primeiro que Sai)"
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] leading-tight ${estiloBadge}`}
+      >
+        <CalendarClock className="w-3 h-3 shrink-0" />
+        <span>{textoPrazo}</span>
+      </span>
+
+      {temMultiplosLotes && (
+        <span
+          title={`${totalLotesComValidade} lotes com validades distintas. Priorizar o consumo deste lote indicado.`}
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border border-blue-200 bg-blue-50 text-blue-700 text-[10px] font-bold"
+        >
+          <span>Priorizar lote (FEFO)</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function ConsumoDiarioPage() {
   const { perfil } = useAuth();
   const isNutricionista = perfil === "NUTRICIONISTA";
@@ -502,6 +640,7 @@ export default function ConsumoDiarioPage() {
   // Estados de busca rápida e filtros da tabela da Cozinha
   const [termoBusca, setTermoBusca] = useState("");
   const [apenasComEstoque, setApenasComEstoque] = useState(false);
+  const [mapaValidades, setMapaValidades] = useState<Record<string, InfoValidadeFEFO>>({});
 
   // Dados exclusivos de visualização enxuta para o Nutricionista
   const [consumoNutri, setConsumoNutri] = useState<ConsumoRefeicaoVisualizacao | null>(null);
@@ -523,8 +662,17 @@ export default function ConsumoDiarioPage() {
         }
       } catch {}
 
-      const catalogo = await produtoService.listar();
+      const [catalogo, historico] = await Promise.all([
+        produtoService.listar(),
+        listarHistoricoApi().catch(() => [] as MovimentacaoResponse[]),
+      ]);
       setCatalogoBase(catalogo);
+
+      const mapaVal: Record<string, InfoValidadeFEFO> = {};
+      catalogo.forEach((prod) => {
+        mapaVal[prod.id] = calcularValidadeFEFO(prod.id, historico);
+      });
+      setMapaValidades(mapaVal);
 
       const planejados = obterInsumosPlanejadosDoCardapio(dataRegistro, tipoRefeicao);
 
@@ -536,6 +684,7 @@ export default function ConsumoDiarioPage() {
             const ehPlan = qtdPlan !== undefined && qtdPlan > 0;
             const saldo = typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0;
             const undBase = prod.unidadeMedida || "Und";
+            const infoVal = mapaVal[prod.id] || {};
             return {
               id: prod.id,
               nome: prod.nome,
@@ -548,6 +697,10 @@ export default function ConsumoDiarioPage() {
               categoria: prod.categoria,
               planejadoCardapio: ehPlan,
               quantidadePlanejada: ehPlan ? qtdPlan : undefined,
+              dataValidadeMaisProxima: infoVal.dataValidadeMaisProxima,
+              diasParaVencer: infoVal.diasParaVencer,
+              totalLotesComValidade: infoVal.totalLotesComValidade,
+              statusValidade: infoVal.statusValidade,
             };
           })
       );
@@ -578,6 +731,7 @@ export default function ConsumoDiarioPage() {
           const ehPlan = qtdPlan !== undefined && qtdPlan > 0;
           const saldo = typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0;
           const undBase = prod.unidadeMedida || "Und";
+          const infoVal = mapaValidades[prod.id] || {};
           return {
             id: prod.id,
             nome: prod.nome,
@@ -590,10 +744,14 @@ export default function ConsumoDiarioPage() {
             categoria: prod.categoria,
             planejadoCardapio: ehPlan,
             quantidadePlanejada: ehPlan ? qtdPlan : undefined,
+            dataValidadeMaisProxima: infoVal.dataValidadeMaisProxima,
+            diasParaVencer: infoVal.diasParaVencer,
+            totalLotesComValidade: infoVal.totalLotesComValidade,
+            statusValidade: infoVal.statusValidade,
           };
         })
     );
-  }, [dataRegistro, tipoRefeicao, catalogoBase]);
+  }, [dataRegistro, tipoRefeicao, catalogoBase, mapaValidades]);
 
   const MSG_CARDAPIO_PADRAO = "Nenhum cardápio cadastrado para esta refeição. O nutricionista pode definir no planejamento semanal.";
   const [cardapioAtual, setCardapioAtual] = useState<string>(MSG_CARDAPIO_PADRAO);
@@ -744,6 +902,7 @@ export default function ConsumoDiarioPage() {
               const ehPlan = qtdPlan !== undefined && qtdPlan > 0;
               const saldo = typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0;
               const undBase = prod.unidadeMedida || "Und";
+              const infoVal = mapaValidades[prod.id] || {};
               return {
                 id: prod.id,
                 nome: prod.nome,
@@ -756,6 +915,10 @@ export default function ConsumoDiarioPage() {
                 categoria: prod.categoria,
                 planejadoCardapio: ehPlan,
                 quantidadePlanejada: ehPlan ? qtdPlan : undefined,
+                dataValidadeMaisProxima: infoVal.dataValidadeMaisProxima,
+                diasParaVencer: infoVal.diasParaVencer,
+                totalLotesComValidade: infoVal.totalLotesComValidade,
+                statusValidade: infoVal.statusValidade,
               };
             })
         );
@@ -763,7 +926,7 @@ export default function ConsumoDiarioPage() {
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [catalogoBase, dataRegistro, tipoRefeicao]);
+  }, [catalogoBase, dataRegistro, tipoRefeicao, mapaValidades]);
 
   useEffect(() => {
     carregarDescricaoCardapio(dataRegistro, tipoRefeicao);
@@ -1151,7 +1314,15 @@ export default function ConsumoDiarioPage() {
                     {consumoNutri.itens.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3.5 px-4 sm:px-6 font-bold text-slate-800">
-                          {item.nome}
+                          <div>{item.nome}</div>
+                          {mapaValidades[item.id]?.dataValidadeMaisProxima && (
+                            <BadgeValidadeFEFO
+                              dataValidadeMaisProxima={mapaValidades[item.id].dataValidadeMaisProxima}
+                              statusValidade={mapaValidades[item.id].statusValidade}
+                              diasParaVencer={mapaValidades[item.id].diasParaVencer}
+                              totalLotesComValidade={mapaValidades[item.id].totalLotesComValidade}
+                            />
+                          )}
                         </td>
                         <td className="py-3.5 px-4 sm:px-6 text-right font-extrabold text-emerald-700 text-sm sm:text-base">
                           {item.quantidadeUsada} {item.unidade}
@@ -1352,6 +1523,12 @@ export default function ConsumoDiarioPage() {
                                   </span>
                                 )}
                               </div>
+                              <BadgeValidadeFEFO
+                                dataValidadeMaisProxima={item.dataValidadeMaisProxima}
+                                statusValidade={item.statusValidade}
+                                diasParaVencer={item.diasParaVencer}
+                                totalLotesComValidade={item.totalLotesComValidade}
+                              />
                             </div>
 
                             {/* Dropdown de Unidade de Medida Organizado */}
@@ -1520,6 +1697,12 @@ export default function ConsumoDiarioPage() {
                                         </span>
                                       )}
                                     </div>
+                                    <BadgeValidadeFEFO
+                                      dataValidadeMaisProxima={item.dataValidadeMaisProxima}
+                                      statusValidade={item.statusValidade}
+                                      diasParaVencer={item.diasParaVencer}
+                                      totalLotesComValidade={item.totalLotesComValidade}
+                                    />
                                   </div>
                                 </div>
                               </td>
