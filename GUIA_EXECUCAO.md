@@ -43,7 +43,7 @@ Depois, edite o `.env` e ajuste:
 |---|---|---|
 | `DB_NAME`, `DB_USER` | Nome do banco e usuário do Postgres | Não, salvo preferência |
 | `DB_PASSWORD` | Senha do Postgres | **Sim** — troque o valor de exemplo |
-| `JWT_SECRET` | Segredo usado pra assinar os JWTs próprios da aplicação | **Sim, principalmente em produção** — mínimo 32 caracteres |
+| `JWT_SECRET` | Segredo usado pra assinar os JWTs próprios da aplicação | **Sim, principalmente em produção** — mínimo 32 caracteres. Com o profile `prod`, o backend **não sobe** se a variável faltar, estiver vazia ou for mais curta que isso |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Credenciais OAuth2 do Google (login é exclusivo via Google, ver `CLAUDE.md` seção 5) | **Sim** — sem isso o login não valida o `id_token` de verdade. Cria em https://console.cloud.google.com/apis/credentials |
 | `NEXT_PUBLIC_API_URL` | URL que o frontend usa pra chamar o backend | Não, em dev local (já aponta pro `localhost:8080/api`) |
 | `APP_URL_FRONTEND` | Origem do frontend que o backend aceita no CORS (várias separadas por vírgula, ex: `http://localhost:3000,http://136.248.103.235:3000`) | Não, em dev local. **Sim, no servidor** — tem que ser exatamente o endereço que aparece na barra do navegador ao abrir o front (esquema + host + porta, sem barra no final), senão o navegador bloqueia todas as chamadas à API |

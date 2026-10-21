@@ -2,9 +2,9 @@ package br.ifpe.gestaorefeitorio.security;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtServiceTest {
 
@@ -13,10 +13,7 @@ class JwtServiceTest {
 
     @BeforeEach
     void setUp() {
-        jwtService = new JwtService();
-        ReflectionTestUtils.setField(jwtService, "secret", secret);
-        ReflectionTestUtils.setField(jwtService, "expirationMs", 86400000L);
-        ReflectionTestUtils.setField(jwtService, "expirationCozinhaMs", 259200000L);
+        jwtService = new JwtService(secret, 86400000L, 259200000L);
     }
 
     @Test
@@ -31,5 +28,19 @@ class JwtServiceTest {
         String token = jwtService.gerarToken("nutri@ifpe.edu.br", "NUTRICIONISTA");
         assertThat(jwtService.tokenValido(token)).isTrue();
         assertThat(jwtService.extrairEmail(token)).isEqualTo("nutri@ifpe.edu.br");
+    }
+
+    @Test
+    void deveRecusarSegredoEmBranco() {
+        assertThatThrownBy(() -> new JwtService("   ", 86400000L, 259200000L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("JWT_SECRET");
+    }
+
+    @Test
+    void deveRecusarSegredoComMenosDe32Bytes() {
+        assertThatThrownBy(() -> new JwtService("segredo-curto", 86400000L, 259200000L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("256 bits");
     }
 }
