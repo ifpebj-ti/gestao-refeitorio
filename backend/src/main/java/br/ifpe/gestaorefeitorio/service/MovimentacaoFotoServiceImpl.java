@@ -37,17 +37,26 @@ public class MovimentacaoFotoServiceImpl implements MovimentacaoFotoService {
 
         validar(arquivo);
 
+        byte[] conteudo;
+        try {
+            conteudo = arquivo.getBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Falha ao ler o arquivo enviado", e);
+        }
+        // Grava o tipo detectado nos bytes, não o declarado, pra o GET da foto servir o tipo real.
+        String contentTypeReal = AssinaturaImagem.detectarContentType(conteudo).orElseThrow(() -> {
+            log.warn("Foto rejeitada por assinatura inválida: movimentação {}, content-type declarado {}, por {}",
+                    movimentacaoId, arquivo.getContentType(), responsavel.getEmail());
+            return new ArquivoInvalidoException("Conteúdo do arquivo não corresponde a uma imagem JPEG/PNG");
+        });
+
         // Se já existir foto anexada, substitui (não é obrigatório nem impedido anexar de novo).
         MovimentacaoFoto foto = movimentacaoFotoRepository.findByMovimentacaoId(movimentacaoId)
                 .orElseGet(MovimentacaoFoto::new);
         foto.setMovimentacao(movimentacao);
-        foto.setContentType(arquivo.getContentType());
+        foto.setContentType(contentTypeReal);
         foto.setTamanhoBytes(arquivo.getSize());
-        try {
-            foto.setConteudo(arquivo.getBytes());
-        } catch (IOException e) {
-            throw new UncheckedIOException("Falha ao ler o arquivo enviado", e);
-        }
+        foto.setConteudo(conteudo);
         foto = movimentacaoFotoRepository.save(foto);
 
         log.info("Foto anexada: movimentação {}, {} bytes, por {}",
