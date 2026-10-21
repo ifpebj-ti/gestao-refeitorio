@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Upload,
   Camera,
+  Barcode,
   FileText,
   Eye,
   X,
@@ -29,7 +30,12 @@ import {
 import { verificarStatusEstoque, CategoriaAlimento } from "@/app/utils/estoqueRules";
 import { produtoService, ProdutoResponse } from "@/lib/produtos";
 import { registrarEntradaApi, listarHistoricoApi } from "@/lib/movimentacoes";
-import { UNIDADES_MEDIDA_SUGERIDAS, normalizarUnidadeMedida } from "@/lib/unidades"; 
+import {
+  UNIDADES_MEDIDA_SUGERIDAS,
+  normalizarUnidadeMedida,
+  obterUnidadesDisponiveis,
+  converterParaUnidadeBase,
+} from "@/lib/unidades"; 
 import {
   STORAGE_TOKEN_KEY,
   isTokenExpirado,
@@ -101,6 +107,7 @@ export default function EstoqueGeralPage() {
   const [itemEntradaId, setItemEntradaId] = useState<string>("");
   const [fornecedorEntrada, setFornecedorEntrada] = useState("");
   const [quantidadeEntrada, setQuantidadeEntrada] = useState("");
+  const [unidadeEntrada, setUnidadeEntrada] = useState("");
   const [validadeEntrada, setValidadeEntrada] = useState("");
   const [loteEntrada, setLoteEntrada] = useState("");
   const [fotoMercadoria, setFotoMercadoria] = useState<string | null>(null);
@@ -122,6 +129,7 @@ export default function EstoqueGeralPage() {
   const [novoInsumoFornecedor, setNovoInsumoFornecedor] = useState("");
   const [novoInsumoDarEntradaInicial, setNovoInsumoDarEntradaInicial] = useState(false);
   const [novoInsumoQtdInicial, setNovoInsumoQtdInicial] = useState("");
+  const [novoInsumoUnidadeEntrada, setNovoInsumoUnidadeEntrada] = useState("Kg");
   const [novoInsumoValidadeInicial, setNovoInsumoValidadeInicial] = useState("");
   const [salvandoNovoInsumo, setSalvandoNovoInsumo] = useState(false);
   const [erroNovoInsumo, setErroNovoInsumo] = useState<string | null>(null);
@@ -187,6 +195,7 @@ export default function EstoqueGeralPage() {
     setNovoInsumoFornecedor("");
     setNovoInsumoDarEntradaInicial(false);
     setNovoInsumoQtdInicial("");
+    setNovoInsumoUnidadeEntrada("Kg");
     setNovoInsumoValidadeInicial("");
     setErroNovoInsumo(null);
     setModalNovoInsumoAberto(true);
@@ -199,9 +208,7 @@ export default function EstoqueGeralPage() {
       return;
     }
 
-    const unidadeFinal = novoInsumoUsarOutraUnidade
-      ? (novoInsumoUnidadeCustomizada.trim() || "Und")
-      : novoInsumoUnidade;
+    const unidadeFinal = novoInsumoUnidade;
 
     let valorNumerico: number | null = null;
     if (!novoInsumoSemPreco && novoInsumoValor.trim() !== "") {
@@ -227,12 +234,17 @@ export default function EstoqueGeralPage() {
       if (novoInsumoDarEntradaInicial && novoInsumoQtdInicial.trim()) {
         const qtdInicialNum = parseFloat(novoInsumoQtdInicial.replace(",", "."));
         if (!isNaN(qtdInicialNum) && qtdInicialNum > 0) {
+          const qtdConvertida = converterParaUnidadeBase(
+            qtdInicialNum,
+            novoInsumoUnidadeEntrada || unidadeFinal,
+            unidadeFinal
+          );
           const LOCAL_CONGELADOS = "e10aa4e1-9b74-4791-8b01-1a8efd93af8c";
           const LOCAL_DESPENSA = "eddeb319-7af8-4d68-bd88-8a739c968c74";
           const localId = novoInsumoCategoria === "Proteínas & Frios" ? LOCAL_CONGELADOS : LOCAL_DESPENSA;
           const hojeIso = new Date().toISOString().split("T")[0];
           const valorUnitarioParaEntrada = valorNumerico && valorNumerico > 0 ? valorNumerico : 1.0;
-          const valorTotalEntrada = Number((qtdInicialNum * valorUnitarioParaEntrada).toFixed(2)) || 0.01;
+          const valorTotalEntrada = Number((qtdConvertida * valorUnitarioParaEntrada).toFixed(2)) || 0.01;
 
           const fTrim = novoInsumoFornecedor.trim();
           let origemFinal: "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" = "EXTERNA";
@@ -248,7 +260,7 @@ export default function EstoqueGeralPage() {
           const resEntrada = await registrarEntradaApi({
             produtoId: novoProduto.id,
             localId,
-            quantidade: qtdInicialNum,
+            quantidade: qtdConvertida,
             data: hojeIso,
             origem: origemFinal,
             valor: valorTotalEntrada,
@@ -499,9 +511,12 @@ export default function EstoqueGeralPage() {
         else if (mov.origem === "AGROPECUARIA") origemFormatada = "Agropecuária (IFPE)";
         else if (mov.origem === "INTERNA") origemFormatada = "Produção Interna";
 
-        // Recupera fornecedor personalizado se foi digitado no momento do registro
+        // Recupera fornecedor e lote personalizados se foram digitados no momento do registro
         const fornecedorSalvo = typeof window !== "undefined" ? localStorage.getItem(`@gestao_refeitorio:mov_fornecedor_${mov.id}`) : null;
         const fornecedorFinal = mov.fornecedor || fornecedorSalvo || (mov.tipo === "ENTRADA" ? origemFormatada : undefined);
+
+        const loteSalvo = typeof window !== "undefined" ? localStorage.getItem(`@gestao_refeitorio:mov_lote_${mov.id}`) : null;
+        const loteFinal = (mov as any).lote || loteSalvo || undefined;
 
         let saidaFormatada = "Consumo";
         if (mov.tipoSaida === "CONSUMO") saidaFormatada = "Consumo das Refeições";
@@ -545,6 +560,7 @@ export default function EstoqueGeralPage() {
           responsavel: responsavelFormatado, 
           fornecedor: mov.tipo === "ENTRADA" ? fornecedorFinal : undefined,
           localArmazenamento: localNome,
+          lote: loteFinal,
           validade: validadeFormatada,
           valor: mov.valor,
           saldoAtual: saldoReal,
@@ -612,6 +628,7 @@ export default function EstoqueGeralPage() {
       limparSelecao();
     } else {
       setItemEntradaId(item.id);
+      setUnidadeEntrada(item.unidadeMedida);
       setBuscaEntrada(item.nome);
       setBuscaEntradaFocada(false);
     }
@@ -619,6 +636,7 @@ export default function EstoqueGeralPage() {
 
   const limparSelecao = () => {
     setItemEntradaId("");
+    setUnidadeEntrada("");
     setBuscaEntrada("");
     setBuscaEntradaFocada(false);
     setFornecedorEntrada("");
@@ -644,11 +662,18 @@ export default function EstoqueGeralPage() {
       return;
     }
 
-    const qtdNum = parseFloat(quantidadeEntrada);
+    const qtdNum = parseFloat(quantidadeEntrada.replace(",", "."));
     if (isNaN(qtdNum) || qtdNum <= 0) {
       alert("Informe uma quantidade válida maior que zero!");
       return;
     }
+
+    const unidadeEscolhida = unidadeEntrada || insumoEntradaSelecionado.unidadeMedida;
+    const qtdConvertida = converterParaUnidadeBase(
+      qtdNum,
+      unidadeEscolhida,
+      insumoEntradaSelecionado.unidadeMedida
+    );
 
     const fornecedorFinal = fornecedorEntrada.trim();
     if (!fornecedorFinal) {
@@ -677,7 +702,7 @@ export default function EstoqueGeralPage() {
       insumoEntradaSelecionado.valorReferencia && insumoEntradaSelecionado.valorReferencia > 0
         ? insumoEntradaSelecionado.valorReferencia
         : 1.0;
-    const valorTotal = Number((qtdNum * precoUnitario).toFixed(2)) || 0.01;
+    const valorTotal = Number((qtdConvertida * precoUnitario).toFixed(2)) || 0.01;
 
     const hojeIso = new Date().toISOString().split("T")[0];
 
@@ -689,7 +714,7 @@ export default function EstoqueGeralPage() {
         {
           produtoId: insumoEntradaSelecionado.id,
           localId,
-          quantidade: qtdNum,
+          quantidade: qtdConvertida,
           data: hojeIso,
           origem: origemFinal,
           valor: valorTotal,
@@ -699,10 +724,15 @@ export default function EstoqueGeralPage() {
         arquivoFotoReal
       );
 
-      // Salva o fornecedor digitado associado ao ID da movimentação
-      if (res?.id && fornecedorFinal) {
+      // Salva o fornecedor e o lote digitados associados ao ID da movimentação
+      if (res?.id) {
         try {
-          localStorage.setItem(`@gestao_refeitorio:mov_fornecedor_${res.id}`, fornecedorFinal);
+          if (fornecedorFinal) {
+            localStorage.setItem(`@gestao_refeitorio:mov_fornecedor_${res.id}`, fornecedorFinal);
+          }
+          if (loteEntrada?.trim()) {
+            localStorage.setItem(`@gestao_refeitorio:mov_lote_${res.id}`, loteEntrada.trim());
+          }
         } catch (e) {}
       }
 
@@ -1096,6 +1126,7 @@ export default function EstoqueGeralPage() {
                               type="button"
                               onClick={() => {
                                 setItemEntradaId(item.id);
+                                setUnidadeEntrada(item.unidadeMedida);
                                 setBuscaEntrada("");
                                 setBuscaEntradaFocada(false);
                               }}
@@ -1141,58 +1172,100 @@ export default function EstoqueGeralPage() {
               </div>
 
               {/* 3. Quantidade e Validade */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">
-                    Quantidade Recebida {insumoEntradaSelecionado ? `(${insumoEntradaSelecionado.unidadeMedida})` : ""} *
+                  <label className="h-5 flex items-center text-xs font-bold text-slate-700 uppercase">
+                    Quantidade Recebida *
                   </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0.1"
-                    value={quantidadeEntrada}
-                    onChange={(e) => setQuantidadeEntrada(e.target.value)}
-                    placeholder="Ex.: 30"
-                    className="w-full p-2.5 border-2 border-slate-300 rounded-xl text-sm sm:text-base font-black text-slate-900 focus:outline-none focus:border-emerald-600"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.001"
+                      value={quantidadeEntrada}
+                      onChange={(e) => setQuantidadeEntrada(e.target.value)}
+                      placeholder="Ex.: 30"
+                      className="w-full h-[46px] p-2.5 border-2 border-slate-300 rounded-xl text-sm sm:text-base font-black text-slate-900 focus:outline-none focus:border-emerald-600"
+                    />
+                    <select
+                      value={unidadeEntrada || insumoEntradaSelecionado?.unidadeMedida || "Kg"}
+                      onChange={(e) => setUnidadeEntrada(e.target.value)}
+                      disabled={!insumoEntradaSelecionado}
+                      className="h-[46px] p-2.5 border-2 border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 bg-white focus:outline-none focus:border-emerald-600 shrink-0 cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
+                    >
+                      {(() => {
+                        const base = insumoEntradaSelecionado?.unidadeMedida || "Kg";
+                        const compativeis = obterUnidadesDisponiveis(base);
+                        const opcoes = [...compativeis];
+                        UNIDADES_MEDIDA_SUGERIDAS.forEach((u) => {
+                          if (!opcoes.includes(u.sigla)) opcoes.push(u.sigla);
+                        });
+                        return opcoes.map((sigla) => (
+                          <option key={sigla} value={sigla}>
+                            {sigla}
+                          </option>
+                        ));
+                      })()}
+                    </select>
+                  </div>
+                  {(() => {
+                    if (!insumoEntradaSelecionado) return null;
+                    const base = insumoEntradaSelecionado.unidadeMedida;
+                    const unidadeAtual = unidadeEntrada || base;
+                    const num = parseFloat(quantidadeEntrada.replace(",", "."));
+                    if (
+                      !isNaN(num) &&
+                      num > 0 &&
+                      unidadeAtual.toLowerCase() !== base.toLowerCase()
+                    ) {
+                      const convertido = converterParaUnidadeBase(num, unidadeAtual, base);
+                      return (
+                        <span className="text-xs text-emerald-800 font-semibold block mt-1">
+                          Equivalente a: <strong>{convertido} {base}</strong> no estoque
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">
+                  <label className="h-5 flex items-center text-xs font-bold text-slate-700 uppercase">
                     Data de Validade (opcional)
                   </label>
                   <input
                     type="date"
                     value={validadeEntrada}
                     onChange={(e) => setValidadeEntrada(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-600"
+                    className="w-full h-[46px] p-2.5 border-2 border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
                   />
                 </div>
               </div>
 
               {/* 4. Lote e Foto */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase">
-                    Número do Lote (opcional)
+                  <label className="h-5 flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
+                    <Barcode className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    <span>Número do Lote (opcional)</span>
                   </label>
                   <input
                     type="text"
                     value={loteEntrada}
                     onChange={(e) => setLoteEntrada(e.target.value)}
                     placeholder="Ex: LT-2026-04"
-                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-600"
+                    className="w-full h-[42px] px-3 py-2 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:border-emerald-600"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
-                    <Camera className="w-3.5 h-3.5 text-emerald-700" />
+                  <label className="h-5 flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase">
+                    <Camera className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                     <span>Foto / Canhoto (Opcional)</span>
                   </label>
-                  <div className="border border-slate-300 rounded-xl p-2 text-center hover:bg-slate-50 transition-colors">
+                  <div className="w-full h-[42px] border border-slate-300 rounded-xl px-3 flex items-center justify-center hover:bg-slate-50 transition-colors">
                     {fotoMercadoria ? (
-                      <div className="flex items-center justify-between text-xs text-emerald-800 font-bold bg-emerald-50 p-1.5 rounded-lg border border-emerald-200">
+                      <div className="w-full flex items-center justify-between text-xs text-emerald-800 font-bold bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
                         <div className="flex items-center gap-2 truncate">
                           <ImageIcon className="w-4 h-4 text-emerald-600 shrink-0" />
                           <span className="truncate">Foto anexada</span>
@@ -1200,14 +1273,14 @@ export default function EstoqueGeralPage() {
                         <button
                           type="button"
                           onClick={removerFoto}
-                          className="text-slate-400 hover:text-slate-700 underline text-[11px] cursor-pointer ml-2"
+                          className="text-slate-400 hover:text-slate-700 underline text-[11px] cursor-pointer ml-2 shrink-0"
                         >
                           Remover
                         </button>
                       </div>
                     ) : (
-                      <label className="cursor-pointer flex items-center justify-center gap-2 text-xs font-semibold text-slate-600 py-0.5">
-                        <Upload className="w-4 h-4 text-slate-400" />
+                      <label className="cursor-pointer flex items-center justify-center gap-2 text-xs font-semibold text-slate-600 w-full h-full">
+                        <Upload className="w-4 h-4 text-slate-400 shrink-0" />
                         <span>Fotografar ou anexar canhoto</span>
                         <input
                           type="file"
@@ -1406,10 +1479,10 @@ export default function EstoqueGeralPage() {
 
               <div>
                 <span className="text-slate-400 font-bold block text-[10px] uppercase tracking-wider">
-                  Local de Guarda
+                  Lote
                 </span>
                 <span className="font-semibold text-slate-700 mt-0.5 block">
-                  {itemAuditoriaSelecionado.localArmazenamento || "Despensa Geral"}
+                  {itemAuditoriaSelecionado.lote || "--"}
                 </span>
               </div>
 
@@ -1420,17 +1493,6 @@ export default function EstoqueGeralPage() {
                   </span>
                   <span className="font-bold text-emerald-800 mt-0.5 block">
                     {itemAuditoriaSelecionado.validade}
-                  </span>
-                </div>
-              )}
-
-              {itemAuditoriaSelecionado.lote && (
-                <div>
-                  <span className="text-slate-400 font-bold block text-[10px] uppercase tracking-wider">
-                    Nº do Lote
-                  </span>
-                  <span className="font-semibold text-slate-700 mt-0.5 block">
-                    {itemAuditoriaSelecionado.lote}
                   </span>
                 </div>
               )}
@@ -1626,14 +1688,10 @@ export default function EstoqueGeralPage() {
                     Unidade de Medida *
                   </label>
                   <select
-                    value={novoInsumoUsarOutraUnidade ? "OUTRA" : novoInsumoUnidade}
+                    value={novoInsumoUnidade}
                     onChange={(e) => {
-                      if (e.target.value === "OUTRA") {
-                        setNovoInsumoUsarOutraUnidade(true);
-                      } else {
-                        setNovoInsumoUsarOutraUnidade(false);
-                        setNovoInsumoUnidade(e.target.value);
-                      }
+                      setNovoInsumoUnidade(e.target.value);
+                      setNovoInsumoUnidadeEntrada(e.target.value);
                     }}
                     className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
                   >
@@ -1642,18 +1700,7 @@ export default function EstoqueGeralPage() {
                         {u.nome}
                       </option>
                     ))}
-                    <option value="OUTRA">✏️ Outra unidade personalizada...</option>
                   </select>
-                  {novoInsumoUsarOutraUnidade && (
-                    <input
-                      type="text"
-                      required
-                      value={novoInsumoUnidadeCustomizada}
-                      onChange={(e) => setNovoInsumoUnidadeCustomizada(e.target.value)}
-                      placeholder="Ex: Garrafa, Barra, Pote, Balde..."
-                      className="w-full mt-1.5 p-2 bg-emerald-50/50 border border-emerald-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
-                    />
-                  )}
                 </div>
               </div>
 
@@ -1723,20 +1770,59 @@ export default function EstoqueGeralPage() {
                 </div>
 
                 {novoInsumoDarEntradaInicial && (
-                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-emerald-200/60 animate-in fade-in">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-emerald-200/60 animate-in fade-in">
                     <div className="space-y-1">
                       <label className="text-[11px] font-bold text-emerald-900 uppercase">
-                        Qtd. Recebida ({novoInsumoUnidade}) *
+                        Qtd. Recebida *
                       </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0.1"
-                        value={novoInsumoQtdInicial}
-                        onChange={(e) => setNovoInsumoQtdInicial(e.target.value)}
-                        placeholder="Ex: 50"
-                        className="w-full p-2 bg-white border border-emerald-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
-                      />
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.001"
+                          value={novoInsumoQtdInicial}
+                          onChange={(e) => setNovoInsumoQtdInicial(e.target.value)}
+                          placeholder="Ex: 50"
+                          className="w-full p-2 bg-white border border-emerald-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-emerald-600"
+                        />
+                        <select
+                          value={novoInsumoUnidadeEntrada}
+                          onChange={(e) => setNovoInsumoUnidadeEntrada(e.target.value)}
+                          className="p-2 bg-white border border-emerald-300 rounded-xl text-xs font-bold text-emerald-950 focus:outline-none focus:border-emerald-600 shrink-0 cursor-pointer"
+                        >
+                          {(() => {
+                            const base = novoInsumoUnidade;
+                            const compativeis = obterUnidadesDisponiveis(base);
+                            const opcoes = [...compativeis];
+                            UNIDADES_MEDIDA_SUGERIDAS.forEach((u) => {
+                              if (!opcoes.includes(u.sigla)) opcoes.push(u.sigla);
+                            });
+                            return opcoes.map((sigla) => (
+                              <option key={sigla} value={sigla}>
+                                {sigla}
+                              </option>
+                            ));
+                          })()}
+                        </select>
+                      </div>
+                      {(() => {
+                        const base = novoInsumoUnidade;
+                        const num = parseFloat(novoInsumoQtdInicial.replace(",", "."));
+                        if (
+                          !isNaN(num) &&
+                          num > 0 &&
+                          novoInsumoUnidadeEntrada &&
+                          novoInsumoUnidadeEntrada.toLowerCase() !== base.toLowerCase()
+                        ) {
+                          const convertido = converterParaUnidadeBase(num, novoInsumoUnidadeEntrada, base);
+                          return (
+                            <span className="text-[10px] text-emerald-800 font-semibold block mt-0.5">
+                              Equivalente a: <strong>{convertido} {base}</strong> no estoque
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
 
                     <div className="space-y-1">
