@@ -35,10 +35,9 @@ public class MovimentacaoController {
     private final MovimentacaoService movimentacaoService;
     private final MovimentacaoFotoService movimentacaoFotoService;
 
-    // CLAUDE.md seção 4: COZINHA registra entradas/saídas; NUTRICIONISTA acompanha estoque.
-    // ADMIN é perfil técnico, não opera estoque.
+    // Recebimento de mercadoria é conferido só pela nutricionista (#202); ADMIN é perfil técnico e não opera estoque.
     @PostMapping("/entrada")
-    @PreAuthorize("hasAnyRole('COZINHA', 'NUTRICIONISTA')")
+    @PreAuthorize("hasRole('NUTRICIONISTA')")
     public ResponseEntity<MovimentacaoResponseDTO> registrarEntrada(
             @Valid @RequestBody MovimentacaoRequestDTO request,
             @AuthenticationPrincipal Usuario responsavel) {
