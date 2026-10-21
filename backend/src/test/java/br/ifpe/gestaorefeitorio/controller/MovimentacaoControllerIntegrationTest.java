@@ -38,6 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.nullValue;
 
 /**
  * Testes de integração ponta a ponta do registro de entrada de produto
@@ -154,6 +155,58 @@ class MovimentacaoControllerIntegrationTest {
                 .andExpect(jsonPath("$.tipo").value("ENTRADA"))
                 .andExpect(jsonPath("$.quantidade").value(10))
                 .andExpect(jsonPath("$.saldoAtual").value(10));
+    }
+
+    private String corpoComLote(UUID produtoId, UUID localId, String lote) {
+        return """
+                {"produtoId":"%s","localId":"%s","quantidade":10,"data":"2026-01-10","origem":"EXTERNA","valor":50.00,"lote":"%s"}
+                """.formatted(produtoId, localId, lote);
+    }
+
+    @Test
+    void deveGravarLoteNaEntradaEDevolverNoExtratoDoProduto() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoComLote(produto.getId(), local.getId(), "L-2026-01")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.lote").value("L-2026-01"));
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId() + "/movimentacoes")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].lote").value("L-2026-01"));
+    }
+
+    @Test
+    void deveRegistrarEntradaSemLoteComLoteNulo() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoValido(produto.getId(), local.getId())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.lote").value(nullValue()));
+    }
+
+    @Test
+    void deveRetornar400QuandoLoteExcede50Caracteres() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoComLote(produto.getId(), local.getId(), "L".repeat(51))))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
