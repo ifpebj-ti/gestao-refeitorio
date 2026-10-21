@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { produtoService, ProdutoResponse } from "@/lib/produtos";
 import { listarHistoricoApi, MovimentacaoResponse } from "@/lib/movimentacoes";
-import { obterEstoqueMinimoProduto, CategoriaAlimento } from "../utils/estoqueRules";
+import { obterEstoqueMinimoProduto } from "../utils/estoqueRules";
 import {
   Bell,
   PackageX,
@@ -14,7 +14,6 @@ import {
   Search,
   RefreshCw,
   CheckCircle2,
-  Calendar,
   AlertCircle,
   ChevronDown,
   Layers,
