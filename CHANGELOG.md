@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.6.0...gestao-refeitorio-v0.7.0) (2026-10-21)
+
+
+### Features
+
+* **estoque:** integra envio e exibicao de lote no registro de entrada ([#267](https://github.com/ifpebj-ti/gestao-refeitorio/issues/267)) ([76efe7a](https://github.com/ifpebj-ti/gestao-refeitorio/commit/76efe7ad1e7dc6edd8e17d1c145faf6bb97f0f67))
+* **estoque:** integra envio e exibição de lote no registro de entrada ([#267](https://github.com/ifpebj-ti/gestao-refeitorio/issues/267)) ([a85719a](https://github.com/ifpebj-ti/gestao-refeitorio/commit/a85719a5100b975c2cb5f04044e6d2065c056a1f))
+* persiste lote nas movimentações de entrada [#247](https://github.com/ifpebj-ti/gestao-refeitorio/issues/247) ([e7d4fa5](https://github.com/ifpebj-ti/gestao-refeitorio/commit/e7d4fa5ed0f62d54617a5f111baaa6d124f40d19))
+* persiste lote nas movimentações de entrada [#247](https://github.com/ifpebj-ti/gestao-refeitorio/issues/247) ([d0a237e](https://github.com/ifpebj-ti/gestao-refeitorio/commit/d0a237e533a9d4710ddf63a8ca1f18765668aeed))
+
+
+### Bug Fixes
+
+* exige JWT_SECRET no profile prod e valida segredo na inicialização [#229](https://github.com/ifpebj-ti/gestao-refeitorio/issues/229) ([ae26286](https://github.com/ifpebj-ti/gestao-refeitorio/commit/ae26286459930fd3c25f0bc517ddfe2518c92b38))
+* exige JWT_SECRET no profile prod e valida segredo na inicialização [#229](https://github.com/ifpebj-ti/gestao-refeitorio/issues/229) ([8b8c6a3](https://github.com/ifpebj-ti/gestao-refeitorio/commit/8b8c6a3452e75bb634cef573f6fb18a501707f76))
+* valida assinatura binária da foto de movimentação antes de gravar [#230](https://github.com/ifpebj-ti/gestao-refeitorio/issues/230) ([a68116a](https://github.com/ifpebj-ti/gestao-refeitorio/commit/a68116aed85824404d3f4885d923ed158f619f13))
+* valida assinatura binária da foto de movimentação antes de gravar [#230](https://github.com/ifpebj-ti/gestao-refeitorio/issues/230) ([cefb967](https://github.com/ifpebj-ti/gestao-refeitorio/commit/cefb967f114bd66a0cecef32cad9e557dccaa3cb))
+
 ## [0.6.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.5.0...gestao-refeitorio-v0.6.0) (2026-10-21)
 
 
