@@ -81,6 +81,7 @@ erDiagram
         DATE data
         DATE data_validade
         VARCHAR fornecedor
+        VARCHAR lote
         UUID responsavel_id FK
         TIMESTAMPTZ criado_em
     }
@@ -211,6 +212,7 @@ Registra as entradas e saídas de produtos e forma o histórico de estoque.
 | `data` | `DATE` | `NOT NULL` | Data da movimentação. |
 | `data_validade` | `DATE` | Opcional | Validade do lote recebido. |
 | `fornecedor` | `VARCHAR(150)` | Opcional | Fornecedor ou cooperativa de origem. |
+| `lote` | `VARCHAR(50)` | Opcional | Número do lote informado no recebimento. Nulo em saídas. |
 | `responsavel_id` | `UUID` | FK para `usuarios`, `NOT NULL` | Usuário responsável pelo registro. |
 | `criado_em` | `TIMESTAMPTZ` | `NOT NULL`, padrão `now()` | Data e hora de criação. |
 

@@ -55,6 +55,7 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
         movimentacao.setValor(request.valor());
         movimentacao.setDataValidade(request.dataValidade());
         movimentacao.setFornecedor(request.fornecedor());
+        movimentacao.setLote(normalizarLote(request.lote()));
         movimentacao.setResponsavel(responsavel);
         movimentacao = movimentacaoRepository.save(movimentacao);
 
@@ -116,6 +117,11 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
     private record ProdutoELocal(Produto produto, LocalArmazenamento local) {
     }
 
+    // Lote em branco vira nulo, pra não aparecer como lote informado na Ficha de Auditoria.
+    private String normalizarLote(String lote) {
+        return lote == null || lote.isBlank() ? null : lote.trim();
+    }
+
     private MovimentacaoResponseDTO paraDTO(Movimentacao movimentacao) {
         Produto produto = movimentacao.getProduto();
         LocalArmazenamento local = movimentacao.getLocal();
@@ -139,7 +145,8 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
                 responsavel != null ? responsavel.getNome() : null,
                 responsavel != null ? responsavel.getEmail() : null,
                 responsavel != null && responsavel.getPerfil() != null ? responsavel.getPerfil().name() : null,
-                movimentacao.getFornecedor());
+                movimentacao.getFornecedor(),
+                movimentacao.getLote());
     }
 
     private MovimentacaoResponseDTO paraDTOHistorico(Movimentacao movimentacao) {
@@ -165,6 +172,7 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
                 responsavel != null ? responsavel.getNome() : null,
                 responsavel != null ? responsavel.getEmail() : null,
                 responsavel != null && responsavel.getPerfil() != null ? responsavel.getPerfil().name() : null,
-                movimentacao.getFornecedor());
+                movimentacao.getFornecedor(),
+                movimentacao.getLote());
     }
 }

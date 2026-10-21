@@ -79,6 +79,36 @@ class MovimentacaoServiceImplTest {
         return usuario;
     }
 
+    private Movimentacao registrarEntradaComLote(String lote) {
+        UUID produtoId = UUID.randomUUID();
+        UUID localId = UUID.randomUUID();
+        MovimentacaoRequestDTO request = new MovimentacaoRequestDTO(
+                produtoId, localId, new BigDecimal("10"), LocalDate.now(),
+                OrigemMovimentacao.EXTERNA, new BigDecimal("50.00"), null, null, lote);
+
+        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produtoComId(produtoId)));
+        when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.of(localComId(localId)));
+        when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(chamada -> chamada.getArgument(0));
+        when(movimentacaoRepository.calcularSaldo(produtoId, localId)).thenReturn(new BigDecimal("10"));
+
+        MovimentacaoResponseDTO resposta = movimentacaoService.registrarEntrada(request, responsavel());
+
+        ArgumentCaptor<Movimentacao> captor = ArgumentCaptor.forClass(Movimentacao.class);
+        verify(movimentacaoRepository).save(captor.capture());
+        assertThat(resposta.lote()).isEqualTo(captor.getValue().getLote());
+        return captor.getValue();
+    }
+
+    @Test
+    void deveGravarLoteSemEspacosNasPontasAoRegistrarEntrada() {
+        assertThat(registrarEntradaComLote("  L-2026-01  ").getLote()).isEqualTo("L-2026-01");
+    }
+
+    @Test
+    void deveGravarLoteNuloQuandoInformadoEmBranco() {
+        assertThat(registrarEntradaComLote("   ").getLote()).isNull();
+    }
+
     @Test
     void deveRegistrarEntradaEAumentarSaldo() {
         UUID produtoId = UUID.randomUUID();

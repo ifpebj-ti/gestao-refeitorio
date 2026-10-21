@@ -3,6 +3,7 @@ package br.ifpe.gestaorefeitorio.dto;
 import br.ifpe.gestaorefeitorio.model.enums.OrigemMovimentacao;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -33,9 +34,13 @@ public record MovimentacaoRequestDTO(
         LocalDate dataValidade,
 
         // Opcional — nome do fornecedor/cooperativa informado no recebimento
-        String fornecedor
+        String fornecedor,
+
+        // Opcional — número do lote informado no recebimento (#247)
+        @Size(max = 50, message = "lote deve ter no máximo 50 caracteres")
+        String lote
 ) {
     public MovimentacaoRequestDTO(UUID produtoId, UUID localId, BigDecimal quantidade, LocalDate data, OrigemMovimentacao origem, BigDecimal valor, LocalDate dataValidade) {
-        this(produtoId, localId, quantidade, data, origem, valor, dataValidade, null);
+        this(produtoId, localId, quantidade, data, origem, valor, dataValidade, null, null);
     }
 }

@@ -25,6 +25,7 @@ public record MovimentacaoResponseDTO(
         String responsavelNome,
         String responsavelEmail,
         String responsavelPerfil,
-        String fornecedor
+        String fornecedor,
+        String lote
 ) {
 }

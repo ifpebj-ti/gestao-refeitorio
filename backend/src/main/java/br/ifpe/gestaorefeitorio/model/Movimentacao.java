@@ -62,6 +62,10 @@ public class Movimentacao {
     @Column(length = 150)
     private String fornecedor;
 
+    /** Número do lote informado no recebimento — só em ENTRADA, nulo em SAIDA. */
+    @Column(length = 50)
+    private String lote;
+
     @ManyToOne(optional = false)
     @JoinColumn(name = "responsavel_id")
     private Usuario responsavel;
