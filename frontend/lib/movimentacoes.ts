@@ -27,6 +27,7 @@ export interface MovimentacaoEntradaRequest {
   valor: number;
   dataValidade?: string;
   fornecedor?: string;
+  lote?: string;
 }
 
 export interface MovimentacaoSaidaRequest {
@@ -55,6 +56,7 @@ export interface MovimentacaoResponse {
   responsavelEmail?: string;
   responsavelPerfil?: string;
   fornecedor?: string;
+  lote?: string;
 }
 
 export const registrarEntradaApi = async (

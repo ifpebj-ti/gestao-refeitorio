@@ -516,7 +516,7 @@ export default function EstoqueGeralPage() {
         const fornecedorFinal = mov.fornecedor || fornecedorSalvo || (mov.tipo === "ENTRADA" ? origemFormatada : undefined);
 
         const loteSalvo = typeof window !== "undefined" ? localStorage.getItem(`@gestao_refeitorio:mov_lote_${mov.id}`) : null;
-        const loteFinal = (mov as any).lote || loteSalvo || undefined;
+        const loteFinal = mov.lote || loteSalvo || undefined;
 
         let saidaFormatada = "Consumo";
         if (mov.tipoSaida === "CONSUMO") saidaFormatada = "Consumo das Refeições";
@@ -720,6 +720,7 @@ export default function EstoqueGeralPage() {
           valor: valorTotal,
           dataValidade: validadeEntrada || undefined,
           fornecedor: fornecedorFinal,
+          lote: loteEntrada?.trim() || undefined,
         },
         arquivoFotoReal
       );
