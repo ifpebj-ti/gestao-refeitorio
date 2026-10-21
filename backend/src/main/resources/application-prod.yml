@@ -2,6 +2,11 @@
 # Configurações do perfil de produção (SPRING_PROFILES_ACTIVE=prod)
 # =====================================================================
 
+security:
+  jwt:
+    # Sem fallback de propósito: sem JWT_SECRET o contexto não sobe (#229, A11/R02).
+    secret: ${JWT_SECRET}
+
 springdoc:
   api-docs:
     enabled: false
