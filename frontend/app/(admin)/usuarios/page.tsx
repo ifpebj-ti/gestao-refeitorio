@@ -291,7 +291,7 @@ export default function GestaoUsuariosPage() {
             <span>Cozinha</span>
           </span>
           <p className="text-2xl font-black text-amber-900">{totalCozinha}</p>
-          <p className="text-[11px] text-slate-400">Consumo e recebimentos</p>
+          <p className="text-[11px] text-slate-400">Consumo diário e alertas</p>
         </div>
 
         <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-xs space-y-1 hover:border-emerald-200 transition-colors">
@@ -575,7 +575,7 @@ export default function GestaoUsuariosPage() {
                         Cozinha
                       </span>
                       <span className="text-[11px] text-slate-500">
-                        Lançamento diário de insumos consumidos e conferência de recebimentos.
+                        Lançamento diário de insumos consumidos e acompanhamento de alertas.
                       </span>
                     </div>
                   </label>
@@ -719,7 +719,7 @@ export default function GestaoUsuariosPage() {
                         Cozinha
                       </span>
                       <span className="text-[11px] text-slate-500">
-                        Lançamento diário de insumos consumidos e conferência de recebimentos.
+                        Lançamento diário de insumos consumidos e acompanhamento de alertas.
                       </span>
                     </div>
                   </label>

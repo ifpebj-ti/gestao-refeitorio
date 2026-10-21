@@ -1251,10 +1251,10 @@ export default function ConsumoDiarioPage() {
               </p>
               {isNutricionista && (
                 <Link
-                  href="/recebimento"
+                  href="/estoque"
                   className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-emerald-700 transition-colors"
                 >
-                  Ir para Recebimento de Insumos
+                  Ir para Estoque de Insumos
                 </Link>
               )}
             </div>
