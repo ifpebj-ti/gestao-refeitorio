@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.7.0...gestao-refeitorio-v0.8.0) (2026-10-21)
+
+
+### Features
+
+* **alertas:** sincroniza estoque minimo real e validades dos lotes ([#269](https://github.com/ifpebj-ti/gestao-refeitorio/issues/269)) ([d290dcb](https://github.com/ifpebj-ti/gestao-refeitorio/commit/d290dcbcd97c625c0a0a4f0502298266f85b10b6))
+* **alertas:** sincroniza estoque mínimo real e validades dos lotes ([#269](https://github.com/ifpebj-ti/gestao-refeitorio/issues/269)) ([30d4750](https://github.com/ifpebj-ti/gestao-refeitorio/commit/30d47501db0fc30d774bc45f381158d43e74364c))
+
+
+### Bug Fixes
+
+* **alertas:** remove imports nao utilizados de CategoriaAlimento e Calendar ([017d72e](https://github.com/ifpebj-ti/gestao-refeitorio/commit/017d72eee9c706c64d3e228da0c72eeef519ada8))
+
 ## [0.7.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.6.0...gestao-refeitorio-v0.7.0) (2026-10-21)
 
 
