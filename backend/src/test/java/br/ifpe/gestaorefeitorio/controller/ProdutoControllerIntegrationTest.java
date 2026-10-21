@@ -87,13 +87,13 @@ class ProdutoControllerIntegrationTest {
         return localArmazenamentoRepository.save(local);
     }
 
-    private void registrarEntrada(String token, UUID produtoId, UUID localId, String quantidade) throws Exception {
-        registrarEntrada(token, produtoId, localId, quantidade, "2026-01-10");
+    private void registrarEntrada(UUID produtoId, UUID localId, String quantidade) throws Exception {
+        registrarEntrada(produtoId, localId, quantidade, "2026-01-10");
     }
 
-    private void registrarEntrada(String token, UUID produtoId, UUID localId, String quantidade, String data) throws Exception {
+    private void registrarEntrada(UUID produtoId, UUID localId, String quantidade, String data) throws Exception {
         mockMvc.perform(post("/api/movimentacoes/entrada")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + tokenPara(Perfil.NUTRICIONISTA))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"produtoId":"%s","localId":"%s","quantidade":%s,"data":"%s","origem":"EXTERNA","valor":10.00}
@@ -469,7 +469,7 @@ class ProdutoControllerIntegrationTest {
         Produto produto = criarProduto("Arroz", "Secos", "kg");
         LocalArmazenamento local = criarLocal();
 
-        registrarEntrada(token, produto.getId(), local.getId(), "10");
+        registrarEntrada(produto.getId(), local.getId(), "10");
         registrarSaida(token, produto.getId(), local.getId(), "4");
 
         mockMvc.perform(get("/api/produtos/" + produto.getId())
@@ -496,8 +496,8 @@ class ProdutoControllerIntegrationTest {
         LocalArmazenamento despensa = criarLocal();
         LocalArmazenamento congelados = criarLocal();
 
-        registrarEntrada(token, produto.getId(), despensa.getId(), "10");
-        registrarEntrada(token, produto.getId(), congelados.getId(), "5");
+        registrarEntrada(produto.getId(), despensa.getId(), "10");
+        registrarEntrada(produto.getId(), congelados.getId(), "5");
 
         mockMvc.perform(get("/api/produtos/" + produto.getId() + "/saldo-por-local")
                         .header("Authorization", "Bearer " + token))
@@ -544,7 +544,7 @@ class ProdutoControllerIntegrationTest {
         Produto produto = criarProduto("Arroz", "Secos", "kg");
         LocalArmazenamento local = criarLocal();
 
-        registrarEntrada(token, produto.getId(), local.getId(), "10", "2026-01-05");
+        registrarEntrada(produto.getId(), local.getId(), "10", "2026-01-05");
         registrarSaida(token, produto.getId(), local.getId(), "4", "2026-01-10");
 
         mockMvc.perform(get("/api/produtos/" + produto.getId() + "/movimentacoes")
@@ -591,7 +591,7 @@ class ProdutoControllerIntegrationTest {
 
     @Test
     void deveExibirDataValidadeNoHistoricoQuandoInformada() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
+        String token = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto("Iogurte", "Frios", "un");
         LocalArmazenamento local = criarLocal();
 
