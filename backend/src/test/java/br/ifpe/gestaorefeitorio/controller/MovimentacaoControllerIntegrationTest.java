@@ -443,11 +443,19 @@ class MovimentacaoControllerIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(1));
     }
 
+    private static byte[] bytesJpeg() {
+        return new byte[] { (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46 };
+    }
+
+    private static byte[] bytesPng() {
+        return new byte[] { (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D };
+    }
+
     @Test
     void deveAnexarFotoValidaEDepoisRecuperarOsMesmosBytes() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
         Movimentacao movimentacao = criarMovimentacao();
-        byte[] bytesOriginais = "conteudo-fake-da-foto".getBytes();
+        byte[] bytesOriginais = bytesJpeg();
         MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", bytesOriginais);
 
         mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
@@ -476,6 +484,56 @@ class MovimentacaoControllerIntegrationTest {
     }
 
     @Test
+    void deveRetornar400AoAnexarScriptDisfarcadoDeJpg() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Movimentacao movimentacao = criarMovimentacao();
+        MockMultipartFile arquivo = new MockMultipartFile(
+                "arquivo", "foto.jpg", "image/jpeg", "#!/bin/sh\necho invadido\n".getBytes());
+
+        mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .file(arquivo)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar400AoAnexarExecutavelDisfarcadoDePng() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Movimentacao movimentacao = criarMovimentacao();
+        byte[] executavel = { 0x4D, 0x5A, (byte) 0x90, 0x00, 0x03, 0x00, 0x00, 0x00 };
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.png", "image/png", executavel);
+
+        mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .file(arquivo)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveAnexarPngValidoERecuperarComContentTypePng() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Movimentacao movimentacao = criarMovimentacao();
+        byte[] bytesOriginais = bytesPng();
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.png", "image/png", bytesOriginais);
+
+        mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .file(arquivo)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.contentType").value("image/png"));
+
+        mockMvc.perform(get("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"))
+                .andExpect(content -> assertArrayEquals(bytesOriginais, content.getResponse().getContentAsByteArray()));
+    }
+
+    @Test
     void deveRetornar400AoAnexarArquivoAcimaDoLimite() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
         Movimentacao movimentacao = criarMovimentacao();
@@ -491,7 +549,7 @@ class MovimentacaoControllerIntegrationTest {
     @Test
     void deveRetornar404AoAnexarFotoEmMovimentacaoInexistente() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
-        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", "conteudo".getBytes());
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", bytesJpeg());
 
         mockMvc.perform(multipart("/api/movimentacoes/" + UUID.randomUUID() + "/foto")
                         .file(arquivo)
@@ -513,7 +571,7 @@ class MovimentacaoControllerIntegrationTest {
     void deveRetornar403AoAnexarFotoComPerfilAdmin() throws Exception {
         String token = tokenPara(Perfil.ADMIN);
         Movimentacao movimentacao = criarMovimentacao();
-        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", "conteudo".getBytes());
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", bytesJpeg());
 
         mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
                         .file(arquivo)
@@ -525,7 +583,7 @@ class MovimentacaoControllerIntegrationTest {
     void deveAutorizarConsultaDeFotoParaQualquerPerfilAutenticado() throws Exception {
         String tokenCozinha = tokenPara(Perfil.COZINHA);
         Movimentacao movimentacao = criarMovimentacao();
-        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", "conteudo".getBytes());
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", bytesJpeg());
 
         mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
                         .file(arquivo)
