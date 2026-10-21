@@ -1,15 +1,18 @@
 import { ProdutoResponse } from "@/lib/produtos";
-import { obterEstoqueMinimoPorCategoria, CategoriaAlimento } from "@/app/utils/estoqueRules";
+import { MovimentacaoResponse } from "@/lib/movimentacoes";
+import { obterEstoqueMinimoProduto } from "@/app/utils/estoqueRules";
 
-export function calcularTotalAlertas(produtos: ProdutoResponse[]): number {
+export function calcularTotalAlertas(
+  produtos: ProdutoResponse[],
+  movimentacoes?: MovimentacaoResponse[]
+): number {
   if (!produtos || produtos.length === 0) return 0;
 
-  const hoje = new Date();
   let total = 0;
 
   produtos.forEach((prod) => {
     const saldo = typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0;
-    const estoqueMinimo = obterEstoqueMinimoPorCategoria(prod.categoria as CategoriaAlimento);
+    const estoqueMinimo = obterEstoqueMinimoProduto(prod.quantidadeMinima);
 
     // 1. Estoque Zerado
     if (saldo <= 0) {
@@ -17,32 +20,37 @@ export function calcularTotalAlertas(produtos: ProdutoResponse[]): number {
       return;
     }
 
-    // 2. Estoque Baixo
-    if (saldo <= estoqueMinimo) {
+    // 2. Estoque Baixo (apenas se houver quantidade mínima configurada)
+    if (estoqueMinimo !== undefined && saldo <= estoqueMinimo) {
       total++;
     }
 
-    // 3. Validade
-    const catLower = (prod.categoria || "").toLowerCase();
-    const ehPerecivel =
-      catLower.includes("frio") ||
-      catLower.includes("proteína") ||
-      catLower.includes("proteina") ||
-      catLower.includes("laticínio") ||
-      catLower.includes("laticinio") ||
-      catLower.includes("hortifrúti") ||
-      catLower.includes("hortifruti");
+    // 3. Validade Real (a partir das movimentações de entrada registradas)
+    if (movimentacoes && movimentacoes.length > 0 && saldo > 0) {
+      const entradasValidade = movimentacoes.filter(
+        (m) => m.produtoId === prod.id && m.tipo === "ENTRADA" && m.dataValidade
+      );
 
-    if (ehPerecivel && saldo > 0) {
-      const hash = prod.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      const diasOffset = (hash % 12) - 2;
+      const temLoteEmAlerta = entradasValidade.some((entrada) => {
+        if (!entrada.dataValidade) return false;
+        try {
+          const [ano, mes, dia] = entrada.dataValidade.split("-").map(Number);
+          if (!ano || !mes || !dia) return false;
+          const dataVal = new Date(ano, mes - 1, dia);
+          dataVal.setHours(0, 0, 0, 0);
 
-      const dataVal = new Date();
-      dataVal.setDate(hoje.getDate() + diasOffset);
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
 
-      const diasRestantes = Math.ceil((dataVal.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+          const diffMs = dataVal.getTime() - hoje.getTime();
+          const diasRestantes = Math.round(diffMs / (1000 * 60 * 60 * 24));
+          return diasRestantes <= 7;
+        } catch {
+          return false;
+        }
+      });
 
-      if (diasRestantes <= 7) {
+      if (temLoteEmAlerta) {
         total++;
       }
     }

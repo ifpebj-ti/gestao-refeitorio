@@ -38,6 +38,7 @@ import {
   limparSessaoLocal,
 } from "@/lib/authSession";
 import { produtoService } from "@/lib/produtos";
+import { listarHistoricoApi } from "@/lib/movimentacoes";
 import { calcularTotalAlertas } from "@/lib/alertasCount";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -78,9 +79,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let montado = true;
     async function carregarAlertasGlobais() {
       try {
-        const prods = await produtoService.listar();
+        const [prods, movs] = await Promise.all([
+          produtoService.listar(),
+          listarHistoricoApi().catch(() => []),
+        ]);
         if (montado && prods && prods.length > 0) {
-          const total = calcularTotalAlertas(prods);
+          const total = calcularTotalAlertas(prods, movs);
           setTotalAlertasPendentes(total);
         }
       } catch (err) {

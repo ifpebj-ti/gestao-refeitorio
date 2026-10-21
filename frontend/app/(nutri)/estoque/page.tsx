@@ -600,7 +600,8 @@ export default function EstoqueGeralPage() {
     const statusSaldo = verificarStatusEstoque(
       item.saldoTotal ?? 0,
       item.unidadeMedida,
-      item.categoria as CategoriaAlimento
+      item.categoria as CategoriaAlimento,
+      item.quantidadeMinima
     );
     return statusSaldo === "ATENCAO" ? "ATENCAO" : "NORMAL";
   };
