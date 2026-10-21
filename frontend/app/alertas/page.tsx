@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { produtoService, ProdutoResponse } from "@/lib/produtos";
-import { obterEstoqueMinimoPorCategoria, CategoriaAlimento } from "../utils/estoqueRules";
+import { listarHistoricoApi, MovimentacaoResponse } from "@/lib/movimentacoes";
+import { obterEstoqueMinimoProduto } from "../utils/estoqueRules";
 import {
   Bell,
   PackageX,
@@ -13,8 +14,9 @@ import {
   Search,
   RefreshCw,
   CheckCircle2,
-  Calendar,
   AlertCircle,
+  ChevronDown,
+  Layers,
 } from "lucide-react";
 
 export type TipoAlerta =
@@ -24,17 +26,26 @@ export type TipoAlerta =
   | "VALIDADE_ATENCAO"
   | "PRODUTO_VENCIDO";
 
+export interface LoteValidadeAlerta {
+  lote?: string;
+  dataValidade: string;
+  diasRestantes: number;
+  localNome?: string;
+}
+
 export interface ItemAlerta {
   id: string;
   nome: string;
   categoria: string;
   unidade: string;
   saldoAtual: number;
-  estoqueMinimo: number;
+  estoqueMinimo?: number;
   tipoAlerta: TipoAlerta;
   dataValidade?: string;
   diasRestantes?: number;
   localArmazenamento: string;
+  lote?: string;
+  todosLotesValidade?: LoteValidadeAlerta[];
 }
 
 const CATEGORIAS_FILTRO = [
@@ -49,19 +60,35 @@ const CATEGORIAS_FILTRO = [
 export default function CentralAlertasPage() {
   const { setTotalAlertasPendentes } = useAuth();
   const [produtos, setProdutos] = useState<ProdutoResponse[]>([]);
+  const [movimentacoes, setMovimentacoes] = useState<MovimentacaoResponse[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
   const [filtroTipo, setFiltroTipo] = useState<string>("TODOS");
   const [filtroCategoria, setFiltroCategoria] = useState<string>("Todas");
   const [termoBusca, setTermoBusca] = useState("");
+  const [lotesExpandidos, setLotesExpandidos] = useState<Record<string, boolean>>({});
+
+  const toggleLotesExpandidos = (id: string) => {
+    setLotesExpandidos((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
 
   const carregarDados = async () => {
     try {
       setCarregando(true);
       setErro(null);
-      const catalogo = await produtoService.listar();
+      const [catalogo, historico] = await Promise.all([
+        produtoService.listar(),
+        listarHistoricoApi().catch((e) => {
+          console.error("Erro ao carregar movimentações para validades:", e);
+          return [] as MovimentacaoResponse[];
+        }),
+      ]);
       setProdutos(catalogo);
+      setMovimentacoes(historico);
     } catch (err: unknown) {
       console.error("Erro ao carregar alertas:", err);
       setErro("Não foi possível carregar os alertas do estoque no momento.");
@@ -74,51 +101,38 @@ export default function CentralAlertasPage() {
     carregarDados();
   }, []);
 
+  const calcularDiasRestantes = (dataValidadeStr: string): number => {
+    try {
+      const [ano, mes, dia] = dataValidadeStr.split("-").map(Number);
+      if (!ano || !mes || !dia) return 999;
+      const dataVal = new Date(ano, mes - 1, dia);
+      dataVal.setHours(0, 0, 0, 0);
+
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+
+      const diffMs = dataVal.getTime() - hoje.getTime();
+      return Math.round(diffMs / (1000 * 60 * 60 * 24));
+    } catch {
+      return 999;
+    }
+  };
+
   const listaAlertas = useMemo<ItemAlerta[]>(() => {
     if (!produtos || produtos.length === 0) return [];
 
-    const hoje = new Date();
     const alertas: ItemAlerta[] = [];
-
-    const obterDadosValidadeSimulados = (prod: ProdutoResponse) => {
-      const catLower = prod.categoria.toLowerCase();
-      const ehPerecivel =
-        catLower.includes("frio") ||
-        catLower.includes("proteína") ||
-        catLower.includes("proteina") ||
-        catLower.includes("laticínio") ||
-        catLower.includes("laticinio") ||
-        catLower.includes("hortifrúti") ||
-        catLower.includes("hortifruti");
-
-      if (!ehPerecivel) return null;
-
-      const hash = prod.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      const diasOffset = (hash % 12) - 2;
-
-      const dataVal = new Date();
-      dataVal.setDate(hoje.getDate() + diasOffset);
-
-      const diasRestantes = Math.ceil((dataVal.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-
-      return {
-        dataValidade: dataVal.toISOString().split("T")[0],
-        diasRestantes,
-      };
-    };
 
     produtos.forEach((prod) => {
       const saldo = typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0;
-      const estoqueMinimo = obterEstoqueMinimoPorCategoria(prod.categoria as CategoriaAlimento);
+      const estoqueMinimo = obterEstoqueMinimoProduto(prod.quantidadeMinima);
       const catLower = prod.categoria.toLowerCase();
       const localArmazenamento =
         catLower.includes("frio") || catLower.includes("proteína") || catLower.includes("laticínio")
           ? "Câmara de Congelados"
           : "Despensa";
 
-      const validadeInfo = obterDadosValidadeSimulados(prod);
-
-      // Estoque Zerado
+      // 1. Estoque Zerado
       if (saldo <= 0) {
         alertas.push({
           id: `${prod.id}-zerado`,
@@ -131,8 +145,8 @@ export default function CentralAlertasPage() {
           localArmazenamento,
         });
       }
-      // Estoque Baixo
-      else if (saldo <= estoqueMinimo) {
+      // 2. Estoque Baixo (apenas se houver quantidade mínima configurada e saldo positivo)
+      else if (estoqueMinimo !== undefined && saldo <= estoqueMinimo) {
         alertas.push({
           id: `${prod.id}-baixo`,
           nome: prod.nome,
@@ -145,53 +159,68 @@ export default function CentralAlertasPage() {
         });
       }
 
-      // Validade
-      if (validadeInfo && saldo > 0) {
-        if (validadeInfo.diasRestantes < 0) {
-          alertas.push({
-            id: `${prod.id}-vencido`,
-            nome: prod.nome,
-            categoria: prod.categoria,
-            unidade: prod.unidadeMedida,
-            saldoAtual: saldo,
-            estoqueMinimo,
-            tipoAlerta: "PRODUTO_VENCIDO",
-            dataValidade: validadeInfo.dataValidade,
-            diasRestantes: validadeInfo.diasRestantes,
-            localArmazenamento,
+      // 3. Validade Real a partir das movimentações de entrada com lote/data
+      if (saldo > 0) {
+        const entradasValidade = movimentacoes.filter(
+          (m) => m.produtoId === prod.id && m.tipo === "ENTRADA" && m.dataValidade
+        );
+
+        // Agrupa por combinação única de lote e dataValidade
+        const lotesProcessados = new Set<string>();
+        const todosLotes: LoteValidadeAlerta[] = [];
+
+        entradasValidade.forEach((entrada) => {
+          if (!entrada.dataValidade) return;
+          const chave = `${entrada.lote || "sem-lote"}_${entrada.dataValidade}`;
+          if (lotesProcessados.has(chave)) return;
+          lotesProcessados.add(chave);
+
+          const diasRestantes = calcularDiasRestantes(entrada.dataValidade);
+
+          todosLotes.push({
+            lote: entrada.lote,
+            dataValidade: entrada.dataValidade,
+            diasRestantes,
+            localNome: entrada.localNome,
           });
-        } else if (validadeInfo.diasRestantes <= 3) {
+        });
+
+        // Ordena todos os lotes cronologicamente (FEFO: o que vence primeiro vem na frente)
+        todosLotes.sort((a, b) => a.diasRestantes - b.diasRestantes);
+
+        // Apenas lotes com validade próxima (<= 7 dias) ou já vencidos (< 0) disparam alerta
+        const lotesEmAlerta = todosLotes.filter((l) => l.diasRestantes <= 7);
+
+        if (lotesEmAlerta.length > 0) {
+          const loteMaisCritico = lotesEmAlerta[0];
+
+          let tipoAlertaValidade: TipoAlerta = "VALIDADE_ATENCAO";
+          if (loteMaisCritico.diasRestantes < 0) {
+            tipoAlertaValidade = "PRODUTO_VENCIDO";
+          } else if (loteMaisCritico.diasRestantes <= 3) {
+            tipoAlertaValidade = "VALIDADE_CRITICA";
+          }
+
           alertas.push({
-            id: `${prod.id}-critica`,
+            id: `${prod.id}-validade`,
             nome: prod.nome,
             categoria: prod.categoria,
             unidade: prod.unidadeMedida,
             saldoAtual: saldo,
             estoqueMinimo,
-            tipoAlerta: "VALIDADE_CRITICA",
-            dataValidade: validadeInfo.dataValidade,
-            diasRestantes: validadeInfo.diasRestantes,
-            localArmazenamento,
-          });
-        } else if (validadeInfo.diasRestantes <= 7) {
-          alertas.push({
-            id: `${prod.id}-atencao`,
-            nome: prod.nome,
-            categoria: prod.categoria,
-            unidade: prod.unidadeMedida,
-            saldoAtual: saldo,
-            estoqueMinimo,
-            tipoAlerta: "VALIDADE_ATENCAO",
-            dataValidade: validadeInfo.dataValidade,
-            diasRestantes: validadeInfo.diasRestantes,
-            localArmazenamento,
+            tipoAlerta: tipoAlertaValidade,
+            dataValidade: loteMaisCritico.dataValidade,
+            diasRestantes: loteMaisCritico.diasRestantes,
+            localArmazenamento: loteMaisCritico.localNome || localArmazenamento,
+            lote: loteMaisCritico.lote,
+            todosLotesValidade: todosLotes,
           });
         }
       }
     });
 
     return alertas;
-  }, [produtos]);
+  }, [produtos, movimentacoes]);
 
   useEffect(() => {
     setTotalAlertasPendentes(listaAlertas.length);
@@ -485,6 +514,11 @@ export default function CentralAlertasPage() {
                       <span className="text-[11px] text-slate-400">
                         • {item.localArmazenamento}
                       </span>
+                      {item.lote && (
+                        <span className="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">
+                          Lote: {item.lote}
+                        </span>
+                      )}
                     </div>
 
                     <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate">
@@ -498,7 +532,14 @@ export default function CentralAlertasPage() {
                       <div className="text-left sm:text-right">
                         <span className="text-[10px] uppercase font-bold text-slate-400">Validade</span>
                         <p className="text-xs font-extrabold text-slate-800">
-                          {new Date(item.dataValidade).toLocaleDateString("pt-BR")}
+                          {(() => {
+                            try {
+                              const [ano, mes, dia] = item.dataValidade.split("-");
+                              return `${dia}/${mes}/${ano}`;
+                            } catch {
+                              return item.dataValidade;
+                            }
+                          })()}
                         </p>
                         <p
                           className={`text-[10px] font-bold ${
@@ -529,11 +570,97 @@ export default function CentralAlertasPage() {
                         {item.saldoAtual} {item.unidade}
                       </p>
                       <span className="text-[10px] text-slate-400">
-                        mín: {item.estoqueMinimo} {item.unidade}
+                        mín: {item.estoqueMinimo !== undefined ? `${item.estoqueMinimo} ${item.unidade}` : "--"}
                       </span>
                     </div>
                   </div>
                 </div>
+
+                {/* Botão retrátil para verificar todos os lotes e vencimentos */}
+                {item.todosLotesValidade && item.todosLotesValidade.length > 1 && (
+                  <div className="mt-2.5 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => toggleLotesExpandidos(item.id)}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 transition-colors cursor-pointer group"
+                    >
+                      <Layers className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>
+                        {lotesExpandidos[item.id]
+                          ? "Ocultar lotes e vencimentos"
+                          : `Ver todos os lotes e vencimentos (${item.todosLotesValidade.length})`}
+                      </span>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-700 transition-transform duration-200 ${
+                          lotesExpandidos[item.id] ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {/* Tabela / Lista expandida de todos os lotes */}
+                    {lotesExpandidos[item.id] && (
+                      <div className="mt-2.5 bg-slate-50 border border-slate-200/80 rounded-xl p-3 space-y-2 animate-in fade-in-50 duration-200">
+                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-1 border-b border-slate-200/60">
+                          <span>Identificação do Lote</span>
+                          <span>Vencimento & Situação</span>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          {item.todosLotesValidade.map((loteItem, idx) => {
+                            const [ano, mes, dia] = (loteItem.dataValidade || "").split("-");
+                            const dataFormatada =
+                              dia && mes && ano ? `${dia}/${mes}/${ano}` : loteItem.dataValidade;
+
+                            const isLoteVencido = loteItem.diasRestantes < 0;
+                            const isLoteCritico = !isLoteVencido && loteItem.diasRestantes <= 3;
+                            const isLoteAtencao = !isLoteVencido && !isLoteCritico && loteItem.diasRestantes <= 7;
+
+                            const statusBadgeStyle = isLoteVencido
+                              ? "bg-purple-100 text-purple-900 border-purple-200"
+                              : isLoteCritico
+                              ? "bg-rose-100 text-rose-800 border-rose-200"
+                              : isLoteAtencao
+                              ? "bg-amber-100 text-amber-800 border-amber-200"
+                              : "bg-emerald-100 text-emerald-800 border-emerald-200";
+
+                            const statusTexto = isLoteVencido
+                              ? `Venceu há ${Math.abs(loteItem.diasRestantes)}d`
+                              : loteItem.diasRestantes === 0
+                              ? "Vence hoje"
+                              : isLoteCritico || isLoteAtencao
+                              ? `Vence em ${loteItem.diasRestantes}d`
+                              : `Dentro do prazo (${loteItem.diasRestantes}d)`;
+
+                            return (
+                              <div
+                                key={idx}
+                                className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-white border border-slate-100 shadow-2xs"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-slate-800">
+                                    {loteItem.lote ? `Lote ${loteItem.lote}` : "Sem lote especificado"}
+                                  </span>
+                                  {loteItem.localNome && (
+                                    <span className="text-[11px] text-slate-400">• {loteItem.localNome}</span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2.5">
+                                  <span className="font-extrabold text-slate-800">{dataFormatada}</span>
+                                  <span
+                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${statusBadgeStyle}`}
+                                  >
+                                    {statusTexto}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

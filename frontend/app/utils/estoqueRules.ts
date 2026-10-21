@@ -27,19 +27,36 @@ export function obterEstoqueMinimoPorCategoria(categoria: CategoriaAlimento | st
 }
 
 /**
+ * Obtém o estoque mínimo configurado para o produto.
+ * Se não houver quantidade mínima definida (ou for <= 0), retorna undefined para não exibir valor fictício.
+ */
+export function obterEstoqueMinimoProduto(
+  quantidadeMinima?: number | null
+): number | undefined {
+  if (quantidadeMinima !== undefined && quantidadeMinima !== null && Number(quantidadeMinima) > 0) {
+    return Number(quantidadeMinima);
+  }
+  return undefined;
+}
+
+/**
  * Determina se o insumo atingiu nível de atenção/reposição.
- * Para gramas (ex: açafrão, coloral), 500g equivale à proporção mínima.
- * ajustável ainda dependendo de algum feedback de hitalo
+ * Prioriza a quantidade mínima personalizada cadastrada pela nutricionista.
+ * Se o produto não tiver quantidade mínima configurada, entra em ATENCAO apenas se o saldo estiver zerado.
  */
 export function verificarStatusEstoque(
   saldoAtual: number,
   unidade: string,
-  categoria: CategoriaAlimento | string
+  categoria: CategoriaAlimento | string,
+  quantidadeMinima?: number | null
 ): "NORMAL" | "ATENCAO" {
-  if (unidade.toLowerCase() === "g") {
-    return saldoAtual < 500 ? "ATENCAO" : "NORMAL";
+  if (quantidadeMinima !== undefined && quantidadeMinima !== null && Number(quantidadeMinima) > 0) {
+    return saldoAtual <= Number(quantidadeMinima) ? "ATENCAO" : "NORMAL";
   }
 
-  const minimo = obterEstoqueMinimoPorCategoria(categoria);
-  return saldoAtual <= minimo ? "ATENCAO" : "NORMAL";
+  if (saldoAtual <= 0) {
+    return "ATENCAO";
+  }
+
+  return "NORMAL";
 }
