@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.6.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.5.0...gestao-refeitorio-v0.6.0) (2026-10-21)
+
+
+### Features
+
+* **consumo:** adiciona reconhecimento e destaque de validade fefo ([#242](https://github.com/ifpebj-ti/gestao-refeitorio/issues/242)) ([6479df2](https://github.com/ifpebj-ti/gestao-refeitorio/commit/6479df28477a4945ecf0a38fb7e5cfc127ef5fc4))
+* **consumo:** ocultacao automatica de insumos com estoque zerado ([#243](https://github.com/ifpebj-ti/gestao-refeitorio/issues/243)) ([fcb6c74](https://github.com/ifpebj-ti/gestao-refeitorio/commit/fcb6c747b5a846c6507233aeda3ed9163e57fcc2))
+* **consumo:** ocultação automática de insumos com estoque zerado ([#243](https://github.com/ifpebj-ti/gestao-refeitorio/issues/243)) ([0466397](https://github.com/ifpebj-ti/gestao-refeitorio/commit/0466397d37f6a2bf3d0bce2a2319713152343458))
+* **consumo:** reconhecimento e priorização de insumos por validade fefo ([#242](https://github.com/ifpebj-ti/gestao-refeitorio/issues/242)) ([205df41](https://github.com/ifpebj-ti/gestao-refeitorio/commit/205df41a2399e3927ccacb4bf8fe9677291f814c))
+* **estoque:** adiciona campo com selecao de unidade no registro de entrada ([#241](https://github.com/ifpebj-ti/gestao-refeitorio/issues/241)) ([6a509fd](https://github.com/ifpebj-ti/gestao-refeitorio/commit/6a509fdb76db33935cbef1d92fabbb6b4f298acd))
+* **estoque:** adiciona campo com selecao de unidade no registro de entrada ([#241](https://github.com/ifpebj-ti/gestao-refeitorio/issues/241)) ([82592b9](https://github.com/ifpebj-ti/gestao-refeitorio/commit/82592b9142e249bd313e697067229327a7e45b64))
+* **estoque:** permite selecionar unidade de medida na entrada inicial do insumo ([#240](https://github.com/ifpebj-ti/gestao-refeitorio/issues/240)) ([fee4751](https://github.com/ifpebj-ti/gestao-refeitorio/commit/fee47514e230558e708c118cd2c21be8e3de88a6))
+* **estoque:** permite selecionar unidade de medida na entrada inicial do insumo ([#240](https://github.com/ifpebj-ti/gestao-refeitorio/issues/240)) ([7daa82e](https://github.com/ifpebj-ti/gestao-refeitorio/commit/7daa82ee34e48822a3b0fe668bbfe38c5647aa8c))
+* restringe registro de entrada de estoque ao perfil NUTRICIONISTA ([#202](https://github.com/ifpebj-ti/gestao-refeitorio/issues/202)) ([5aaa4bb](https://github.com/ifpebj-ti/gestao-refeitorio/commit/5aaa4bb8d0ecac2a569091b027d62bf06676ebb8))
+* restringe registro de entrada de estoque ao perfil NUTRICIONISTA [#202](https://github.com/ifpebj-ti/gestao-refeitorio/issues/202) ([de8b647](https://github.com/ifpebj-ti/gestao-refeitorio/commit/de8b647f9ee6700372395442fff2ca563db4b734))
+
+
+### Bug Fixes
+
+* **consumo:** remove reatribuicao redundante de textoPrazo ([bd547c2](https://github.com/ifpebj-ti/gestao-refeitorio/commit/bd547c248b677a5eb40bdb12756cd2d687753e62))
+* **security:** atualiza follow-redirects e regras do trivyignore ([2ada17d](https://github.com/ifpebj-ti/gestao-refeitorio/commit/2ada17d706a171b5cc9f462c0499b573ecb4c40f))
+* **security:** ignora temporariamente CVE-2026-77214 do libexpat no trivy ([ea43041](https://github.com/ifpebj-ti/gestao-refeitorio/commit/ea43041752556da4ac77fbeb60f4830f1b23fb87))
+
 ## [0.5.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.4.0...gestao-refeitorio-v0.5.0) (2026-10-17)
 
 
