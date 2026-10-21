@@ -57,8 +57,40 @@ class MovimentacaoFotoServiceImplTest {
         return usuario;
     }
 
+    private static final byte[] BYTES_JPEG = { (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0x00, 0x10 };
+    private static final byte[] BYTES_PNG = { (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00 };
+
     private MockMultipartFile arquivoValido() {
-        return new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", "conteudo-fake".getBytes());
+        return new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", BYTES_JPEG);
+    }
+
+    @Test
+    void deveLancarArquivoInvalidoQuandoConteudoNaoEImagemMesmoComContentTypePermitido() {
+        UUID movimentacaoId = UUID.randomUUID();
+        Movimentacao movimentacao = movimentacaoComId(movimentacaoId);
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.png", "image/png", "texto puro".getBytes());
+
+        when(movimentacaoRepository.findById(movimentacaoId)).thenReturn(Optional.of(movimentacao));
+
+        assertThrows(ArquivoInvalidoException.class,
+                () -> movimentacaoFotoService.anexar(movimentacaoId, arquivo, responsavel()));
+
+        verify(movimentacaoFotoRepository, never()).save(any());
+    }
+
+    @Test
+    void deveGravarContentTypeDetectadoQuandoDiferenteDoDeclarado() {
+        UUID movimentacaoId = UUID.randomUUID();
+        Movimentacao movimentacao = movimentacaoComId(movimentacaoId);
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", BYTES_PNG);
+
+        when(movimentacaoRepository.findById(movimentacaoId)).thenReturn(Optional.of(movimentacao));
+        when(movimentacaoFotoRepository.findByMovimentacaoId(movimentacaoId)).thenReturn(Optional.empty());
+        when(movimentacaoFotoRepository.save(any(MovimentacaoFoto.class))).thenAnswer(chamada -> chamada.getArgument(0));
+
+        MovimentacaoFotoResponseDTO resposta = movimentacaoFotoService.anexar(movimentacaoId, arquivo, responsavel());
+
+        assertThat(resposta.contentType()).isEqualTo("image/png");
     }
 
     @Test
