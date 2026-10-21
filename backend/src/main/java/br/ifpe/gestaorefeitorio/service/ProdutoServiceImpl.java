@@ -203,6 +203,7 @@ public class ProdutoServiceImpl implements ProdutoService {
                 movimentacao.getResponsavel().getNome(),
                 movimentacao.getResponsavel().getEmail(),
                 producaoInterna != null ? producaoInterna.getSetor().getNome() : null,
-                producaoInterna != null ? producaoInterna.getResponsavelSetor() : null);
+                producaoInterna != null ? producaoInterna.getResponsavelSetor() : null,
+                movimentacao.getLote());
     }
 }

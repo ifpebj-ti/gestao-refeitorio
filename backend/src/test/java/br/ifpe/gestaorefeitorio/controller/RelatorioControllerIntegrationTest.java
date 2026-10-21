@@ -91,10 +91,10 @@ class RelatorioControllerIntegrationTest {
         return localArmazenamentoRepository.save(local);
     }
 
-    private void registrarEntrada(String token, UUID produtoId, UUID localId, String quantidade, String data,
+    private void registrarEntrada(UUID produtoId, UUID localId, String quantidade, String data,
             String valor) throws Exception {
         mockMvc.perform(post("/api/movimentacoes/entrada")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + tokenPara(Perfil.NUTRICIONISTA))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"produtoId":"%s","localId":"%s","quantidade":%s,"data":"%s","origem":"EXTERNA","valor":%s}
@@ -130,7 +130,7 @@ class RelatorioControllerIntegrationTest {
         Produto produto = criarProduto("Arroz");
         LocalArmazenamento local = criarLocal();
 
-        registrarEntrada(token, produto.getId(), local.getId(), "20", "2026-01-10", "100.00");
+        registrarEntrada(produto.getId(), local.getId(), "20", "2026-01-10", "100.00");
         registrarSaida(token, produto.getId(), local.getId(), "5", "2026-01-15");
         registrarProducaoInterna(token, produto.getId(), local.getId(), "8", "2026-01-20");
 
@@ -154,8 +154,8 @@ class RelatorioControllerIntegrationTest {
         Produto produto = criarProduto("Feijão");
         LocalArmazenamento local = criarLocal();
 
-        registrarEntrada(token, produto.getId(), local.getId(), "10", "2025-12-01", "50.00"); // antes do período
-        registrarEntrada(token, produto.getId(), local.getId(), "5", "2026-01-10", "25.00"); // dentro do período
+        registrarEntrada(produto.getId(), local.getId(), "10", "2025-12-01", "50.00"); // antes do período
+        registrarEntrada(produto.getId(), local.getId(), "5", "2026-01-10", "25.00"); // dentro do período
 
         mockMvc.perform(get("/api/relatorios/mensal")
                         .param("dataInicio", "2026-01-01")
@@ -173,7 +173,7 @@ class RelatorioControllerIntegrationTest {
         Produto produtoSemMovimentacao = criarProduto("Feijão");
         LocalArmazenamento local = criarLocal();
 
-        registrarEntrada(token, produtoComMovimentacao.getId(), local.getId(), "10", "2026-01-10", "50.00");
+        registrarEntrada(produtoComMovimentacao.getId(), local.getId(), "10", "2026-01-10", "50.00");
 
         mockMvc.perform(get("/api/relatorios/mensal")
                         .param("dataInicio", "2026-01-01")
@@ -242,7 +242,7 @@ class RelatorioControllerIntegrationTest {
         String token = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto("Arroz");
         LocalArmazenamento local = criarLocal();
-        registrarEntrada(token, produto.getId(), local.getId(), "10", "2026-01-10", "50.00");
+        registrarEntrada(produto.getId(), local.getId(), "10", "2026-01-10", "50.00");
 
         var resultado = mockMvc.perform(get("/api/relatorios/mensal/pdf")
                         .param("dataInicio", "2026-01-01")
@@ -262,7 +262,7 @@ class RelatorioControllerIntegrationTest {
         String token = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto("Arroz");
         LocalArmazenamento local = criarLocal();
-        registrarEntrada(token, produto.getId(), local.getId(), "10", "2026-01-10", "50.00");
+        registrarEntrada(produto.getId(), local.getId(), "10", "2026-01-10", "50.00");
 
         var resultado = mockMvc.perform(get("/api/relatorios/mensal/excel")
                         .param("dataInicio", "2026-01-01")
@@ -336,8 +336,8 @@ class RelatorioControllerIntegrationTest {
         Produto feijao = criarProduto("Feijão");
         LocalArmazenamento local = criarLocal();
 
-        registrarEntrada(token, arroz.getId(), local.getId(), "20", "2026-01-01", "50.00");
-        registrarEntrada(token, feijao.getId(), local.getId(), "10", "2026-01-01", "30.00");
+        registrarEntrada(arroz.getId(), local.getId(), "20", "2026-01-01", "50.00");
+        registrarEntrada(feijao.getId(), local.getId(), "10", "2026-01-01", "30.00");
         registrarSaida(token, arroz.getId(), local.getId(), "10", "2026-01-10");
         registrarSaida(token, feijao.getId(), local.getId(), "4", "2026-01-10");
         registrarSaida(token, arroz.getId(), local.getId(), "3", "2026-01-20");
@@ -361,8 +361,8 @@ class RelatorioControllerIntegrationTest {
         Produto feijao = criarProduto("Feijão");
         LocalArmazenamento local = criarLocal();
 
-        registrarEntrada(token, arroz.getId(), local.getId(), "20", "2026-01-01", "50.00");
-        registrarEntrada(token, feijao.getId(), local.getId(), "10", "2026-01-01", "30.00");
+        registrarEntrada(arroz.getId(), local.getId(), "20", "2026-01-01", "50.00");
+        registrarEntrada(feijao.getId(), local.getId(), "10", "2026-01-01", "30.00");
         registrarSaida(token, arroz.getId(), local.getId(), "10", "2026-01-10");
         registrarSaida(token, feijao.getId(), local.getId(), "4", "2026-01-10");
 
@@ -382,7 +382,7 @@ class RelatorioControllerIntegrationTest {
         Produto produto = criarProduto("Arroz");
         LocalArmazenamento local = criarLocal();
 
-        registrarEntrada(token, produto.getId(), local.getId(), "20", "2026-01-01", "50.00");
+        registrarEntrada(produto.getId(), local.getId(), "20", "2026-01-01", "50.00");
         registrarSaida(token, produto.getId(), local.getId(), "10", "2026-01-10");
         mockMvc.perform(post("/api/movimentacoes/saida")
                         .header("Authorization", "Bearer " + token)

@@ -36,7 +36,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.nullValue;
 
 /**
  * Testes de integração ponta a ponta do registro de entrada de produto
@@ -141,7 +143,7 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveRetornar201AoRegistrarEntradaValidaEAumentarSaldo() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
+        String token = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto();
         LocalArmazenamento local = criarLocal();
 
@@ -155,9 +157,61 @@ class MovimentacaoControllerIntegrationTest {
                 .andExpect(jsonPath("$.saldoAtual").value(10));
     }
 
+    private String corpoComLote(UUID produtoId, UUID localId, String lote) {
+        return """
+                {"produtoId":"%s","localId":"%s","quantidade":10,"data":"2026-01-10","origem":"EXTERNA","valor":50.00,"lote":"%s"}
+                """.formatted(produtoId, localId, lote);
+    }
+
+    @Test
+    void deveGravarLoteNaEntradaEDevolverNoExtratoDoProduto() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoComLote(produto.getId(), local.getId(), "L-2026-01")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.lote").value("L-2026-01"));
+
+        mockMvc.perform(get("/api/produtos/" + produto.getId() + "/movimentacoes")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].lote").value("L-2026-01"));
+    }
+
+    @Test
+    void deveRegistrarEntradaSemLoteComLoteNulo() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoValido(produto.getId(), local.getId())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.lote").value(nullValue()));
+    }
+
+    @Test
+    void deveRetornar400QuandoLoteExcede50Caracteres() throws Exception {
+        String token = tokenPara(Perfil.NUTRICIONISTA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoComLote(produto.getId(), local.getId(), "L".repeat(51))))
+                .andExpect(status().isBadRequest());
+    }
+
     @Test
     void deveRetornar404QuandoProdutoInexistente() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
+        String token = tokenPara(Perfil.NUTRICIONISTA);
         LocalArmazenamento local = criarLocal();
 
         mockMvc.perform(post("/api/movimentacoes/entrada")
@@ -169,7 +223,7 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveRetornar404QuandoLocalInexistente() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
+        String token = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto();
 
         mockMvc.perform(post("/api/movimentacoes/entrada")
@@ -181,7 +235,7 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveRetornar400QuandoQuantidadeZeroOuNegativa() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
+        String token = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto();
         LocalArmazenamento local = criarLocal();
 
@@ -196,7 +250,7 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveRetornar400QuandoCamposObrigatoriosAusentes() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
+        String token = tokenPara(Perfil.NUTRICIONISTA);
 
         mockMvc.perform(post("/api/movimentacoes/entrada")
                         .header("Authorization", "Bearer " + token)
@@ -219,6 +273,22 @@ class MovimentacaoControllerIntegrationTest {
     }
 
     @Test
+    void deveRetornar403QuandoPerfilCozinhaRegistraEntrada() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Produto produto = criarProduto();
+        LocalArmazenamento local = criarLocal();
+        long totalAntes = movimentacaoRepository.count();
+
+        mockMvc.perform(post("/api/movimentacoes/entrada")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpoValido(produto.getId(), local.getId())))
+                .andExpect(status().isForbidden());
+
+        assertEquals(totalAntes, movimentacaoRepository.count());
+    }
+
+    @Test
     void deveAutorizarQuandoPerfilNutricionista() throws Exception {
         String token = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto();
@@ -234,11 +304,12 @@ class MovimentacaoControllerIntegrationTest {
     @Test
     void deveRetornar201AoRegistrarSaidaValidaEReduzirSaldo() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
+        String tokenNutri = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto();
         LocalArmazenamento local = criarLocal();
 
         mockMvc.perform(post("/api/movimentacoes/entrada")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + tokenNutri)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpoValido(produto.getId(), local.getId())))
                 .andExpect(status().isCreated());
@@ -340,11 +411,12 @@ class MovimentacaoControllerIntegrationTest {
     @Test
     void deveRetornar409QuandoSaidaMaiorQueSaldoDisponivel() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
+        String tokenNutri = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto();
         LocalArmazenamento local = criarLocal();
 
         mockMvc.perform(post("/api/movimentacoes/entrada")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + tokenNutri)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpoValido(produto.getId(), local.getId(), "2")))
                 .andExpect(status().isCreated());
@@ -360,11 +432,12 @@ class MovimentacaoControllerIntegrationTest {
     @Test
     void devePermitirSaidaQuandoQuantidadeIgualAoSaldoDisponivel() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
+        String tokenNutri = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto();
         LocalArmazenamento local = criarLocal();
 
         mockMvc.perform(post("/api/movimentacoes/entrada")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + tokenNutri)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpoValido(produto.getId(), local.getId(), "2")))
                 .andExpect(status().isCreated());
@@ -380,12 +453,13 @@ class MovimentacaoControllerIntegrationTest {
     @Test
     void deveRetornar409QuandoSaldoSuficienteEmOutroLocalMasNaoNoLocalDaSaida() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
+        String tokenNutri = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto();
         LocalArmazenamento localComEstoque = criarLocal();
         LocalArmazenamento localSemEstoque = criarLocal();
 
         mockMvc.perform(post("/api/movimentacoes/entrada")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + tokenNutri)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpoValido(produto.getId(), localComEstoque.getId(), "10")))
                 .andExpect(status().isCreated());
@@ -400,11 +474,12 @@ class MovimentacaoControllerIntegrationTest {
     @Test
     void naoDevePersistirMovimentacaoQuandoSaidaBloqueadaPorSaldoInsuficiente() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
+        String tokenNutri = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto();
         LocalArmazenamento local = criarLocal();
 
         mockMvc.perform(post("/api/movimentacoes/entrada")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + tokenNutri)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpoValido(produto.getId(), local.getId(), "2")))
                 .andExpect(status().isCreated());
@@ -421,11 +496,19 @@ class MovimentacaoControllerIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(1));
     }
 
+    private static byte[] bytesJpeg() {
+        return new byte[] { (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46 };
+    }
+
+    private static byte[] bytesPng() {
+        return new byte[] { (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D };
+    }
+
     @Test
     void deveAnexarFotoValidaEDepoisRecuperarOsMesmosBytes() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
         Movimentacao movimentacao = criarMovimentacao();
-        byte[] bytesOriginais = "conteudo-fake-da-foto".getBytes();
+        byte[] bytesOriginais = bytesJpeg();
         MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", bytesOriginais);
 
         mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
@@ -454,6 +537,56 @@ class MovimentacaoControllerIntegrationTest {
     }
 
     @Test
+    void deveRetornar400AoAnexarScriptDisfarcadoDeJpg() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Movimentacao movimentacao = criarMovimentacao();
+        MockMultipartFile arquivo = new MockMultipartFile(
+                "arquivo", "foto.jpg", "image/jpeg", "#!/bin/sh\necho invadido\n".getBytes());
+
+        mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .file(arquivo)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar400AoAnexarExecutavelDisfarcadoDePng() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Movimentacao movimentacao = criarMovimentacao();
+        byte[] executavel = { 0x4D, 0x5A, (byte) 0x90, 0x00, 0x03, 0x00, 0x00, 0x00 };
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.png", "image/png", executavel);
+
+        mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .file(arquivo)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveAnexarPngValidoERecuperarComContentTypePng() throws Exception {
+        String token = tokenPara(Perfil.COZINHA);
+        Movimentacao movimentacao = criarMovimentacao();
+        byte[] bytesOriginais = bytesPng();
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.png", "image/png", bytesOriginais);
+
+        mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .file(arquivo)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.contentType").value("image/png"));
+
+        mockMvc.perform(get("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"))
+                .andExpect(content -> assertArrayEquals(bytesOriginais, content.getResponse().getContentAsByteArray()));
+    }
+
+    @Test
     void deveRetornar400AoAnexarArquivoAcimaDoLimite() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
         Movimentacao movimentacao = criarMovimentacao();
@@ -469,7 +602,7 @@ class MovimentacaoControllerIntegrationTest {
     @Test
     void deveRetornar404AoAnexarFotoEmMovimentacaoInexistente() throws Exception {
         String token = tokenPara(Perfil.COZINHA);
-        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", "conteudo".getBytes());
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", bytesJpeg());
 
         mockMvc.perform(multipart("/api/movimentacoes/" + UUID.randomUUID() + "/foto")
                         .file(arquivo)
@@ -491,7 +624,7 @@ class MovimentacaoControllerIntegrationTest {
     void deveRetornar403AoAnexarFotoComPerfilAdmin() throws Exception {
         String token = tokenPara(Perfil.ADMIN);
         Movimentacao movimentacao = criarMovimentacao();
-        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", "conteudo".getBytes());
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", bytesJpeg());
 
         mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
                         .file(arquivo)
@@ -503,7 +636,7 @@ class MovimentacaoControllerIntegrationTest {
     void deveAutorizarConsultaDeFotoParaQualquerPerfilAutenticado() throws Exception {
         String tokenCozinha = tokenPara(Perfil.COZINHA);
         Movimentacao movimentacao = criarMovimentacao();
-        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", "conteudo".getBytes());
+        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", bytesJpeg());
 
         mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
                         .file(arquivo)
@@ -518,7 +651,7 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveRetornar201ComDataValidadeAoRegistrarEntradaComDataValidadeInformada() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
+        String token = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto();
         LocalArmazenamento local = criarLocal();
 
@@ -532,7 +665,7 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveRetornar201SemDataValidadeQuandoNaoInformada() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
+        String token = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto();
         LocalArmazenamento local = criarLocal();
 
@@ -546,7 +679,7 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveRetornar400QuandoDataValidadeAnteriorADataDaMovimentacao() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
+        String token = tokenPara(Perfil.NUTRICIONISTA);
         Produto produto = criarProduto();
         LocalArmazenamento local = criarLocal();
 

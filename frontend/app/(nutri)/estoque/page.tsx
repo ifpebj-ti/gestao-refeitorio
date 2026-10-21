@@ -511,9 +511,12 @@ export default function EstoqueGeralPage() {
         else if (mov.origem === "AGROPECUARIA") origemFormatada = "Agropecuária (IFPE)";
         else if (mov.origem === "INTERNA") origemFormatada = "Produção Interna";
 
-        // Recupera fornecedor personalizado se foi digitado no momento do registro
+        // Recupera fornecedor e lote personalizados se foram digitados no momento do registro
         const fornecedorSalvo = typeof window !== "undefined" ? localStorage.getItem(`@gestao_refeitorio:mov_fornecedor_${mov.id}`) : null;
         const fornecedorFinal = mov.fornecedor || fornecedorSalvo || (mov.tipo === "ENTRADA" ? origemFormatada : undefined);
+
+        const loteSalvo = typeof window !== "undefined" ? localStorage.getItem(`@gestao_refeitorio:mov_lote_${mov.id}`) : null;
+        const loteFinal = mov.lote || loteSalvo || undefined;
 
         let saidaFormatada = "Consumo";
         if (mov.tipoSaida === "CONSUMO") saidaFormatada = "Consumo das Refeições";
@@ -557,6 +560,7 @@ export default function EstoqueGeralPage() {
           responsavel: responsavelFormatado, 
           fornecedor: mov.tipo === "ENTRADA" ? fornecedorFinal : undefined,
           localArmazenamento: localNome,
+          lote: loteFinal,
           validade: validadeFormatada,
           valor: mov.valor,
           saldoAtual: saldoReal,
@@ -716,14 +720,20 @@ export default function EstoqueGeralPage() {
           valor: valorTotal,
           dataValidade: validadeEntrada || undefined,
           fornecedor: fornecedorFinal,
+          lote: loteEntrada?.trim() || undefined,
         },
         arquivoFotoReal
       );
 
-      // Salva o fornecedor digitado associado ao ID da movimentação
-      if (res?.id && fornecedorFinal) {
+      // Salva o fornecedor e o lote digitados associados ao ID da movimentação
+      if (res?.id) {
         try {
-          localStorage.setItem(`@gestao_refeitorio:mov_fornecedor_${res.id}`, fornecedorFinal);
+          if (fornecedorFinal) {
+            localStorage.setItem(`@gestao_refeitorio:mov_fornecedor_${res.id}`, fornecedorFinal);
+          }
+          if (loteEntrada?.trim()) {
+            localStorage.setItem(`@gestao_refeitorio:mov_lote_${res.id}`, loteEntrada.trim());
+          }
         } catch (e) {}
       }
 
@@ -1470,10 +1480,10 @@ export default function EstoqueGeralPage() {
 
               <div>
                 <span className="text-slate-400 font-bold block text-[10px] uppercase tracking-wider">
-                  Local de Guarda
+                  Lote
                 </span>
                 <span className="font-semibold text-slate-700 mt-0.5 block">
-                  {itemAuditoriaSelecionado.localArmazenamento || "Despensa Geral"}
+                  {itemAuditoriaSelecionado.lote || "--"}
                 </span>
               </div>
 
@@ -1484,17 +1494,6 @@ export default function EstoqueGeralPage() {
                   </span>
                   <span className="font-bold text-emerald-800 mt-0.5 block">
                     {itemAuditoriaSelecionado.validade}
-                  </span>
-                </div>
-              )}
-
-              {itemAuditoriaSelecionado.lote && (
-                <div>
-                  <span className="text-slate-400 font-bold block text-[10px] uppercase tracking-wider">
-                    Nº do Lote
-                  </span>
-                  <span className="font-semibold text-slate-700 mt-0.5 block">
-                    {itemAuditoriaSelecionado.lote}
                   </span>
                 </div>
               )}

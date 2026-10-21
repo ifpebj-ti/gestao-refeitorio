@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import Link from "next/link";
 import {
   Calendar,
+  CalendarClock,
   Plus,
   Minus,
   CheckCircle2,
@@ -20,7 +21,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { produtoService, Produto } from "@/lib/produtos";
-import { registrarSaidaApi } from "@/lib/movimentacoes";
+import { registrarSaidaApi, listarHistoricoApi, MovimentacaoResponse } from "@/lib/movimentacoes";
 
 interface ItemFicha {
   id: string;
@@ -34,6 +35,81 @@ interface ItemFicha {
   categoria: string;
   planejadoCardapio?: boolean;
   quantidadePlanejada?: number;
+  dataValidadeMaisProxima?: string;
+  diasParaVencer?: number;
+  totalLotesComValidade?: number;
+  statusValidade?: "VENCIDO" | "CRITICA" | "ATENCAO" | "REGULAR";
+}
+
+export interface InfoValidadeFEFO {
+  dataValidadeMaisProxima?: string;
+  diasParaVencer?: number;
+  totalLotesComValidade?: number;
+  statusValidade?: "VENCIDO" | "CRITICA" | "ATENCAO" | "REGULAR";
+}
+
+export function formatarDataBr(dataIso?: string): string {
+  if (!dataIso) return "";
+  const partes = dataIso.split("-");
+  if (partes.length === 3) {
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+  }
+  return dataIso;
+}
+
+export function calcularValidadeFEFO(
+  produtoId: string,
+  historico: MovimentacaoResponse[]
+): InfoValidadeFEFO {
+  if (!historico || historico.length === 0) return {};
+
+  const entradasValidas = historico.filter(
+    (m) => m.produtoId === produtoId && m.tipo === "ENTRADA" && Boolean(m.dataValidade)
+  );
+
+  if (entradasValidas.length === 0) return {};
+
+  const datasUnicas = Array.from(
+    new Set(entradasValidas.map((e) => e.dataValidade as string))
+  ).sort();
+
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+
+  // Seleciona a primeira data de validade >= hoje (menor prazo que ainda não expirou)
+  let dataEscolhida = datasUnicas.find((d) => {
+    const [ano, mes, dia] = d.split("-").map(Number);
+    const dataObj = new Date(ano, mes - 1, dia);
+    return dataObj >= hoje;
+  });
+
+  // Se todas já venceram, pega a mais recente entre elas
+  if (!dataEscolhida && datasUnicas.length > 0) {
+    dataEscolhida = datasUnicas[datasUnicas.length - 1];
+  }
+
+  if (!dataEscolhida) return {};
+
+  const [ano, mes, dia] = dataEscolhida.split("-").map(Number);
+  const dataObj = new Date(ano, mes - 1, dia);
+  const diffTime = dataObj.getTime() - hoje.getTime();
+  const diffDias = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  let statusValidade: "VENCIDO" | "CRITICA" | "ATENCAO" | "REGULAR" = "REGULAR";
+  if (diffDias < 0) {
+    statusValidade = "VENCIDO";
+  } else if (diffDias <= 3) {
+    statusValidade = "CRITICA";
+  } else if (diffDias <= 7) {
+    statusValidade = "ATENCAO";
+  }
+
+  return {
+    dataValidadeMaisProxima: dataEscolhida,
+    diasParaVencer: diffDias,
+    totalLotesComValidade: datasUnicas.length,
+    statusValidade,
+  };
 }
 
 export function obterUnidadesDisponiveis(unidadeBase: string): string[] {
@@ -458,6 +534,66 @@ const encontrarPlanejado = (prod: Produto, planejados: InsumoPlanejadoCardapio[]
   return total > 0 ? Number(total.toFixed(3)) : undefined;
 };
 
+interface ValidadeFEFOProps {
+  dataValidadeMaisProxima?: string;
+  statusValidade?: "VENCIDO" | "CRITICA" | "ATENCAO" | "REGULAR";
+  diasParaVencer?: number;
+  totalLotesComValidade?: number;
+}
+
+function BadgeValidadeFEFO({
+  dataValidadeMaisProxima,
+  statusValidade,
+  diasParaVencer,
+  totalLotesComValidade,
+}: ValidadeFEFOProps) {
+  if (!dataValidadeMaisProxima) return null;
+
+  const dataFmt = formatarDataBr(dataValidadeMaisProxima);
+  const status = statusValidade || "REGULAR";
+  const temMultiplosLotes = (totalLotesComValidade || 0) > 1;
+
+  let estiloBadge = "bg-slate-100 text-slate-700 border-slate-200";
+  let textoPrazo = `Validade: ${dataFmt}`;
+
+  if (status === "VENCIDO") {
+    estiloBadge = "bg-rose-50 text-rose-700 border-rose-200 font-semibold";
+    textoPrazo = `Venceu em ${dataFmt}`;
+  } else if (status === "CRITICA") {
+    estiloBadge = "bg-rose-100 text-rose-800 border-rose-300 font-bold";
+    textoPrazo =
+      diasParaVencer === 0
+        ? `Vence HOJE (${dataFmt})`
+        : diasParaVencer === 1
+        ? `Vence AMANHÃ (${dataFmt})`
+        : `Vence em ${diasParaVencer}d (${dataFmt})`;
+  } else if (status === "ATENCAO") {
+    estiloBadge = "bg-amber-50 text-amber-800 border-amber-300 font-semibold";
+    textoPrazo = `Vence em ${diasParaVencer}d (${dataFmt})`;
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap mt-1">
+      <span
+        title="Critério FEFO (Primeiro que Vence, Primeiro que Sai)"
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] leading-tight ${estiloBadge}`}
+      >
+        <CalendarClock className="w-3 h-3 shrink-0" />
+        <span>{textoPrazo}</span>
+      </span>
+
+      {temMultiplosLotes && (
+        <span
+          title={`${totalLotesComValidade} lotes com validades distintas no estoque. Consumo orientado pelo critério FEFO.`}
+          className="text-[10px] font-medium text-slate-400"
+        >
+          • Priorizando este lote (FEFO)
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function ConsumoDiarioPage() {
   const { perfil } = useAuth();
   const isNutricionista = perfil === "NUTRICIONISTA";
@@ -501,7 +637,8 @@ export default function ConsumoDiarioPage() {
 
   // Estados de busca rápida e filtros da tabela da Cozinha
   const [termoBusca, setTermoBusca] = useState("");
-  const [apenasComEstoque, setApenasComEstoque] = useState(false);
+  const [apenasComEstoque, setApenasComEstoque] = useState(true);
+  const [mapaValidades, setMapaValidades] = useState<Record<string, InfoValidadeFEFO>>({});
 
   // Dados exclusivos de visualização enxuta para o Nutricionista
   const [consumoNutri, setConsumoNutri] = useState<ConsumoRefeicaoVisualizacao | null>(null);
@@ -523,8 +660,17 @@ export default function ConsumoDiarioPage() {
         }
       } catch {}
 
-      const catalogo = await produtoService.listar();
+      const [catalogo, historico] = await Promise.all([
+        produtoService.listar(),
+        listarHistoricoApi().catch(() => [] as MovimentacaoResponse[]),
+      ]);
       setCatalogoBase(catalogo);
+
+      const mapaVal: Record<string, InfoValidadeFEFO> = {};
+      catalogo.forEach((prod) => {
+        mapaVal[prod.id] = calcularValidadeFEFO(prod.id, historico);
+      });
+      setMapaValidades(mapaVal);
 
       const planejados = obterInsumosPlanejadosDoCardapio(dataRegistro, tipoRefeicao);
 
@@ -536,6 +682,7 @@ export default function ConsumoDiarioPage() {
             const ehPlan = qtdPlan !== undefined && qtdPlan > 0;
             const saldo = typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0;
             const undBase = prod.unidadeMedida || "Und";
+            const infoVal = mapaVal[prod.id] || {};
             return {
               id: prod.id,
               nome: prod.nome,
@@ -548,6 +695,10 @@ export default function ConsumoDiarioPage() {
               categoria: prod.categoria,
               planejadoCardapio: ehPlan,
               quantidadePlanejada: ehPlan ? qtdPlan : undefined,
+              dataValidadeMaisProxima: infoVal.dataValidadeMaisProxima,
+              diasParaVencer: infoVal.diasParaVencer,
+              totalLotesComValidade: infoVal.totalLotesComValidade,
+              statusValidade: infoVal.statusValidade,
             };
           })
       );
@@ -578,6 +729,7 @@ export default function ConsumoDiarioPage() {
           const ehPlan = qtdPlan !== undefined && qtdPlan > 0;
           const saldo = typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0;
           const undBase = prod.unidadeMedida || "Und";
+          const infoVal = mapaValidades[prod.id] || {};
           return {
             id: prod.id,
             nome: prod.nome,
@@ -590,10 +742,14 @@ export default function ConsumoDiarioPage() {
             categoria: prod.categoria,
             planejadoCardapio: ehPlan,
             quantidadePlanejada: ehPlan ? qtdPlan : undefined,
+            dataValidadeMaisProxima: infoVal.dataValidadeMaisProxima,
+            diasParaVencer: infoVal.diasParaVencer,
+            totalLotesComValidade: infoVal.totalLotesComValidade,
+            statusValidade: infoVal.statusValidade,
           };
         })
     );
-  }, [dataRegistro, tipoRefeicao, catalogoBase]);
+  }, [dataRegistro, tipoRefeicao, catalogoBase, mapaValidades]);
 
   const MSG_CARDAPIO_PADRAO = "Nenhum cardápio cadastrado para esta refeição. O nutricionista pode definir no planejamento semanal.";
   const [cardapioAtual, setCardapioAtual] = useState<string>(MSG_CARDAPIO_PADRAO);
@@ -744,6 +900,7 @@ export default function ConsumoDiarioPage() {
               const ehPlan = qtdPlan !== undefined && qtdPlan > 0;
               const saldo = typeof prod.saldoTotal === "number" ? prod.saldoTotal : 0;
               const undBase = prod.unidadeMedida || "Und";
+              const infoVal = mapaValidades[prod.id] || {};
               return {
                 id: prod.id,
                 nome: prod.nome,
@@ -756,6 +913,10 @@ export default function ConsumoDiarioPage() {
                 categoria: prod.categoria,
                 planejadoCardapio: ehPlan,
                 quantidadePlanejada: ehPlan ? qtdPlan : undefined,
+                dataValidadeMaisProxima: infoVal.dataValidadeMaisProxima,
+                diasParaVencer: infoVal.diasParaVencer,
+                totalLotesComValidade: infoVal.totalLotesComValidade,
+                statusValidade: infoVal.statusValidade,
               };
             })
         );
@@ -763,7 +924,7 @@ export default function ConsumoDiarioPage() {
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [catalogoBase, dataRegistro, tipoRefeicao]);
+  }, [catalogoBase, dataRegistro, tipoRefeicao, mapaValidades]);
 
   useEffect(() => {
     carregarDescricaoCardapio(dataRegistro, tipoRefeicao);
@@ -993,20 +1154,29 @@ export default function ConsumoDiarioPage() {
 
   const itensExibicao = useMemo(() => {
     return itens.filter((item) => {
-      // 1. Filtro de estoque
-      if (apenasComEstoque && item.saldoTotal <= 0 && item.quantidadeDigitada <= 0) {
+      // 1. Se possuir quantidade preenchida, nunca oculta acidentalmente
+      if (item.quantidadeDigitada > 0) {
+        if (termoBusca.trim() !== "") {
+          return item.nome.toLowerCase().includes(termoBusca.toLowerCase().trim());
+        }
+        return true;
+      }
+
+      // 2. Se o usuário digitar no campo de busca, permite encontrar o insumo mesmo com estoque zerado
+      if (termoBusca.trim() !== "") {
+        return item.nome.toLowerCase().includes(termoBusca.toLowerCase().trim());
+      }
+
+      // 3. Oculta automaticamente itens com estoque zerado por padrão
+      if (apenasComEstoque && item.saldoTotal <= 0) {
         return false;
       }
-      // 2. Filtro de busca textual
-      if (termoBusca.trim() !== "") {
-        const termo = termoBusca.toLowerCase().trim();
-        const nomeMatch = item.nome.toLowerCase().includes(termo);
-        if (!nomeMatch) return false;
-      }
+
       return true;
     });
   }, [itens, apenasComEstoque, termoBusca]);
 
+  const totalZeradosOcultos = itens.filter((i) => i.saldoTotal <= 0 && i.quantidadeDigitada <= 0).length;
   const totalLancados = itens.filter((i) => i.quantidadeDigitada > 0).length;
 
   return (
@@ -1151,7 +1321,15 @@ export default function ConsumoDiarioPage() {
                     {consumoNutri.itens.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3.5 px-4 sm:px-6 font-bold text-slate-800">
-                          {item.nome}
+                          <div>{item.nome}</div>
+                          {mapaValidades[item.id]?.dataValidadeMaisProxima && (
+                            <BadgeValidadeFEFO
+                              dataValidadeMaisProxima={mapaValidades[item.id].dataValidadeMaisProxima}
+                              statusValidade={mapaValidades[item.id].statusValidade}
+                              diasParaVencer={mapaValidades[item.id].diasParaVencer}
+                              totalLotesComValidade={mapaValidades[item.id].totalLotesComValidade}
+                            />
+                          )}
                         </td>
                         <td className="py-3.5 px-4 sm:px-6 text-right font-extrabold text-emerald-700 text-sm sm:text-base">
                           {item.quantidadeUsada} {item.unidade}
@@ -1265,22 +1443,22 @@ export default function ConsumoDiarioPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
                 {/* Barra de Filtros e Busca no Topo da Tabela */}
-                <div className="p-3 sm:px-4 sm:py-3 bg-slate-50/90 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+                <div className="p-2 sm:px-4 sm:py-3 bg-slate-50/90 border-b border-slate-200 flex flex-row items-center justify-between gap-2 sm:gap-3">
                   {/* Campo de Busca Rápida */}
-                  <div className="relative flex-1 max-w-md">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <div className="relative flex-1 min-w-0 max-w-md">
+                    <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={termoBusca}
                       onChange={(e) => setTermoBusca(e.target.value)}
-                      placeholder="Buscar insumo na lista (ex: Açúcar, Alho, Frango, Sal)..."
-                      className="w-full pl-9 pr-8 py-1.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-2xs"
+                      placeholder="Buscar insumo..."
+                      className="w-full pl-8 sm:pl-9 pr-7 sm:pr-8 py-1.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-2xs truncate"
                     />
                     {termoBusca && (
                       <button
                         type="button"
                         onClick={() => setTermoBusca("")}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -1288,19 +1466,29 @@ export default function ConsumoDiarioPage() {
                   </div>
 
                   {/* Filtro simples: Ocultar sem estoque e contador discreto */}
-                  <div className="flex items-center gap-3 self-start md:self-auto">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer bg-white px-3 py-1.5 border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs">
+                  <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+                    <label
+                      title="Ocultar insumos sem estoque"
+                      className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-semibold text-slate-600 cursor-pointer bg-white px-2 sm:px-2.5 py-1 sm:py-1.5 border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs whitespace-nowrap"
+                    >
                       <input
                         type="checkbox"
                         checked={apenasComEstoque}
                         onChange={(e) => setApenasComEstoque(e.target.checked)}
-                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer w-3.5 h-3.5"
+                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer w-3 h-3 sm:w-3.5 sm:h-3.5"
                       />
-                      <span>Ocultar sem estoque</span>
+                      <span>
+                        <span className="hidden sm:inline">Ocultar </span>sem estoque
+                      </span>
+                      {totalZeradosOcultos > 0 && apenasComEstoque && (
+                        <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 bg-slate-100 px-1 sm:px-1.5 py-0.5 rounded-full">
+                          {totalZeradosOcultos}
+                        </span>
+                      )}
                     </label>
 
                     {totalLancados > 0 && (
-                      <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
+                      <span className="text-[11px] sm:text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-1 rounded-xl border border-emerald-200 whitespace-nowrap">
                         {totalLancados} preenchido{totalLancados > 1 ? "s" : ""}
                       </span>
                     )}
@@ -1352,6 +1540,12 @@ export default function ConsumoDiarioPage() {
                                   </span>
                                 )}
                               </div>
+                              <BadgeValidadeFEFO
+                                dataValidadeMaisProxima={item.dataValidadeMaisProxima}
+                                statusValidade={item.statusValidade}
+                                diasParaVencer={item.diasParaVencer}
+                                totalLotesComValidade={item.totalLotesComValidade}
+                              />
                             </div>
 
                             {/* Dropdown de Unidade de Medida Organizado */}
@@ -1520,6 +1714,12 @@ export default function ConsumoDiarioPage() {
                                         </span>
                                       )}
                                     </div>
+                                    <BadgeValidadeFEFO
+                                      dataValidadeMaisProxima={item.dataValidadeMaisProxima}
+                                      statusValidade={item.statusValidade}
+                                      diasParaVencer={item.diasParaVencer}
+                                      totalLotesComValidade={item.totalLotesComValidade}
+                                    />
                                   </div>
                                 </div>
                               </td>
