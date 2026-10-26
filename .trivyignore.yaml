@@ -1,4 +1,14 @@
 vulnerabilities:
+  - id: CVE-2026-111497
+    statement: >-
+      Google Brotli buffer overflow in base container image. The frontend serves static
+      Next.js assets and does not decompress untrusted external Brotli streams.
+    expired_at: 2026-11-30
+  - id: CVE-2026-109869
+    statement: >-
+      Transitive dependency bundled in official node image (undici). npm is used only
+      as process launcher and does not handle external stream connections.
+    expired_at: 2026-11-30
   - id: CVE-2026-102276
     statement: >-
       Transitive dependency bundled by the official node:26-alpine image (brace-expansion). npm is
