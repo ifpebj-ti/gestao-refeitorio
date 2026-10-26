@@ -1,6 +1,6 @@
 import axios from "axios";
 import {
-  STORAGE_TOKEN_KEY,
+  getToken,
   isTokenExpirado,
   limparSessaoLocal,
   notificarSessaoExpirada,
@@ -11,11 +11,14 @@ const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
 export const api = axios.create({
   baseURL,
+  withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
+  config.withCredentials = true;
+
   if (typeof window !== "undefined") {
-    const token = localStorage.getItem(STORAGE_TOKEN_KEY);
+    const token = getToken();
     if (token) {
       if (isTokenExpirado(token)) {
         limparSessaoLocal();
@@ -36,4 +39,4 @@ api.interceptors.response.use(
     }
     return Promise.reject(error);
   }
-);
+);

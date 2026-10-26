@@ -2,6 +2,7 @@ package br.ifpe.gestaorefeitorio.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -28,22 +29,34 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
             HttpServletResponse response,
             FilterChain chain) throws ServletException, IOException {
-        String header = request.getHeader("Authorization");
+        String token = extrairToken(request);
 
-        if (header != null && header.startsWith("Bearer ")) {
-            String token = header.substring(7);
-            if (jwtService.tokenValido(token)) {
-                String email = jwtService.extrairEmail(token);
-                usuarioRepository.findByEmail(email)
-                        .filter(Usuario::isAtivo)
-                        .ifPresent(usuario -> {
-                            var authority = new SimpleGrantedAuthority("ROLE_" + usuario.getPerfil().name());
-                            var auth = new UsernamePasswordAuthenticationToken(
-                                    usuario, null, List.of(authority));
-                            SecurityContextHolder.getContext().setAuthentication(auth);
-                        });
-            }
+        if (token != null && jwtService.tokenValido(token)) {
+            String email = jwtService.extrairEmail(token);
+            usuarioRepository.findByEmail(email)
+                    .filter(Usuario::isAtivo)
+                    .ifPresent(usuario -> {
+                        var authority = new SimpleGrantedAuthority("ROLE_" + usuario.getPerfil().name());
+                        var auth = new UsernamePasswordAuthenticationToken(
+                                usuario, null, List.of(authority));
+                        SecurityContextHolder.getContext().setAuthentication(auth);
+                    });
         }
         chain.doFilter(request, response);
+    }
+
+    private String extrairToken(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("token".equals(cookie.getName()) || "jwt_token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
     }
 }

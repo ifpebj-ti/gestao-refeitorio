@@ -1,4 +1,7 @@
-export const STORAGE_TOKEN_KEY = "@gestao_refeitorio:token";
+let inMemoryToken: string | null = null;
+
+export const SESSION_TOKEN_KEY = "@gestao_refeitorio:token_session";
+export const STORAGE_TOKEN_KEY = "@gestao_refeitorio:token"; // Mantido para limpeza automática de legados
 export const STORAGE_USER_KEY = "@gestao_refeitorio:user";
 export const STORAGE_PERFIL_KEY = "@gestao_refeitorio:perfil_ativo";
 export const EVENTO_SESSAO_EXPIRADA = "gestao_refeitorio:sessao_expirada";
@@ -53,7 +56,6 @@ export function isTokenExpirado(token: string | null): boolean {
 
   const payload = decodificarPayloadJwt(token);
   if (!payload || typeof payload.exp !== "number") {
-    // Se o token não tiver claim de expiração ou for inválido, considera expirado por segurança
     return true;
   }
 
@@ -63,15 +65,78 @@ export function isTokenExpirado(token: string | null): boolean {
 }
 
 /**
- * Limpa todos os dados da sessão local no localStorage.
+ * Obtém o token JWT ativo em memória ou sessão volátil da aba (sessionStorage).
+ * Garante que o token NUNCA seja lido de ou mantido no localStorage em texto puro.
+ */
+export function getToken(): string | null {
+  if (inMemoryToken) {
+    if (isTokenExpirado(inMemoryToken)) {
+      limparSessaoLocal();
+      notificarSessaoExpirada();
+      return null;
+    }
+    return inMemoryToken;
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      // Remove resíduo legado do localStorage caso ainda exista
+      if (localStorage.getItem(STORAGE_TOKEN_KEY)) {
+        localStorage.removeItem(STORAGE_TOKEN_KEY);
+      }
+
+      const sessaoToken = sessionStorage.getItem(SESSION_TOKEN_KEY);
+      if (sessaoToken) {
+        if (isTokenExpirado(sessaoToken)) {
+          limparSessaoLocal();
+          notificarSessaoExpirada();
+          return null;
+        }
+        inMemoryToken = sessaoToken;
+        return inMemoryToken;
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Salva o token JWT de forma protegida contra XSS no armazenamento em memória e sessão volátil da aba.
+ * Purga ativamente o token do localStorage permanente.
+ */
+export function salvarSessaoToken(token: string | null): void {
+  inMemoryToken = token;
+  if (typeof window === "undefined") return;
+
+  try {
+    // Purga qualquer token do localStorage
+    localStorage.removeItem(STORAGE_TOKEN_KEY);
+
+    if (token) {
+      sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+    } else {
+      sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    }
+  } catch (e) {
+    console.error("Erro ao salvar token de sessão:", e);
+  }
+}
+
+/**
+ * Limpa todos os dados da sessão local (memória, sessionStorage e dados públicos do localStorage).
  */
 export function limparSessaoLocal(): void {
+  inMemoryToken = null;
   if (typeof window === "undefined") return;
 
   try {
     localStorage.removeItem(STORAGE_TOKEN_KEY);
     localStorage.removeItem(STORAGE_USER_KEY);
     localStorage.removeItem(STORAGE_PERFIL_KEY);
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
   } catch (e) {
     console.error("Erro ao limpar sessão local:", e);
   }

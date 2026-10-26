@@ -1,6 +1,5 @@
 import {
-  STORAGE_TOKEN_KEY,
-  isTokenExpirado,
+  getToken as getAuthToken,
   limparSessaoLocal,
   notificarSessaoExpirada,
   tratarSessaoExpiradaSe401,
@@ -28,11 +27,8 @@ export interface ConsumoDiarioDTO {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getToken(): string {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem(STORAGE_TOKEN_KEY)
-      : null;
-  if (!token || isTokenExpirado(token)) {
+  const token = getAuthToken();
+  if (!token) {
     limparSessaoLocal();
     notificarSessaoExpirada();
     throw new Error(
@@ -51,7 +47,11 @@ export async function buscarRelatorioMensal(
   const token = getToken();
   const res = await fetch(
     `${BASE_URL}/relatorios/mensal?dataInicio=${dataInicio}&dataFim=${dataFim}`,
-    { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
+      cache: "no-store",
+    }
   );
   if (!res.ok) {
     tratarSessaoExpiradaSe401(res.status);
@@ -70,7 +70,10 @@ export async function exportarRelatorioPdf(
   const token = getToken();
   const res = await fetch(
     `${BASE_URL}/relatorios/mensal/pdf?dataInicio=${dataInicio}&dataFim=${dataFim}`,
-    { headers: { Authorization: `Bearer ${token}` } }
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
+    }
   );
   if (!res.ok) {
     tratarSessaoExpiradaSe401(res.status);
@@ -94,7 +97,10 @@ export async function exportarRelatorioExcel(
   const token = getToken();
   const res = await fetch(
     `${BASE_URL}/relatorios/mensal/excel?dataInicio=${dataInicio}&dataFim=${dataFim}`,
-    { headers: { Authorization: `Bearer ${token}` } }
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
+    }
   );
   if (!res.ok) {
     tratarSessaoExpiradaSe401(res.status);
@@ -121,6 +127,7 @@ export async function buscarGraficoConsumo(
   if (produtoId) params.append("produtoId", produtoId);
   const res = await fetch(`${BASE_URL}/relatorios/consumo?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
     cache: "no-store",
   });
   if (!res.ok) {

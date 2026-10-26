@@ -30,7 +30,8 @@ interface AuthContextType {
   dispensarBannerAlertas: () => void;
 }
 import {
-  STORAGE_TOKEN_KEY,
+  getToken,
+  salvarSessaoToken,
   STORAGE_USER_KEY,
   STORAGE_PERFIL_KEY,
   EVENTO_SESSAO_EXPIRADA,
@@ -102,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Carrega dados locais na inicialização validando se o token ainda não expirou
   useEffect(() => {
     try {
-      const tokenSalvo = localStorage.getItem(STORAGE_TOKEN_KEY);
+      const tokenSalvo = getToken();
       const userSalvo = localStorage.getItem(STORAGE_USER_KEY);
       const perfilSalvo = localStorage.getItem(STORAGE_PERFIL_KEY) as PerfilUsuario | null;
 
@@ -160,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const verificarValidadeAtiva = () => {
       if (isRotaPublica()) return;
       try {
-        const tokenAtual = localStorage.getItem(STORAGE_TOKEN_KEY);
+        const tokenAtual = getToken();
         if (tokenAtual && isTokenExpirado(tokenAtual)) {
           handleSessaoExpirada();
         }
@@ -170,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener(EVENTO_SESSAO_EXPIRADA, handleSessaoExpirada);
 
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_TOKEN_KEY && !e.newValue) {
+      if (e.key === STORAGE_USER_KEY && !e.newValue) {
         handleSessaoExpirada();
       }
     };
@@ -206,6 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "include",
       body: JSON.stringify({ idToken }),
     });
 
@@ -227,7 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPerfil(data.perfil);
     setAutenticado(true);
 
-    localStorage.setItem(STORAGE_TOKEN_KEY, data.token);
+    salvarSessaoToken(data.token);
     localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(dadosUsuario));
     localStorage.setItem(STORAGE_PERFIL_KEY, data.perfil);
 
@@ -238,7 +240,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+      await fetch(`${baseUrl}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      }).catch(() => {});
+    } catch {}
+
     limparSessaoLocal();
     setToken(null);
     setUsuario(null);
