@@ -112,6 +112,7 @@ export default function EstoqueGeralPage() {
   const [loteEntrada, setLoteEntrada] = useState("");
   const [fotoMercadoria, setFotoMercadoria] = useState<string | null>(null);
   const [arquivoFotoReal, setArquivoFotoReal] = useState<File | null>(null);
+  const [erroFotoMercadoria, setErroFotoMercadoria] = useState<string | null>(null);
   const [salvandoEntrada, setSalvandoEntrada] = useState(false);
   const [erroEntrada, setErroEntrada] = useState<string | null>(null);
   const [sucessoFeedback, setSucessoFeedback] = useState(false);
@@ -646,12 +647,14 @@ export default function EstoqueGeralPage() {
     setLoteEntrada("");
     setFotoMercadoria(null);
     setArquivoFotoReal(null);
+    setErroFotoMercadoria(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const removerFoto = () => {
     setFotoMercadoria(null);
     setArquivoFotoReal(null);
+    setErroFotoMercadoria(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -706,6 +709,19 @@ export default function EstoqueGeralPage() {
     const valorTotal = Number((qtdConvertida * precoUnitario).toFixed(2)) || 0.01;
 
     const hojeIso = new Date().toISOString().split("T")[0];
+
+    if (arquivoFotoReal) {
+      const MAX_SIZE = 5 * 1024 * 1024;
+      const tiposPermitidos = ["image/jpeg", "image/png"];
+      const extensoesPermitidas = [".jpg", ".jpeg", ".png"];
+      const nomeMinusculo = arquivoFotoReal.name.toLowerCase();
+      const extensaoValida = extensoesPermitidas.some((ext) => nomeMinusculo.endsWith(ext));
+
+      if (arquivoFotoReal.size > MAX_SIZE || !tiposPermitidos.includes(arquivoFotoReal.type) || !extensaoValida) {
+        setErroEntrada("A foto anexada excede o limite de 5 MB ou não é uma imagem JPEG/PNG válida.");
+        return;
+      }
+    }
 
     try {
       setSalvandoEntrada(true);
@@ -1265,7 +1281,9 @@ export default function EstoqueGeralPage() {
                     <Camera className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                     <span>Foto / Canhoto (Opcional)</span>
                   </label>
-                  <div className="w-full h-[42px] border border-slate-300 rounded-xl px-3 flex items-center justify-center hover:bg-slate-50 transition-colors">
+                  <div className={`w-full h-[42px] border rounded-xl px-3 flex items-center justify-center hover:bg-slate-50 transition-colors ${
+                    erroFotoMercadoria ? "border-rose-300 bg-rose-50/20" : "border-slate-300"
+                  }`}>
                     {fotoMercadoria ? (
                       <div className="w-full flex items-center justify-between text-xs text-emerald-800 font-bold bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
                         <div className="flex items-center gap-2 truncate">
@@ -1286,12 +1304,37 @@ export default function EstoqueGeralPage() {
                         <span>Fotografar ou anexar canhoto</span>
                         <input
                           type="file"
-                          accept="image/*"
+                          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                           ref={fileInputRef}
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
+                              setErroFotoMercadoria(null);
+                              const tiposPermitidos = ["image/jpeg", "image/png"];
+                              const extensoesPermitidas = [".jpg", ".jpeg", ".png"];
+                              const nomeMinusculo = file.name.toLowerCase();
+                              const extensaoValida = extensoesPermitidas.some((ext) =>
+                                nomeMinusculo.endsWith(ext)
+                              );
+
+                              if (!tiposPermitidos.includes(file.type) || !extensaoValida) {
+                                setErroFotoMercadoria(
+                                  "Formato inválido! Envie apenas fotos nos formatos .jpg, .jpeg ou .png."
+                                );
+                                removerFoto();
+                                return;
+                              }
+
+                              const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+                              if (file.size > MAX_SIZE) {
+                                setErroFotoMercadoria(
+                                  "Arquivo muito grande! O tamanho máximo permitido para a foto é de 5 MB."
+                                );
+                                removerFoto();
+                                return;
+                              }
+
                               setArquivoFotoReal(file);
                               setFotoMercadoria(URL.createObjectURL(file));
                             }
@@ -1300,6 +1343,12 @@ export default function EstoqueGeralPage() {
                       </label>
                     )}
                   </div>
+                  {erroFotoMercadoria && (
+                    <div className="flex items-center gap-1.5 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[11px] font-semibold text-rose-700">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+                      <span>{erroFotoMercadoria}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
