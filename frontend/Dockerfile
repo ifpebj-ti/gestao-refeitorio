@@ -13,8 +13,8 @@ RUN npm run build
 
 FROM node:22-alpine
 WORKDIR /app
-RUN apk update && apk upgrade --no-cache
+RUN apk update && apk upgrade --no-cache && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 COPY --chown=node:node --from=build /app ./
 USER node
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["node", "node_modules/next/dist/bin/next", "start"]
