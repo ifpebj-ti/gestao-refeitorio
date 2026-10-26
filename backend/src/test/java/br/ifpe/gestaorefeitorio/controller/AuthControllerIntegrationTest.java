@@ -21,6 +21,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -76,9 +77,17 @@ class AuthControllerIntegrationTest {
                                 {"idToken":"token-valido"}
                                 """))
                 .andExpect(status().isOk())
+                .andExpect(header().exists("Set-Cookie"))
                 .andExpect(jsonPath("$.token").isNotEmpty())
                 .andExpect(jsonPath("$.email").value(email))
                 .andExpect(jsonPath("$.perfil").value("NUTRICIONISTA"));
+    }
+
+    @Test
+    void deveRetornar204ELimparCookieNoLogout() throws Exception {
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isNoContent())
+                .andExpect(header().exists("Set-Cookie"));
     }
 
     @Test

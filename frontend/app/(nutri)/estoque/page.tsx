@@ -37,8 +37,7 @@ import {
   converterParaUnidadeBase,
 } from "@/lib/unidades"; 
 import {
-  STORAGE_TOKEN_KEY,
-  isTokenExpirado,
+  getToken,
   tratarSessaoExpiradaSe401,
 } from "@/lib/authSession";
 
@@ -455,14 +454,15 @@ export default function EstoqueGeralPage() {
     const buscarFoto = async (id: string) => {
       setCarregandoFotoAuditoria(true);
       try {
-        const token = localStorage.getItem(STORAGE_TOKEN_KEY);
-        if (!token || isTokenExpirado(token)) {
+        const token = getToken();
+        if (!token) {
           setFotoAuditoria(null);
           return;
         }
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
         const res = await fetch(`${baseUrl}/movimentacoes/${id}/foto`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         });
         if (res.ok) {
           const blob = await res.blob();

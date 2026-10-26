@@ -1,6 +1,5 @@
 import {
-  STORAGE_TOKEN_KEY,
-  isTokenExpirado,
+  getToken as getAuthToken,
   limparSessaoLocal,
   notificarSessaoExpirada,
   tratarSessaoExpiradaSe401,
@@ -9,8 +8,8 @@ import {
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
 function getToken(): string {
-  const token = typeof window !== "undefined" ? localStorage.getItem(STORAGE_TOKEN_KEY) : null;
-  if (!token || isTokenExpirado(token)) {
+  const token = getAuthToken();
+  if (!token) {
     limparSessaoLocal();
     notificarSessaoExpirada();
     throw new Error("Sessão expirada. Faça login novamente.");
@@ -73,6 +72,7 @@ export const registrarEntradaApi = async (
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
     body: JSON.stringify(dados),
   });
 
@@ -99,6 +99,7 @@ export const registrarEntradaApi = async (
       headers: {
         Authorization: `Bearer ${token}`,
       },
+      credentials: "include",
       body: formData,
     });
     if (!resFoto.ok) {
@@ -122,6 +123,7 @@ export const registrarSaidaApi = async (
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
     body: JSON.stringify(dados),
   });
 
@@ -145,6 +147,7 @@ export const listarHistoricoApi = async (): Promise<MovimentacaoResponse[]> => {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
     cache: "no-store",
   });
 

@@ -43,7 +43,7 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint()))
                 .authorizeHttpRequests(auth -> {
                     var matcherRegistry = auth
-                            .requestMatchers("/api/auth/google", "/actuator/health")
+                            .requestMatchers("/api/auth/google", "/api/auth/logout", "/actuator/health")
                             .permitAll();
                     if (swaggerEnabled) {
                         matcherRegistry.requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll();

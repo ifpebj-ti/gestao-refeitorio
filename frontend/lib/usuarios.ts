@@ -1,14 +1,11 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
-
-export type PerfilUsuario = "ADMIN" | "NUTRICIONISTA" | "COZINHA";
-
 export interface UsuarioDTO {
   id: string;
   nome: string;
   email: string;
   perfil: PerfilUsuario;
   ativo: boolean;
-  criadoEm: string;
+  criadoEm?: string;
+  atualizadoEm?: string;
 }
 
 export interface UsuarioRequestDTO {
@@ -17,9 +14,12 @@ export interface UsuarioRequestDTO {
   perfil: PerfilUsuario;
 }
 
+export type PerfilUsuario = "ADMIN" | "NUTRICIONISTA" | "COZINHA";
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+
 import {
-  STORAGE_TOKEN_KEY,
-  isTokenExpirado,
+  getToken as getAuthToken,
   limparSessaoLocal,
   notificarSessaoExpirada,
   tratarSessaoExpiradaSe401,
@@ -31,11 +31,8 @@ export interface UsuarioEdicaoDTO {
 }
 
 function getToken(): string {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem(STORAGE_TOKEN_KEY)
-      : null;
-  if (!token || isTokenExpirado(token)) {
+  const token = getAuthToken();
+  if (!token) {
     limparSessaoLocal();
     notificarSessaoExpirada();
     throw new Error(
@@ -51,6 +48,7 @@ export async function listarUsuarios(): Promise<UsuarioDTO[]> {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
     cache: "no-store",
   });
 
@@ -77,6 +75,7 @@ export async function cadastrarUsuario(
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
     body: JSON.stringify(dados),
   });
 
@@ -104,6 +103,7 @@ export async function editarUsuario(
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
     body: JSON.stringify(dados),
   });
 
@@ -127,6 +127,7 @@ export async function desativarUsuario(id: string): Promise<UsuarioDTO> {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
   });
 
   if (!res.ok) {
