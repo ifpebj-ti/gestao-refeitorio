@@ -86,6 +86,12 @@ export const registrarEntradaApi = async (
   const movimentacaoCriada: MovimentacaoResponse = await res.json();
 
   if (arquivoFoto && movimentacaoCriada?.id) {
+    const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+    const tiposPermitidos = ["image/jpeg", "image/png"];
+    if (arquivoFoto.size > MAX_SIZE || !tiposPermitidos.includes(arquivoFoto.type)) {
+      throw new Error("Arquivo de foto inválido. Permitido apenas imagens JPEG ou PNG de até 5 MB.");
+    }
+
     const formData = new FormData();
     formData.append("arquivo", arquivoFoto);
     const resFoto = await fetch(`${BASE_URL}/movimentacoes/${movimentacaoCriada.id}/foto`, {
