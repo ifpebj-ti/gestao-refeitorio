@@ -10,6 +10,11 @@ updates:
     groups:
       frontend-minor-patch:
         update-types: [minor, patch]
+    ignore:
+      # TypeScript 7 ainda não expõe a API exigida pelo typescript-eslint.
+      # Remover quando https://github.com/typescript-eslint/typescript-eslint/issues/10940 for resolvida.
+      - dependency-name: typescript
+        versions: [">=7.0.0"]
     open-pull-requests-limit: 5
 
   - package-ecosystem: maven

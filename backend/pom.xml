@@ -23,8 +23,9 @@
         <jackson-bom.version>3.1.7</jackson-bom.version>
         <jjwt.version>0.13.0</jjwt.version>
         <google-api-client.version>2.9.1</google-api-client.version>
+        <guava.version>33.7.2-jre</guava.version>
         <tomcat.version>11.0.25</tomcat.version>
-        <pdfbox.version>3.0.3</pdfbox.version>
+        <pdfbox.version>3.0.8</pdfbox.version>
         <poi.version>5.4.0</poi.version>
     </properties>
 
@@ -90,6 +91,11 @@
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client</artifactId>
             <version>${google-api-client.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${guava.version}</version>
         </dependency>
 
         <!-- Exportação de relatórios (US20/#163) -->
@@ -175,6 +181,19 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
