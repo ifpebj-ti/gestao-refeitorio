@@ -124,5 +124,5 @@ Security. Desabilite push direto e exija ao menos uma revisão.
 1. versionar o lockfile e adicionar testes de componentes/E2E do frontend quando a equipe autorizar;
 2. publicar SBOM e assinar imagens com OIDC/Sigstore;
 3. mover o JWT do `localStorage` para cookie `HttpOnly`, aplicar CSP e parametrizar CORS;
-4. monitorar a renovação do TLS e automatizar backup/restore do PostgreSQL;
+4. monitorar a renovação do TLS (o backup/restore do PostgreSQL já está em [BACKUP_POSTGRES.md](BACKUP_POSTGRES.md));
 5. adotar migração expand/contract para permitir rollback de aplicação após mudanças de schema.
