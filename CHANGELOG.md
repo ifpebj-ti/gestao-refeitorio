@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.9.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.8.0...gestao-refeitorio-v0.9.0) (2026-10-28)
+
+
+### Features
+
+* **auth:** implementa armazenamento seguro de token contra mitigacao de XSS [#226](https://github.com/ifpebj-ti/gestao-refeitorio/issues/226) ([dc7e3a8](https://github.com/ifpebj-ti/gestao-refeitorio/commit/dc7e3a8e4573cd4123fe832f02dc3abd5f742a4b))
+* **auth:** implementa armazenamento seguro de token contra mitigacao… ([d8984b3](https://github.com/ifpebj-ti/gestao-refeitorio/commit/d8984b3a2dc39d69bcbeb88ff85791acc92f2c1b))
+* **estoque:** valida formato e tamanho maximo de fotos de movimentac… ([03d2223](https://github.com/ifpebj-ti/gestao-refeitorio/commit/03d2223dc4b69a9a7769d96dc04f2fc7655cb207))
+* **estoque:** valida formato e tamanho maximo de fotos de movimentacao [#228](https://github.com/ifpebj-ti/gestao-refeitorio/issues/228) ([fc77715](https://github.com/ifpebj-ti/gestao-refeitorio/commit/fc77715f6ba1018f46949da93583f70f0d5a6277))
+
+
+### Bug Fixes
+
+* **build:** enable Lombok processing with JDK 26 ([c2d7763](https://github.com/ifpebj-ti/gestao-refeitorio/commit/c2d77637c3a2527bb71914d8d73ffb4407c32567))
+* **frontend:** atualiza lockfile para sanar vulnerabilidade critica do next [#228](https://github.com/ifpebj-ti/gestao-refeitorio/issues/228) ([317ccdf](https://github.com/ifpebj-ti/gestao-refeitorio/commit/317ccdf6c768b524df394ca388cd6eb845a961fb))
+* **security:** atualiza imagem base para node:22-alpine e atualiza regras trivy [#227](https://github.com/ifpebj-ti/gestao-refeitorio/issues/227) ([7a2a6f1](https://github.com/ifpebj-ti/gestao-refeitorio/commit/7a2a6f18b095bdc6fce3eabe36db58459081b516))
+* **security:** remove ferramentas npm no container final e adiciona regras trivy ([72db902](https://github.com/ifpebj-ti/gestao-refeitorio/commit/72db90210e2c6064dff22ef6630ffccb14c757a8))
+* **security:** upgrade Guava to 33.7.2 ([cf99c80](https://github.com/ifpebj-ti/gestao-refeitorio/commit/cf99c80cd083383923f3ad531eece0de33ca1ea0))
+* **security:** use supported Temurin 25 runtime ([7d46924](https://github.com/ifpebj-ti/gestao-refeitorio/commit/7d46924f3d2186fe7c246099d95b7a5bf5d2e488))
+
 ## [0.8.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.7.0...gestao-refeitorio-v0.8.0) (2026-10-21)
 
 
