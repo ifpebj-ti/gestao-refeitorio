@@ -1,4 +1,4 @@
-FROM node:25-alpine AS build
+FROM node:25-alpine@sha256:bdf2cca6fe3dabd014ea60163eca3f0f7015fbd5c7ee1b0e9ccb4ced6eb02ef4 AS build
 WORKDIR /app
 RUN apk update && apk upgrade --no-cache
 ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID=411051502805-kktsu5dn98f504upsj8jlh1qmroq9k48.apps.googleusercontent.com
@@ -11,7 +11,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:25-alpine
+FROM node:25-alpine@sha256:bdf2cca6fe3dabd014ea60163eca3f0f7015fbd5c7ee1b0e9ccb4ced6eb02ef4
 WORKDIR /app
 RUN apk update && apk upgrade --no-cache && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 COPY --chown=node:node --from=build /app ./
