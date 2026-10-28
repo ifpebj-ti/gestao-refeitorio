@@ -3,7 +3,7 @@
 
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:0cefaabd882e42bcb2a2f3dc56d3ce4770560ba62fd7f197f1a2e008fd5731ab
     env_file:
       - .env
     environment:
@@ -30,7 +30,7 @@ services:
     image: ghcr.io/ifpebj-ti/gestao-refeitorio-backend:${IMAGE_TAG:?IMAGE_TAG deve ser definido}
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: prod
     deploy:
@@ -46,7 +46,7 @@ services:
     image: ghcr.io/ifpebj-ti/gestao-refeitorio-frontend:${IMAGE_TAG:?IMAGE_TAG deve ser definido}
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       NODE_ENV: production
     deploy:

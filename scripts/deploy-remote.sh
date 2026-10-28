@@ -5,6 +5,9 @@ readonly new_tag="${1:?informe a tag da imagem}"
 readonly overlay="${2:?informe o arquivo Compose do ambiente}"
 readonly app_dir="/opt/gestao-refeitorio"
 readonly state_file=".image-tag-${overlay%.yml}"
+readonly cosign_image="ghcr.io/sigstore/cosign/cosign:v3.1.4@sha256:0f06154836d2de34f887a5c273506d52ca43edaa1d9e53e6510fa78a48f69c2d"
+readonly certificate_identity="https://github.com/ifpebj-ti/gestao-refeitorio/.github/workflows/pipeline.yml@refs/heads/main"
+readonly certificate_issuer="https://token.actions.githubusercontent.com"
 
 cd "$app_dir"
 
@@ -15,6 +18,28 @@ fi
 
 compose() {
   docker compose -f docker-compose.yml -f "$overlay" "$@"
+}
+
+verify_image_signature() {
+  local image_ref="$1"
+  local -a docker_args=(
+    --rm
+    --user "$(id -u):$(id -g)"
+    --env HOME=/tmp/cosign-home
+  )
+
+  if [[ -f "${HOME}/.docker/config.json" ]]; then
+    docker_args+=(
+      --env DOCKER_CONFIG=/docker-config
+      --volume "${HOME}/.docker:/docker-config:ro"
+    )
+  fi
+
+  echo "Verificando assinatura keyless de ${image_ref}."
+  docker run "${docker_args[@]}" "$cosign_image" verify \
+    --certificate-identity "$certificate_identity" \
+    --certificate-oidc-issuer "$certificate_issuer" \
+    "$image_ref" >/dev/null
 }
 
 rollback() {
@@ -34,6 +59,8 @@ rollback() {
 trap rollback ERR
 
 export IMAGE_TAG="$new_tag"
+verify_image_signature "ghcr.io/ifpebj-ti/gestao-refeitorio-frontend:${IMAGE_TAG}"
+verify_image_signature "ghcr.io/ifpebj-ti/gestao-refeitorio-backend:${IMAGE_TAG}"
 compose pull backend frontend
 compose up -d --remove-orphans
 
