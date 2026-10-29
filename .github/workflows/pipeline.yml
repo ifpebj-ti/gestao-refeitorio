@@ -488,6 +488,7 @@ jobs:
           scp -i ~/.ssh/deploy_key \
             docker-compose.yml \
             docker-compose.prod.yml \
+            scripts/backup-postgres.sh \
             "$USER@$HOST:/opt/gestao-refeitorio/"
 
       - name: Deploy with health check and rollback
