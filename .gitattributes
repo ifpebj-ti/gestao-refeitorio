@@ -1,0 +1,2 @@
+# Scripts rodam no bash da VM: CRLF vindo do Windows quebraria a execução.
+*.sh text eol=lf
