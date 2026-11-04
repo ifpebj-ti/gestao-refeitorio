@@ -20,12 +20,7 @@ import {
   FileSpreadsheet,
   ChevronLeft,
   ChevronRight,
-  Calendar,
 } from "lucide-react";
-import {
-  CategoriaAlimento,
-  obterEstoqueMinimoPorCategoria,
-} from "@/app/utils/estoqueRules";
 import {
   buscarRelatorioMensal,
   buscarGraficoConsumo,
@@ -47,10 +42,6 @@ function ultimoDiaDoMes(data: Date): string {
   return new Date(data.getFullYear(), data.getMonth() + 1, 0)
     .toISOString()
     .split("T")[0];
-}
-
-function hoje(): string {
-  return new Date().toISOString().split("T")[0];
 }
 
 function formatarMesAno(ano: number, mes: number): string {

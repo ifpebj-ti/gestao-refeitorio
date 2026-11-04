@@ -23,8 +23,6 @@ import {
   Loader2,
   AlertCircle,
   SlidersHorizontal,
-  DollarSign,
-  Calendar,
   ExternalLink,
 } from "lucide-react";
 import { verificarStatusEstoque, CategoriaAlimento } from "@/app/utils/estoqueRules";
@@ -100,7 +98,7 @@ export default function EstoqueGeralPage() {
   const [carregandoFotoAuditoria, setCarregandoFotoAuditoria] = useState(false);
 
   // Formulário da Aba Registrar Entrada
-  const [categoriaEntradaAtiva, setCategoriaEntradaAtiva] = useState<string>("Todos");
+  const [categoriaEntradaAtiva] = useState<string>("Todos");
   const [buscaEntrada, setBuscaEntrada] = useState("");
   const [buscaEntradaFocada, setBuscaEntradaFocada] = useState(false);
   const [itemEntradaId, setItemEntradaId] = useState<string>("");
@@ -122,8 +120,6 @@ export default function EstoqueGeralPage() {
   const [novoInsumoNome, setNovoInsumoNome] = useState("");
   const [novoInsumoCategoria, setNovoInsumoCategoria] = useState("Proteínas & Frios");
   const [novoInsumoUnidade, setNovoInsumoUnidade] = useState("Kg");
-  const [novoInsumoUnidadeCustomizada, setNovoInsumoUnidadeCustomizada] = useState("");
-  const [novoInsumoUsarOutraUnidade, setNovoInsumoUsarOutraUnidade] = useState(false);
   const [novoInsumoValor, setNovoInsumoValor] = useState("");
   const [novoInsumoSemPreco, setNovoInsumoSemPreco] = useState(true); // Padrão: sem preço de referência
   const [novoInsumoFornecedor, setNovoInsumoFornecedor] = useState("");
@@ -188,8 +184,6 @@ export default function EstoqueGeralPage() {
     setNovoInsumoNome("");
     setNovoInsumoCategoria("Proteínas & Frios");
     setNovoInsumoUnidade("Kg");
-    setNovoInsumoUnidadeCustomizada("");
-    setNovoInsumoUsarOutraUnidade(false);
     setNovoInsumoValor("");
     setNovoInsumoSemPreco(true); // Padrão: sem preço inicial cadastrado
     setNovoInsumoFornecedor("");
@@ -624,17 +618,6 @@ export default function EstoqueGeralPage() {
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
   const totalAtencao = listaEstoque.filter((i) => calcularStatusItem(i) === "ATENCAO").length;
-
-  const alternarSelecaoInsumo = (item: ProdutoResponse) => {
-    if (itemEntradaId === item.id) {
-      limparSelecao();
-    } else {
-      setItemEntradaId(item.id);
-      setUnidadeEntrada(item.unidadeMedida);
-      setBuscaEntrada(item.nome);
-      setBuscaEntradaFocada(false);
-    }
-  };
 
   const limparSelecao = () => {
     setItemEntradaId("");
