@@ -64,7 +64,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({ EmailJaCadastradoException.class, AutoDesativacaoNaoPermitidaException.class,
             SaldoInsuficienteException.class, ProdutoComMovimentacoesException.class,
-            ConviteNaoPermitidoException.class, RemetenteJaCadastradoException.class })
+            ConviteNaoPermitidoException.class, RemetenteJaCadastradoException.class,
+            RemetenteInativoException.class, NotaJaCadastradaException.class,
+            MovimentacaoJaVinculadaException.class })
     public ResponseEntity<Map<String, Object>> handleConflito(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo(ex.getMessage()));
     }
@@ -77,7 +79,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(mensagem));
     }
 
-    @ExceptionHandler({ DataValidadeInvalidaException.class, PeriodoInvalidoException.class })
+    @ExceptionHandler({ DataValidadeInvalidaException.class, PeriodoInvalidoException.class,
+            MovimentacaoNaoEntradaException.class, MovimentacoesRepetidasException.class })
     public ResponseEntity<Map<String, Object>> handleDataValidadeInvalida(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(corpo(ex.getMessage()));
     }
