@@ -1,5 +1,6 @@
 package br.ifpe.gestaorefeitorio.service;
 
+import br.ifpe.gestaorefeitorio.dto.NotaEntradaDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaResponseDTO;
 import br.ifpe.gestaorefeitorio.exception.MovimentacaoJaVinculadaException;
@@ -7,6 +8,7 @@ import br.ifpe.gestaorefeitorio.exception.MovimentacaoNaoEncontradaException;
 import br.ifpe.gestaorefeitorio.exception.MovimentacaoNaoEntradaException;
 import br.ifpe.gestaorefeitorio.exception.MovimentacoesRepetidasException;
 import br.ifpe.gestaorefeitorio.exception.NotaJaCadastradaException;
+import br.ifpe.gestaorefeitorio.exception.PeriodoInvalidoException;
 import br.ifpe.gestaorefeitorio.exception.RemetenteInativoException;
 import br.ifpe.gestaorefeitorio.exception.RemetenteNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.LocalArmazenamento;
@@ -28,6 +30,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -195,6 +199,49 @@ class NotaServiceImplTest {
                 () -> notaService.registrar(request("NF-1", List.of(saida.getId())), nutricionista));
 
         verify(notaRepository, never()).save(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void deveListarEntradasDisponiveisComFornecedor() {
+        Movimentacao entrada = movimentacao(TipoMovimentacao.ENTRADA);
+        entrada.setFornecedor("Cooperativa Agro");
+        when(movimentacaoRepository.findAll(any(Specification.class), any(Sort.class))).thenReturn(List.of(entrada));
+
+        List<NotaEntradaDTO> resposta = notaService.listarEntradasDisponiveis(null, null, null, "  ");
+
+        assertThat(resposta).hasSize(1);
+        assertThat(resposta.get(0).movimentacaoId()).isEqualTo(entrada.getId());
+        assertThat(resposta.get(0).fornecedor()).isEqualTo("Cooperativa Agro");
+        assertThat(resposta.get(0).unidadeMedida()).isEqualTo("kg");
+    }
+
+    @Test
+    void deveMontarPadraoParcialEscapandoCuringasDoLike() {
+        assertThat(NotaServiceImpl.padraoBuscaParcial(" 50%_a ")).isEqualTo("%50\\%\\_a%");
+        assertThat(NotaServiceImpl.padraoBuscaParcial("c:\\x")).isEqualTo("%c:\\\\x%");
+        assertThat(NotaServiceImpl.padraoBuscaParcial("   ")).isNull();
+        assertThat(NotaServiceImpl.padraoBuscaParcial(null)).isNull();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void deveLancarPeriodoInvalidoQuandoDataInicioDepoisDeDataFim() {
+        LocalDate inicio = LocalDate.of(2026, 2, 1);
+        LocalDate fim = LocalDate.of(2026, 1, 1);
+
+        assertThrows(PeriodoInvalidoException.class,
+                () -> notaService.listarEntradasDisponiveis(inicio, fim, null, null));
+
+        verify(movimentacaoRepository, never()).findAll(any(Specification.class), any(Sort.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void deveAceitarPeriodoComApenasUmaDasDatas() {
+        when(movimentacaoRepository.findAll(any(Specification.class), any(Sort.class))).thenReturn(List.of());
+
+        assertThat(notaService.listarEntradasDisponiveis(LocalDate.of(2026, 2, 1), null, null, null)).isEmpty();
     }
 
     @Test

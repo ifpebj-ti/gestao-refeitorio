@@ -1,6 +1,7 @@
 package br.ifpe.gestaorefeitorio.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,7 +15,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-public interface MovimentacaoRepository extends JpaRepository<Movimentacao, UUID> {
+public interface MovimentacaoRepository extends JpaRepository<Movimentacao, UUID>,
+        JpaSpecificationExecutor<Movimentacao> {
 
     // Saldo é sempre derivado das movimentações (entradas - saídas) por produto e por
     // local, nunca um campo armazenado — CLAUDE.md seção 5.

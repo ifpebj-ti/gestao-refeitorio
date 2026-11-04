@@ -14,6 +14,7 @@ public record NotaEntradaDTO(
         String localNome,
         String lote,
         LocalDate dataValidade,
-        LocalDate data
+        LocalDate data,
+        String fornecedor
 ) {
 }
