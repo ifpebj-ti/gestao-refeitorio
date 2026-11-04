@@ -56,14 +56,15 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({ UsuarioNaoEncontradoPorIdException.class, ProdutoNaoEncontradoException.class,
             LocalArmazenamentoNaoEncontradoException.class, MovimentacaoNaoEncontradaException.class,
-            MovimentacaoFotoNaoEncontradaException.class, CardapioNaoEncontradoException.class })
+            MovimentacaoFotoNaoEncontradaException.class, CardapioNaoEncontradoException.class,
+            RemetenteNaoEncontradoException.class })
     public ResponseEntity<Map<String, Object>> handleNaoEncontradoPorId(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(corpo(ex.getMessage()));
     }
 
     @ExceptionHandler({ EmailJaCadastradoException.class, AutoDesativacaoNaoPermitidaException.class,
             SaldoInsuficienteException.class, ProdutoComMovimentacoesException.class,
-            ConviteNaoPermitidoException.class })
+            ConviteNaoPermitidoException.class, RemetenteJaCadastradoException.class })
     public ResponseEntity<Map<String, Object>> handleConflito(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo(ex.getMessage()));
     }
