@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import {
@@ -265,7 +266,7 @@ export default function EstoqueGeralPage() {
           if (resEntrada?.id && fTrim) {
             try {
               localStorage.setItem(`@gestao_refeitorio:mov_fornecedor_${resEntrada.id}`, fTrim);
-            } catch (e) {}
+            } catch {}
           }
         }
       }
@@ -421,7 +422,7 @@ export default function EstoqueGeralPage() {
     }
   }, [autenticado, carregando, perfil, router]);
 
-  const carregarProdutos = async () => {
+  const carregarProdutos = useCallback(async () => {
     try {
       setCarregandoProdutos(true);
       setErroCarregamento(null);
@@ -435,13 +436,13 @@ export default function EstoqueGeralPage() {
     } finally {
       setCarregandoProdutos(false);
     }
-  };
+  }, [categoriaFiltro]);
 
   useEffect(() => {
     if (autenticado) {
       carregarProdutos();
     }
-  }, [autenticado, categoriaFiltro]);
+  }, [autenticado, carregarProdutos]);
 
   // Função para buscar a foto ao abrir o modal
   useEffect(() => {
@@ -465,7 +466,7 @@ export default function EstoqueGeralPage() {
           tratarSessaoExpiradaSe401(res.status);
           setFotoAuditoria(null);
         }
-      } catch (e) {
+      } catch {
         setFotoAuditoria(null);
       } finally {
         setCarregandoFotoAuditoria(false);
@@ -479,7 +480,7 @@ export default function EstoqueGeralPage() {
     }
   }, [itemAuditoriaSelecionado]);
 
-  const carregarHistorico = async () => {
+  const carregarHistorico = useCallback(async () => {
     try {
       setCarregandoExtrato(true);
       const dados = await listarHistoricoApi();
@@ -493,7 +494,7 @@ export default function EstoqueGeralPage() {
               dataFormatada = dataObj.toLocaleDateString("pt-BR");
             }
           }
-        } catch (e) {}
+        } catch {}
 
         const produtoObj = listaEstoque.find(p => p.id === mov.produtoId);
         const nomeInsumo = mov.produtoNome || produtoObj?.nome || "Insumo";
@@ -577,13 +578,13 @@ export default function EstoqueGeralPage() {
     } finally {
       setCarregandoExtrato(false);
     }
-  };
+  }, [listaEstoque, perfil, usuario?.nome]);
 
   useEffect(() => {
     if (abaAtiva === "extrato" && autenticado) {
       carregarHistorico();
     }
-  }, [abaAtiva, autenticado, listaEstoque]); 
+  }, [abaAtiva, autenticado, carregarHistorico]); 
 
   if (carregando || !autenticado) {
     return null;
@@ -734,7 +735,7 @@ export default function EstoqueGeralPage() {
           if (loteEntrada?.trim()) {
             localStorage.setItem(`@gestao_refeitorio:mov_lote_${res.id}`, loteEntrada.trim());
           }
-        } catch (e) {}
+        } catch {}
       }
 
       await carregarProdutos();
@@ -1626,9 +1627,12 @@ export default function EstoqueGeralPage() {
                     className="block border border-slate-200 rounded-2xl overflow-hidden group relative hover:shadow-md transition-all"
                     title="Clique para abrir imagem em tamanho original"
                   >
-                    <img
+                    <Image
                       src={fotoAuditoria}
                       alt="Comprovante de entrega"
+                      width={400}
+                      height={192}
+                      unoptimized
                       className="w-full max-h-48 object-contain bg-slate-900/5 group-hover:scale-[1.01] transition-transform duration-200"
                     />
                     <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/20 transition-colors flex items-center justify-center">
