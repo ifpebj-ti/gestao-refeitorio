@@ -17,6 +17,12 @@ public interface NotaService {
     NotaResponseDTO registrar(NotaRequestDTO request, Usuario registradoPor);
 
     /**
+     * Corrige uma nota PENDENTE com as mesmas regras do registro. A lista de entradas substitui os
+     * vínculos atuais; {@code registradoPor} e {@code criadoEm} não mudam.
+     */
+    NotaResponseDTO editar(UUID id, NotaRequestDTO request, Usuario editadoPor);
+
+    /**
      * Entradas ainda sem nota, da mais recente para a mais antiga. Filtros nulos não são aplicados;
      * {@code fornecedor} é busca parcial sem diferenciar maiúsculas/minúsculas.
      */
