@@ -2,15 +2,18 @@ package br.ifpe.gestaorefeitorio.controller;
 
 import br.ifpe.gestaorefeitorio.model.LocalArmazenamento;
 import br.ifpe.gestaorefeitorio.model.Movimentacao;
+import br.ifpe.gestaorefeitorio.model.Nota;
 import br.ifpe.gestaorefeitorio.model.Produto;
 import br.ifpe.gestaorefeitorio.model.Remetente;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.model.enums.OrigemMovimentacao;
 import br.ifpe.gestaorefeitorio.model.enums.Perfil;
+import br.ifpe.gestaorefeitorio.model.enums.StatusNota;
 import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
 import br.ifpe.gestaorefeitorio.model.enums.TipoSaida;
 import br.ifpe.gestaorefeitorio.repository.LocalArmazenamentoRepository;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
+import br.ifpe.gestaorefeitorio.repository.NotaRepository;
 import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import br.ifpe.gestaorefeitorio.repository.RemetenteRepository;
 import br.ifpe.gestaorefeitorio.repository.UsuarioRepository;
@@ -33,10 +36,14 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -74,6 +81,9 @@ class NotaControllerIntegrationTest {
 
     @Autowired
     private MovimentacaoRepository movimentacaoRepository;
+
+    @Autowired
+    private NotaRepository notaRepository;
 
     @Autowired
     private JwtService jwtService;
@@ -289,6 +299,199 @@ class NotaControllerIntegrationTest {
         mockMvc.perform(post("/api/notas")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpo("NF-1", remetente.getId(), List.of(UUID.randomUUID()))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // ---- GET /api/notas/entradas-disponiveis (#288) ----
+
+    private Produto criarProduto() {
+        Produto produto = new Produto();
+        produto.setNome("Macarrão " + UUID.randomUUID());
+        produto.setCategoria("Secos");
+        produto.setUnidadeMedida("pct");
+        return produtoRepository.save(produto);
+    }
+
+    private Movimentacao criarEntrada(Produto produto, LocalDate data, String fornecedor) {
+        LocalArmazenamento local = new LocalArmazenamento();
+        local.setNome("Despensa " + UUID.randomUUID());
+        local = localArmazenamentoRepository.save(local);
+
+        Movimentacao entrada = new Movimentacao();
+        entrada.setProduto(produto);
+        entrada.setLocal(local);
+        entrada.setTipo(TipoMovimentacao.ENTRADA);
+        entrada.setOrigem(OrigemMovimentacao.EXTERNA);
+        entrada.setQuantidade(new BigDecimal("5"));
+        entrada.setValor(new BigDecimal("20.00"));
+        entrada.setData(data);
+        entrada.setFornecedor(fornecedor);
+        entrada.setLote("L-77");
+        entrada.setDataValidade(data.plusMonths(3));
+        entrada.setResponsavel(nutricionista);
+        return movimentacaoRepository.save(entrada);
+    }
+
+    private void vincularANota(Movimentacao entrada, StatusNota status) {
+        Nota nota = new Nota();
+        nota.setNumero("NF-" + UUID.randomUUID().toString().substring(0, 8));
+        nota.setData(LocalDate.now());
+        nota.setRemetente(remetente);
+        nota.setRegistradoPor(nutricionista);
+        nota.setStatus(status);
+        nota.setMovimentacoes(new ArrayList<>(List.of(entrada)));
+        notaRepository.save(nota);
+    }
+
+    private ResultActions listar(String token, String query) throws Exception {
+        return mockMvc.perform(get("/api/notas/entradas-disponiveis" + query)
+                .header("Authorization", "Bearer " + token));
+    }
+
+    @Test
+    void deveListarSoEntradasSemNotaComTodosOsCampos() throws Exception {
+        Produto produto = criarProduto();
+        Movimentacao livre = criarEntrada(produto, LocalDate.now().minusDays(1), "Cooperativa Agro");
+        Movimentacao pendente = criarEntrada(produto, LocalDate.now().minusDays(1), null);
+        Movimentacao cancelada = criarEntrada(produto, LocalDate.now().minusDays(1), null);
+        vincularANota(pendente, StatusNota.PENDENTE);
+        vincularANota(cancelada, StatusNota.CANCELADA);
+        Movimentacao saida = criarMovimentacao(TipoMovimentacao.SAIDA);
+
+        listar(tokenNutricionista, "?produtoId=" + produto.getId())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].movimentacaoId").value(livre.getId().toString()))
+                .andExpect(jsonPath("$[0].produtoId").value(produto.getId().toString()))
+                .andExpect(jsonPath("$[0].produtoNome").value(produto.getNome()))
+                .andExpect(jsonPath("$[0].unidadeMedida").value("pct"))
+                .andExpect(jsonPath("$[0].quantidade").value(5))
+                .andExpect(jsonPath("$[0].localNome").value(livre.getLocal().getNome()))
+                .andExpect(jsonPath("$[0].data").value(livre.getData().toString()))
+                .andExpect(jsonPath("$[0].lote").value("L-77"))
+                .andExpect(jsonPath("$[0].dataValidade").value(livre.getDataValidade().toString()))
+                .andExpect(jsonPath("$[0].fornecedor").value("Cooperativa Agro"));
+
+        listar(tokenNutricionista, "")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].movimentacaoId").value(hasItem(livre.getId().toString())))
+                .andExpect(jsonPath("$[*].movimentacaoId").value(not(hasItem(pendente.getId().toString()))))
+                .andExpect(jsonPath("$[*].movimentacaoId").value(not(hasItem(cancelada.getId().toString()))))
+                .andExpect(jsonPath("$[*].movimentacaoId").value(not(hasItem(saida.getId().toString()))));
+    }
+
+    @Test
+    void deveDeixarDeListarEntradaDepoisDeRegistrarNotaPelaApi() throws Exception {
+        Produto produto = criarProduto();
+        Movimentacao entrada = criarEntrada(produto, LocalDate.now(), null);
+
+        registrar(tokenNutricionista, corpo("NF-500", remetente.getId(), List.of(entrada.getId())))
+                .andExpect(status().isCreated());
+
+        listar(tokenNutricionista, "?produtoId=" + produto.getId())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void deveOrdenarDaDataMaisRecenteParaAMaisAntiga() throws Exception {
+        Produto produto = criarProduto();
+        LocalDate hoje = LocalDate.now();
+        Movimentacao antiga = criarEntrada(produto, hoje.minusDays(5), null);
+        Movimentacao recente = criarEntrada(produto, hoje.minusDays(1), null);
+        Movimentacao meio = criarEntrada(produto, hoje.minusDays(3), null);
+
+        listar(tokenNutricionista, "?produtoId=" + produto.getId())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].movimentacaoId").value(recente.getId().toString()))
+                .andExpect(jsonPath("$[1].movimentacaoId").value(meio.getId().toString()))
+                .andExpect(jsonPath("$[2].movimentacaoId").value(antiga.getId().toString()));
+    }
+
+    @Test
+    void deveFiltrarPorPeriodoIncluindoAsDuasPontas() throws Exception {
+        Produto produto = criarProduto();
+        criarEntrada(produto, LocalDate.of(2026, 1, 9), null);
+        Movimentacao inicio = criarEntrada(produto, LocalDate.of(2026, 1, 10), null);
+        Movimentacao fim = criarEntrada(produto, LocalDate.of(2026, 1, 20), null);
+        criarEntrada(produto, LocalDate.of(2026, 1, 21), null);
+
+        listar(tokenNutricionista, "?produtoId=" + produto.getId() + "&dataInicio=2026-01-10&dataFim=2026-01-20")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].movimentacaoId").value(fim.getId().toString()))
+                .andExpect(jsonPath("$[1].movimentacaoId").value(inicio.getId().toString()));
+
+        listar(tokenNutricionista, "?produtoId=" + produto.getId() + "&dataInicio=2026-01-20")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    void deveFiltrarPorFornecedorParcialSemDiferenciarCaixa() throws Exception {
+        Produto produto = criarProduto();
+        Movimentacao agro = criarEntrada(produto, LocalDate.now(), "Cooperativa AGROINDUSTRIA Belo Jardim");
+        criarEntrada(produto, LocalDate.now(), "Mercado Central");
+        criarEntrada(produto, LocalDate.now(), null);
+
+        listar(tokenNutricionista, "?produtoId=" + produto.getId() + "&fornecedor=agroindustria")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].movimentacaoId").value(agro.getId().toString()));
+    }
+
+    @Test
+    void deveTratarCuringaDoLikeComoTextoNoFiltroDeFornecedor() throws Exception {
+        Produto produto = criarProduto();
+        criarEntrada(produto, LocalDate.now(), "Mercado Central");
+        Movimentacao comPercentual = criarEntrada(produto, LocalDate.now(), "Desconto 100% Ltda");
+
+        mockMvc.perform(get("/api/notas/entradas-disponiveis")
+                        .param("produtoId", produto.getId().toString())
+                        .param("fornecedor", "%")
+                        .header("Authorization", "Bearer " + tokenNutricionista))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].movimentacaoId").value(comPercentual.getId().toString()));
+    }
+
+    @Test
+    void deveAplicarFiltrosCombinadosComELogico() throws Exception {
+        Produto produto = criarProduto();
+        Produto outroProduto = criarProduto();
+        Movimentacao alvo = criarEntrada(produto, LocalDate.of(2026, 3, 10), "Feira Livre");
+        criarEntrada(produto, LocalDate.of(2026, 2, 10), "Feira Livre");
+        criarEntrada(produto, LocalDate.of(2026, 3, 10), "Mercado Central");
+        criarEntrada(outroProduto, LocalDate.of(2026, 3, 10), "Feira Livre");
+
+        listar(tokenNutricionista, "?produtoId=" + produto.getId()
+                + "&fornecedor=feira&dataInicio=2026-03-01&dataFim=2026-03-31")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].movimentacaoId").value(alvo.getId().toString()));
+    }
+
+    @Test
+    void deveRetornar400QuandoDataInicioDepoisDeDataFim() throws Exception {
+        listar(tokenNutricionista, "?dataInicio=2026-02-01&dataFim=2026-01-01")
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar400QuandoProdutoIdOuDataEmFormatoInvalido() throws Exception {
+        listar(tokenNutricionista, "?produtoId=abc").andExpect(status().isBadRequest());
+        listar(tokenNutricionista, "?dataInicio=10-01-2026").andExpect(status().isBadRequest());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Perfil.class, names = { "COZINHA", "ADMIN" })
+    void deveRetornar403AoListarEntradasComPerfilSemPermissao(Perfil perfil) throws Exception {
+        listar(tokenPara(criarUsuario(perfil)), "").andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveRetornar401AoListarEntradasSemToken() throws Exception {
+        mockMvc.perform(get("/api/notas/entradas-disponiveis"))
                 .andExpect(status().isUnauthorized());
     }
 }

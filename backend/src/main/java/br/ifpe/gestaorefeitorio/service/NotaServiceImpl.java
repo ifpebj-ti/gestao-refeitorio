@@ -8,6 +8,7 @@ import br.ifpe.gestaorefeitorio.exception.MovimentacaoNaoEncontradaException;
 import br.ifpe.gestaorefeitorio.exception.MovimentacaoNaoEntradaException;
 import br.ifpe.gestaorefeitorio.exception.MovimentacoesRepetidasException;
 import br.ifpe.gestaorefeitorio.exception.NotaJaCadastradaException;
+import br.ifpe.gestaorefeitorio.exception.PeriodoInvalidoException;
 import br.ifpe.gestaorefeitorio.exception.RemetenteInativoException;
 import br.ifpe.gestaorefeitorio.exception.RemetenteNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.Movimentacao;
@@ -17,13 +18,16 @@ import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.model.enums.StatusNota;
 import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
+import br.ifpe.gestaorefeitorio.repository.MovimentacaoSpecifications;
 import br.ifpe.gestaorefeitorio.repository.NotaRepository;
 import br.ifpe.gestaorefeitorio.repository.RemetenteRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +37,9 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class NotaServiceImpl implements NotaService {
+
+    // Desempate por criadoEm: várias entradas no mesmo dia mantêm a mesma ordem entre chamadas.
+    private static final Sort ORDEM_MAIS_RECENTE = Sort.by(Sort.Direction.DESC, "data", "criadoEm");
 
     private final NotaRepository notaRepository;
     private final RemetenteRepository remetenteRepository;
@@ -77,6 +84,38 @@ public class NotaServiceImpl implements NotaService {
                 nota.getId(), nota.getNumero(), remetente.getId(), remetente.getNome(),
                 entradas.size(), registradoPor.getEmail());
         return paraDTO(nota);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<NotaEntradaDTO> listarEntradasDisponiveis(LocalDate dataInicio, LocalDate dataFim, UUID produtoId,
+                                                          String fornecedor) {
+        log.debug("Listagem de entradas disponíveis: dataInicio {}, dataFim {}, produto {}, fornecedor '{}'",
+                dataInicio, dataFim, produtoId, fornecedor);
+
+        if (dataInicio != null && dataFim != null && dataFim.isBefore(dataInicio)) {
+            throw new PeriodoInvalidoException();
+        }
+
+        return movimentacaoRepository.findAll(
+                        MovimentacaoSpecifications.entradasDisponiveis(dataInicio, dataFim, produtoId,
+                                padraoBuscaParcial(fornecedor)),
+                        ORDEM_MAIS_RECENTE)
+                .stream()
+                .map(this::paraEntradaDTO)
+                .toList();
+    }
+
+    // Escapa os curingas do LIKE: quem digita "%" ou "_" busca o caractere, não "qualquer coisa".
+    static String padraoBuscaParcial(String texto) {
+        if (texto == null || texto.isBlank()) {
+            return null;
+        }
+        String escapado = texto.trim()
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
+        return "%" + escapado + "%";
     }
 
     private Remetente buscarRemetenteAtivo(UUID id) {
@@ -130,6 +169,7 @@ public class NotaServiceImpl implements NotaService {
                 movimentacao.getLocal().getNome(),
                 movimentacao.getLote(),
                 movimentacao.getDataValidade(),
-                movimentacao.getData());
+                movimentacao.getData(),
+                movimentacao.getFornecedor());
     }
 }
