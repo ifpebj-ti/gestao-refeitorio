@@ -7,6 +7,8 @@ import lombok.Setter;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import br.ifpe.gestaorefeitorio.model.enums.StatusNota;
@@ -22,20 +24,37 @@ public class Nota {
     @GeneratedValue
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    // Único por remetente (UNIQUE (remetente_id, numero) da V23), não globalmente.
+    @Column(nullable = false, length = 50)
     private String numero;
 
     @Column(nullable = false)
     private LocalDate data;
 
-    private String origem;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "remetente_id")
+    private Remetente remetente;
+
+    /** Entradas comprovadas pela nota; produto, quantidade, lote e local vêm delas. */
+    @ManyToMany
+    @JoinTable(name = "nota_movimentacoes",
+            joinColumns = @JoinColumn(name = "nota_id"),
+            inverseJoinColumns = @JoinColumn(name = "movimentacao_id"))
+    private List<Movimentacao> movimentacoes = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private StatusNota status = StatusNota.PENDENTE;
 
+    @Column(length = 500)
+    private String observacoes;
+
     /** Preenchido quando o nutricionista valida ou recusa. */
     private String justificativaRecusa;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "registrado_por_id")
+    private Usuario registradoPor;
 
     @ManyToOne
     @JoinColumn(name = "validado_por_id")
