@@ -8,6 +8,8 @@ import br.ifpe.gestaorefeitorio.exception.MovimentacaoNaoEncontradaException;
 import br.ifpe.gestaorefeitorio.exception.MovimentacaoNaoEntradaException;
 import br.ifpe.gestaorefeitorio.exception.MovimentacoesRepetidasException;
 import br.ifpe.gestaorefeitorio.exception.NotaJaCadastradaException;
+import br.ifpe.gestaorefeitorio.exception.NotaNaoEncontradaException;
+import br.ifpe.gestaorefeitorio.exception.NotaNaoPendenteException;
 import br.ifpe.gestaorefeitorio.exception.PeriodoInvalidoException;
 import br.ifpe.gestaorefeitorio.exception.RemetenteInativoException;
 import br.ifpe.gestaorefeitorio.exception.RemetenteNaoEncontradoException;
@@ -242,6 +244,149 @@ class NotaServiceImplTest {
         when(movimentacaoRepository.findAll(any(Specification.class), any(Sort.class))).thenReturn(List.of());
 
         assertThat(notaService.listarEntradasDisponiveis(LocalDate.of(2026, 2, 1), null, null, null)).isEmpty();
+    }
+
+    // ---- editar (#289) ----
+
+    private Nota notaExistente(StatusNota status, Movimentacao... entradas) {
+        Nota nota = new Nota();
+        nota.setId(UUID.randomUUID());
+        nota.setNumero("NF-1");
+        nota.setData(LocalDate.now());
+        nota.setStatus(status);
+        nota.setRemetente(remetente);
+        nota.setRegistradoPor(nutricionista);
+        nota.getMovimentacoes().addAll(List.of(entradas));
+        return nota;
+    }
+
+    private Usuario outroUsuario() {
+        Usuario usuario = new Usuario();
+        usuario.setId(UUID.randomUUID());
+        usuario.setNome("Outra Nutri");
+        usuario.setEmail("outra@ifpe.edu.br");
+        usuario.setPerfil(Perfil.NUTRICIONISTA);
+        return usuario;
+    }
+
+    @Test
+    void deveEditarNotaPendenteSubstituindoEntradasESemTrocarRegistradoPor() {
+        Movimentacao mantida = movimentacao(TipoMovimentacao.ENTRADA);
+        Movimentacao retirada = movimentacao(TipoMovimentacao.ENTRADA);
+        Movimentacao nova = movimentacao(TipoMovimentacao.ENTRADA);
+        Nota nota = notaExistente(StatusNota.PENDENTE, mantida, retirada);
+
+        when(notaRepository.findById(nota.getId())).thenReturn(Optional.of(nota));
+        when(remetenteRepository.findById(remetente.getId())).thenReturn(Optional.of(remetente));
+        when(notaRepository.existsByRemetenteIdAndNumeroAndIdNot(remetente.getId(), "NF-1", nota.getId()))
+                .thenReturn(false);
+        when(movimentacaoRepository.findById(mantida.getId())).thenReturn(Optional.of(mantida));
+        when(movimentacaoRepository.findById(nova.getId())).thenReturn(Optional.of(nova));
+        when(notaRepository.existsByMovimentacaoIdAndNotaIdNot(any(), eq(nota.getId()))).thenReturn(false);
+        when(notaRepository.save(any(Nota.class))).thenAnswer(chamada -> chamada.getArgument(0));
+
+        NotaResponseDTO resposta = notaService.editar(nota.getId(),
+                new NotaRequestDTO(" NF-1 ", LocalDate.now(), remetente.getId(),
+                        List.of(mantida.getId(), nova.getId()), "corrigida"),
+                outroUsuario());
+
+        assertThat(resposta.numero()).isEqualTo("NF-1");
+        assertThat(resposta.observacoes()).isEqualTo("corrigida");
+        assertThat(resposta.entradas()).extracting(e -> e.movimentacaoId())
+                .containsExactly(mantida.getId(), nova.getId());
+        assertThat(resposta.registradoPor().email()).isEqualTo("nutri@ifpe.edu.br");
+        assertThat(resposta.status()).isEqualTo(StatusNota.PENDENTE);
+        // Na edição, a checagem de vínculo do registro (que não ignora a própria nota) não é usada.
+        verify(notaRepository, never()).existsByMovimentacaoId(any());
+        verify(notaRepository, never()).existsByRemetenteIdAndNumero(any(), any());
+    }
+
+    @Test
+    void deveLancarNaoEncontradaQuandoEditarNotaInexistente() {
+        UUID id = UUID.randomUUID();
+        when(notaRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(NotaNaoEncontradaException.class,
+                () -> notaService.editar(id, request("NF-1", List.of(UUID.randomUUID())), nutricionista));
+
+        verify(notaRepository, never()).save(any());
+    }
+
+    @Test
+    void deveLancarNaoPendenteQuandoEditarNotaValidadaOuCancelada() {
+        for (StatusNota status : List.of(StatusNota.VALIDADA, StatusNota.CANCELADA)) {
+            Nota nota = notaExistente(status);
+            when(notaRepository.findById(nota.getId())).thenReturn(Optional.of(nota));
+
+            assertThrows(NotaNaoPendenteException.class,
+                    () -> notaService.editar(nota.getId(), request("NF-2", List.of(UUID.randomUUID())), nutricionista));
+        }
+
+        verifyNoInteractions(remetenteRepository, movimentacaoRepository);
+        verify(notaRepository, never()).save(any());
+    }
+
+    @Test
+    void deveLancarJaCadastradaQuandoEditarParaNumeroDeOutraNotaDoRemetente() {
+        Nota nota = notaExistente(StatusNota.PENDENTE);
+        when(notaRepository.findById(nota.getId())).thenReturn(Optional.of(nota));
+        when(remetenteRepository.findById(remetente.getId())).thenReturn(Optional.of(remetente));
+        when(notaRepository.existsByRemetenteIdAndNumeroAndIdNot(remetente.getId(), "NF-9", nota.getId()))
+                .thenReturn(true);
+
+        assertThrows(NotaJaCadastradaException.class,
+                () -> notaService.editar(nota.getId(), request("NF-9", List.of(UUID.randomUUID())), nutricionista));
+
+        assertThat(nota.getNumero()).isEqualTo("NF-1");
+        verify(notaRepository, never()).save(any());
+    }
+
+    @Test
+    void deveLancarJaVinculadaQuandoEditarComEntradaDeOutraNota() {
+        Movimentacao deOutra = movimentacao(TipoMovimentacao.ENTRADA);
+        Nota nota = notaExistente(StatusNota.PENDENTE);
+        when(notaRepository.findById(nota.getId())).thenReturn(Optional.of(nota));
+        when(remetenteRepository.findById(remetente.getId())).thenReturn(Optional.of(remetente));
+        when(movimentacaoRepository.findById(deOutra.getId())).thenReturn(Optional.of(deOutra));
+        when(notaRepository.existsByMovimentacaoIdAndNotaIdNot(deOutra.getId(), nota.getId())).thenReturn(true);
+
+        assertThrows(MovimentacaoJaVinculadaException.class,
+                () -> notaService.editar(nota.getId(), request("NF-1", List.of(deOutra.getId())), nutricionista));
+
+        verify(notaRepository, never()).save(any());
+    }
+
+    @Test
+    void devePermitirManterRemetenteAtualMesmoInativo() {
+        remetente.setAtivo(false);
+        Movimentacao entrada = movimentacao(TipoMovimentacao.ENTRADA);
+        Nota nota = notaExistente(StatusNota.PENDENTE, entrada);
+        when(notaRepository.findById(nota.getId())).thenReturn(Optional.of(nota));
+        when(remetenteRepository.findById(remetente.getId())).thenReturn(Optional.of(remetente));
+        when(movimentacaoRepository.findById(entrada.getId())).thenReturn(Optional.of(entrada));
+        when(notaRepository.save(any(Nota.class))).thenAnswer(chamada -> chamada.getArgument(0));
+
+        NotaResponseDTO resposta = notaService.editar(nota.getId(),
+                request("NF-1", List.of(entrada.getId())), nutricionista);
+
+        assertThat(resposta.remetente().id()).isEqualTo(remetente.getId());
+    }
+
+    @Test
+    void deveLancarInativoQuandoEditarTrocandoParaRemetenteInativo() {
+        Nota nota = notaExistente(StatusNota.PENDENTE);
+        Remetente inativo = new Remetente();
+        inativo.setId(UUID.randomUUID());
+        inativo.setNome("Inativo");
+        inativo.setAtivo(false);
+        when(notaRepository.findById(nota.getId())).thenReturn(Optional.of(nota));
+        when(remetenteRepository.findById(inativo.getId())).thenReturn(Optional.of(inativo));
+
+        assertThrows(RemetenteInativoException.class, () -> notaService.editar(nota.getId(),
+                new NotaRequestDTO("NF-1", LocalDate.now(), inativo.getId(), List.of(UUID.randomUUID()), null),
+                nutricionista));
+
+        verify(notaRepository, never()).save(any());
     }
 
     @Test

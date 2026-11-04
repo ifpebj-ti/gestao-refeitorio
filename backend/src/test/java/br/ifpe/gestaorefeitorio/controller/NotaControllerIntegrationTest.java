@@ -18,6 +18,7 @@ import br.ifpe.gestaorefeitorio.repository.ProdutoRepository;
 import br.ifpe.gestaorefeitorio.repository.RemetenteRepository;
 import br.ifpe.gestaorefeitorio.repository.UsuarioRepository;
 import br.ifpe.gestaorefeitorio.security.JwtService;
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -45,6 +46,7 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -492,6 +494,170 @@ class NotaControllerIntegrationTest {
     @Test
     void deveRetornar401AoListarEntradasSemToken() throws Exception {
         mockMvc.perform(get("/api/notas/entradas-disponiveis"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // ---- PUT /api/notas/{id} (#289) ----
+
+    private String registrarERetornarJson(String numero, List<UUID> movimentacaoIds) throws Exception {
+        return registrar(tokenNutricionista, corpo(numero, remetente.getId(), movimentacaoIds))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+    }
+
+    private UUID registrarNota(String numero, List<UUID> movimentacaoIds) throws Exception {
+        return UUID.fromString(JsonPath.read(registrarERetornarJson(numero, movimentacaoIds), "$.id"));
+    }
+
+    private ResultActions editar(String token, UUID notaId, String corpo) throws Exception {
+        return mockMvc.perform(put("/api/notas/" + notaId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(corpo));
+    }
+
+    @Test
+    void deveEditarNotaPendenteSubstituindoEntradasSemMudarRegistradoPorNemCriadoEm() throws Exception {
+        Produto produto = criarProduto();
+        Movimentacao mantida = criarEntrada(produto, LocalDate.now(), null);
+        Movimentacao retirada = criarEntrada(produto, LocalDate.now(), null);
+        Movimentacao nova = criarEntrada(produto, LocalDate.now(), null);
+        String registrada = registrarERetornarJson("NF-600", List.of(mantida.getId(), retirada.getId()));
+        UUID notaId = UUID.fromString(JsonPath.read(registrada, "$.id"));
+        String criadoEm = JsonPath.read(registrada, "$.criadoEm");
+
+        Remetente outro = criarRemetente("Cooperativa", true);
+        // Outra nutricionista edita: registradoPor continua sendo quem registrou.
+        String tokenOutraNutri = tokenPara(criarUsuario(Perfil.NUTRICIONISTA));
+
+        editar(tokenOutraNutri, notaId, """
+                {"numero":" NF-601 ","data":"%s","remetenteId":"%s","movimentacaoIds":["%s","%s"],"observacoes":"Corrigida"}
+                """.formatted(LocalDate.now().minusDays(1), outro.getId(), mantida.getId(), nova.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(notaId.toString()))
+                .andExpect(jsonPath("$.numero").value("NF-601"))
+                .andExpect(jsonPath("$.data").value(LocalDate.now().minusDays(1).toString()))
+                .andExpect(jsonPath("$.status").value("PENDENTE"))
+                .andExpect(jsonPath("$.observacoes").value("Corrigida"))
+                .andExpect(jsonPath("$.remetente.id").value(outro.getId().toString()))
+                .andExpect(jsonPath("$.registradoPor.email").value(nutricionista.getEmail()))
+                .andExpect(jsonPath("$.criadoEm").value(criadoEm))
+                .andExpect(jsonPath("$.entradas.length()").value(2))
+                .andExpect(jsonPath("$.entradas[*].movimentacaoId").value(hasItem(mantida.getId().toString())))
+                .andExpect(jsonPath("$.entradas[*].movimentacaoId").value(hasItem(nova.getId().toString())));
+
+        // A entrada retirada volta a ficar disponível (#288); a mantida e a nova, não.
+        listar(tokenNutricionista, "?produtoId=" + produto.getId())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].movimentacaoId").value(retirada.getId().toString()));
+    }
+
+    @Test
+    void deveManterOProprioNumeroSemConflito() throws Exception {
+        Movimentacao entrada = criarMovimentacao(TipoMovimentacao.ENTRADA);
+        UUID notaId = registrarNota("NF-610", List.of(entrada.getId()));
+
+        editar(tokenNutricionista, notaId, corpo("NF-610", remetente.getId(), List.of(entrada.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.numero").value("NF-610"));
+    }
+
+    @Test
+    void deveRetornar409AoEditarParaNumeroDeOutraNotaDoMesmoRemetente() throws Exception {
+        registrarNota("NF-620", List.of(criarMovimentacao(TipoMovimentacao.ENTRADA).getId()));
+        Movimentacao entrada = criarMovimentacao(TipoMovimentacao.ENTRADA);
+        UUID notaId = registrarNota("NF-621", List.of(entrada.getId()));
+
+        editar(tokenNutricionista, notaId, corpo("NF-620", remetente.getId(), List.of(entrada.getId())))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void deveRetornar409AoEditarComEntradaVinculadaAOutraNota() throws Exception {
+        Movimentacao deOutra = criarMovimentacao(TipoMovimentacao.ENTRADA);
+        registrarNota("NF-630", List.of(deOutra.getId()));
+        Movimentacao entrada = criarMovimentacao(TipoMovimentacao.ENTRADA);
+        UUID notaId = registrarNota("NF-631", List.of(entrada.getId()));
+
+        editar(tokenNutricionista, notaId, corpo("NF-631", remetente.getId(),
+                List.of(entrada.getId(), deOutra.getId())))
+                .andExpect(status().isConflict());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StatusNota.class, names = { "VALIDADA", "CANCELADA" })
+    void deveRetornar409AoEditarNotaQueNaoEstaPendente(StatusNota status) throws Exception {
+        Movimentacao entrada = criarMovimentacao(TipoMovimentacao.ENTRADA);
+        UUID notaId = registrarNota("NF-640", List.of(entrada.getId()));
+        Nota nota = notaRepository.findById(notaId).orElseThrow();
+        nota.setStatus(status);
+        notaRepository.save(nota);
+
+        editar(tokenNutricionista, notaId, corpo("NF-641", remetente.getId(), List.of(entrada.getId())))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void deveRetornar404AoEditarNotaInexistente() throws Exception {
+        editar(tokenNutricionista, UUID.randomUUID(), corpo("NF-1", remetente.getId(),
+                List.of(criarMovimentacao(TipoMovimentacao.ENTRADA).getId())))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void devePermitirManterRemetenteInativadoDepoisDoRegistro() throws Exception {
+        Movimentacao entrada = criarMovimentacao(TipoMovimentacao.ENTRADA);
+        UUID notaId = registrarNota("NF-650", List.of(entrada.getId()));
+        remetente.setAtivo(false);
+        remetenteRepository.save(remetente);
+
+        editar(tokenNutricionista, notaId, corpo("NF-650", remetente.getId(), List.of(entrada.getId())))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void deveRetornar409AoTrocarParaRemetenteInativo() throws Exception {
+        Movimentacao entrada = criarMovimentacao(TipoMovimentacao.ENTRADA);
+        UUID notaId = registrarNota("NF-660", List.of(entrada.getId()));
+        Remetente inativo = criarRemetente("Inativo", false);
+
+        editar(tokenNutricionista, notaId, corpo("NF-660", inativo.getId(), List.of(entrada.getId())))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void deveManterValidacoesDoRegistroNaEdicao() throws Exception {
+        Movimentacao entrada = criarMovimentacao(TipoMovimentacao.ENTRADA);
+        UUID notaId = registrarNota("NF-670", List.of(entrada.getId()));
+
+        editar(tokenNutricionista, notaId, corpo("NF-670", remetente.getId(),
+                List.of(criarMovimentacao(TipoMovimentacao.SAIDA).getId())))
+                .andExpect(status().isBadRequest());
+        editar(tokenNutricionista, notaId, corpo("NF-670", remetente.getId(), List.of()))
+                .andExpect(status().isBadRequest());
+        editar(tokenNutricionista, notaId, corpo("NF-670", remetente.getId(), List.of(entrada.getId(), entrada.getId())))
+                .andExpect(status().isBadRequest());
+        editar(tokenNutricionista, notaId, corpo("NF-670", LocalDate.now().plusDays(2).toString(),
+                remetente.getId(), List.of(entrada.getId())))
+                .andExpect(status().isBadRequest());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Perfil.class, names = { "COZINHA", "ADMIN" })
+    void deveRetornar403AoEditarComPerfilSemPermissao(Perfil perfil) throws Exception {
+        Movimentacao entrada = criarMovimentacao(TipoMovimentacao.ENTRADA);
+        UUID notaId = registrarNota("NF-680", List.of(entrada.getId()));
+
+        editar(tokenPara(criarUsuario(perfil)), notaId, corpo("NF-681", remetente.getId(), List.of(entrada.getId())))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveRetornar401AoEditarSemToken() throws Exception {
+        mockMvc.perform(put("/api/notas/" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo("NF-1", remetente.getId(), List.of(UUID.randomUUID()))))
                 .andExpect(status().isUnauthorized());
     }
 }

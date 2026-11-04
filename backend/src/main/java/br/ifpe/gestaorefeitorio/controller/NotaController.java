@@ -13,7 +13,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -37,6 +39,16 @@ public class NotaController {
             @Valid @RequestBody NotaRequestDTO request,
             @AuthenticationPrincipal Usuario registradoPor) {
         return ResponseEntity.status(HttpStatus.CREATED).body(notaService.registrar(request, registradoPor));
+    }
+
+    // Correção de nota PENDENTE (#289); a lista de entradas enviada substitui os vínculos atuais.
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('NUTRICIONISTA')")
+    public NotaResponseDTO editar(
+            @PathVariable UUID id,
+            @Valid @RequestBody NotaRequestDTO request,
+            @AuthenticationPrincipal Usuario editadoPor) {
+        return notaService.editar(id, request, editadoPor);
     }
 
     // Entradas ainda sem nota, para o front montar uma nota com várias entradas (#288).
