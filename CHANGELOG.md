@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.1](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.9.0...gestao-refeitorio-v0.9.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **security:** refresh backend runtime packages ([5d3ba14](https://github.com/ifpebj-ti/gestao-refeitorio/commit/5d3ba148157d4f8a4338fe98128d07af685f0469))
+* **security:** remediate frontend image vulnerabilities ([42343bf](https://github.com/ifpebj-ti/gestao-refeitorio/commit/42343bfb1a7e61b5337a1bb1a597593966eae33a))
+
 ## [0.9.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.8.0...gestao-refeitorio-v0.9.0) (2026-10-28)
 
 
