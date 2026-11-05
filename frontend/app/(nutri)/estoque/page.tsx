@@ -578,7 +578,7 @@ export default function EstoqueGeralPage() {
     } finally {
       setCarregandoExtrato(false);
     }
-  }, [listaEstoque, perfil, usuario?.nome]);
+  }, [listaEstoque, perfil, usuario]);
 
   useEffect(() => {
     if (abaAtiva === "extrato" && autenticado) {
