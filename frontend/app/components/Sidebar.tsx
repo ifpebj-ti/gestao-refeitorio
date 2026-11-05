@@ -12,7 +12,6 @@ import {
   Tv,
   BarChart3,
   Users,
-  ArrowLeft,
   LogOut,
   X,
 } from "lucide-react";
