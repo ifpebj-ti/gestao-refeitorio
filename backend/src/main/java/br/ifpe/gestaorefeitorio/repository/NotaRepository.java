@@ -20,4 +20,15 @@ public interface NotaRepository extends JpaRepository<Nota, UUID> {
             WHERE m.id = :movimentacaoId
             """)
     boolean existsByMovimentacaoId(@Param("movimentacaoId") UUID movimentacaoId);
+
+    // Versões da edição (#289), que ignoram a própria nota. Ficam separadas das do registro porque
+    // "n.id <> :notaId" com notaId nulo nunca é verdadeiro no SQL e deixaria qualquer entrada passar.
+    boolean existsByRemetenteIdAndNumeroAndIdNot(UUID remetenteId, String numero, UUID id);
+
+    @Query("""
+            SELECT COUNT(n) > 0 FROM Nota n JOIN n.movimentacoes m
+            WHERE m.id = :movimentacaoId AND n.id <> :notaId
+            """)
+    boolean existsByMovimentacaoIdAndNotaIdNot(@Param("movimentacaoId") UUID movimentacaoId,
+                                               @Param("notaId") UUID notaId);
 }
