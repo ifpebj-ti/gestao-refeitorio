@@ -261,7 +261,7 @@ export default function CentralAlertasPage() {
   }, [listaAlertas, filtroTipo, filtroCategoria, termoBusca]);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto w-full space-y-6 pb-20">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-28">
       {/* Cabeçalho Enxuto */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>

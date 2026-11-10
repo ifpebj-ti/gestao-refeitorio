@@ -1123,7 +1123,7 @@ export default function ConsumoDiarioPage() {
           `@gestao_refeitorio:consumo_${dataRegistro}_${tipoRefeicao}`,
           JSON.stringify(registroSalvo)
         );
-      } catch (e) {
+      } catch {
         // ignore
       }
 
@@ -1180,14 +1180,14 @@ export default function ConsumoDiarioPage() {
   const totalLancados = itens.filter((i) => i.quantidadeDigitada > 0).length;
 
   return (
-    <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 sm:py-5 space-y-3.5">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-28">
       {/* Cabeçalho Enxuto */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             {isNutricionista ? "Conferência de Consumo Diário" : "Registro de Insumos da Cozinha"}
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
             {isNutricionista
               ? "Acompanhe os insumos utilizados no preparo de cada refeição."
               : "Lance as quantidades utilizadas no preparo para baixa direta e balanço diário."}
