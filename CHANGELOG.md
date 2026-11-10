@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.10.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.9.1...gestao-refeitorio-v0.10.0) (2026-11-05)
+
+
+### Features
+
+* adiciona cadastro de remetente de notas [#286](https://github.com/ifpebj-ti/gestao-refeitorio/issues/286) ([d5b8e63](https://github.com/ifpebj-ti/gestao-refeitorio/commit/d5b8e638b0ff2e10b838254be902cad80eed227a))
+* adiciona cadastro de remetente de notas [#286](https://github.com/ifpebj-ti/gestao-refeitorio/issues/286) ([c84f9c0](https://github.com/ifpebj-ti/gestao-refeitorio/commit/c84f9c0771522f68a84ac3979055883179311c33))
+* adiciona listagem de entradas disponíveis para nota [#288](https://github.com/ifpebj-ti/gestao-refeitorio/issues/288) ([6a1b1ba](https://github.com/ifpebj-ti/gestao-refeitorio/commit/6a1b1ba2b74ba0765ac5d1b12501e7ae0da6769e))
+* adiciona registro de nota de recebimento vinculada às entradas [#287](https://github.com/ifpebj-ti/gestao-refeitorio/issues/287) ([0d7d2d8](https://github.com/ifpebj-ti/gestao-refeitorio/commit/0d7d2d855f8af61640dc54d7df5cc77f356e9f41))
+
+
+### Bug Fixes
+
+* **frontend:** ajusta dependencia usuario no useCallback de carregarHistorico ([585c85c](https://github.com/ifpebj-ti/gestao-refeitorio/commit/585c85c8bd53662d72c745b9dfd986d42522d67f))
+
 ## [0.9.1](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.9.0...gestao-refeitorio-v0.9.1) (2026-11-04)
 
 
