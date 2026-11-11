@@ -132,6 +132,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
 
     outputs:
       short_sha: ${{ steps.revision.outputs.short_sha }}
@@ -319,6 +320,44 @@ jobs:
 
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
+      
+      - name: Install Cosign
+        if: >-
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          github.ref == 'refs/heads/main'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign commit images
+        if: >-
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          github.ref == 'refs/heads/main'
+        env:
+          SHORT_SHA: ${{ steps.revision.outputs.short_sha }}
+        run: |
+          set -Eeuo pipefail
+
+          for app in frontend backend; do
+            image="${REGISTRY}/${GITHUB_REPOSITORY}-${app}"
+
+            echo "========================================"
+            echo "Assinando: $image:sha-$SHORT_SHA"
+
+            digest="$(
+              docker buildx imagetools inspect "$image:sha-$SHORT_SHA" |
+              awk '$1 == "Digest:" && !found { print $2; found=1 }'
+            )"
+
+            echo "Digest encontrado: ${digest:-VAZIO}"
+
+            if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+              echo "Digest inválido para $image:sha-$SHORT_SHA: ${digest:-vazio}" >&2
+              exit 1
+            fi
+
+            cosign sign --yes "$image@$digest"
+
+            echo "Imagem assinada: $image@$digest"
+          done
 
   # =========================================================
   # RELEASE PLEASE
