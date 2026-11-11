@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.11.0...gestao-refeitorio-v0.12.0) (2026-11-11)
+
+
+### Features
+
+* adiciona login local por e-mail e senha restrito ao profile seguranca [#298](https://github.com/ifpebj-ti/gestao-refeitorio/issues/298) ([902384c](https://github.com/ifpebj-ti/gestao-refeitorio/commit/902384cc65f02a857a046a3ec0d40e0720ca0a93))
+* adiciona login local por e-mail e senha restrito ao profile seguranca [#298](https://github.com/ifpebj-ti/gestao-refeitorio/issues/298) ([830c776](https://github.com/ifpebj-ti/gestao-refeitorio/commit/830c776e1c32f45b8f68487aa1cd526518d734cf))
+
 ## [0.11.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.10.0...gestao-refeitorio-v0.11.0) (2026-11-11)
 
 
