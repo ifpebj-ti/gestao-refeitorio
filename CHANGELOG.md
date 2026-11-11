@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.12.1](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.12.0...gestao-refeitorio-v0.12.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* amplia health check do deploy e evita rollback incompatível com o schema [#322](https://github.com/ifpebj-ti/gestao-refeitorio/issues/322) ([b3f8c4e](https://github.com/ifpebj-ti/gestao-refeitorio/commit/b3f8c4ef26a6ef5ab883ff2ef387ec7df7c9a699))
+* amplia health check do deploy e evita rollback incompatível com o schema [#322](https://github.com/ifpebj-ti/gestao-refeitorio/issues/322) ([6a99e9b](https://github.com/ifpebj-ti/gestao-refeitorio/commit/6a99e9bc85a58e2e2fb1f20b1b2f0f7e5fe61a58))
+
+## [0.12.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.11.0...gestao-refeitorio-v0.12.0) (2026-11-11)
+
+
+### Features
+
+* adiciona login local por e-mail e senha restrito ao profile seguranca [#298](https://github.com/ifpebj-ti/gestao-refeitorio/issues/298) ([902384c](https://github.com/ifpebj-ti/gestao-refeitorio/commit/902384cc65f02a857a046a3ec0d40e0720ca0a93))
+* adiciona login local por e-mail e senha restrito ao profile seguranca [#298](https://github.com/ifpebj-ti/gestao-refeitorio/issues/298) ([830c776](https://github.com/ifpebj-ti/gestao-refeitorio/commit/830c776e1c32f45b8f68487aa1cd526518d734cf))
+
 ## [0.11.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.10.0...gestao-refeitorio-v0.11.0) (2026-11-11)
 
 

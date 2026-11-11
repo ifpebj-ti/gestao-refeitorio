@@ -38,6 +38,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(corpo(ex.getMessage()));
     }
 
+    @ExceptionHandler(CredenciaisInvalidasException.class)
+    public ResponseEntity<Map<String, Object>> handleCredenciaisInvalidas(CredenciaisInvalidasException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(corpo(ex.getMessage()));
+    }
+
     @ExceptionHandler({ UsuarioNaoEncontradoException.class, UsuarioInativoException.class })
     public ResponseEntity<Map<String, Object>> handleAcessoNegado(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(corpo(ex.getMessage()));
