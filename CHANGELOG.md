@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.12.1...gestao-refeitorio-v0.13.0) (2026-11-11)
+
+
+### Features
+
+* adiciona agente OpenTelemetry desligado por padrão na imagem do backend [#314](https://github.com/ifpebj-ti/gestao-refeitorio/issues/314) ([a96e618](https://github.com/ifpebj-ti/gestao-refeitorio/commit/a96e618cdd06e0e8a67a9196d25a133b3b8deadf))
+
 ## [0.12.1](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.12.0...gestao-refeitorio-v0.12.1) (2026-11-11)
 
 
