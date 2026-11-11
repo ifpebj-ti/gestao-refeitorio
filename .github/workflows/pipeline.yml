@@ -527,6 +527,7 @@ jobs:
           scp -i ~/.ssh/deploy_key \
             docker-compose.yml \
             docker-compose.prod.yml \
+            docker-compose.observabilidade.yml \
             scripts/backup-postgres.sh \
             "$USER@$HOST:/opt/gestao-refeitorio/"
 
