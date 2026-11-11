@@ -87,8 +87,25 @@ respectivas equipes antes da promoção da imagem.
 Em produção, a imagem `sha-<commit>` já analisada é promovida, sem rebuild, para as tags `X.Y.Z`,
 `vX.Y.Z` e `latest`. O job usa o GitHub Environment
 `production`, que pode exigir aprovação manual por meio de suas regras de proteção. Depois do `docker compose up`, o servidor testa
-o Actuator e a página inicial por até 180 segundos. Falha de saúde restaura automaticamente a
-última tag bem-sucedida registrada no host.
+o Actuator e a página inicial por até 600 segundos (`HEALTH_TIMEOUT_SECONDS`; a VM leva mais de
+180 s para subir uma versão com migrations novas). Falha de saúde restaura automaticamente a
+última tag bem-sucedida registrada no host, **exceto** quando a versão nova já migrou o banco.
+
+Rollback e migrations (#322): o Flyway não desfaz migrations, e uma migration destrutiva (como o
+`DROP COLUMN` da V23) impede a imagem anterior de subir. Por isso o script lê a versão do Flyway
+antes e depois do deploy: se ela avançou, o rollback de imagem é cancelado, a versão nova continua
+rodando e o job falha com a mensagem e um diagnóstico (estado do container, reinícios, OOM e linhas
+de erro do backend, com e-mails mascarados, porque o log do Actions é público).
+
+Recuperação manual na VM, quando for preciso fixar uma versão:
+
+```bash
+cd /opt/gestao-refeitorio
+export IMAGE_TAG=<versão>
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d backend frontend
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f backend   # até "Started"
+echo "$IMAGE_TAG" > .image-tag-docker-compose.prod   # passa a ser a versão de rollback
+```
 
 Quando a rede `lgtm_default` existe no servidor, o deploy também conecta o backend ao LGTM; a
 observabilidade (agente OpenTelemetry, desligado por padrão) está descrita em
@@ -129,4 +146,5 @@ Security. Desabilite push direto e exija ao menos uma revisão.
 2. publicar SBOM e assinar imagens com OIDC/Sigstore;
 3. mover o JWT do `localStorage` para cookie `HttpOnly`, aplicar CSP e parametrizar CORS;
 4. monitorar a renovação do TLS (o backup/restore do PostgreSQL já está em [BACKUP_POSTGRES.md](BACKUP_POSTGRES.md));
-5. adotar migração expand/contract para permitir rollback de aplicação após mudanças de schema.
+5. adotar migração expand/contract para permitir rollback de aplicação após mudanças de schema
+   (remover coluna/tabela só numa release posterior àquela que deixou de usá-la).

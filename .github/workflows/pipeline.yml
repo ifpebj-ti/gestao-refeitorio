@@ -132,6 +132,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
 
     outputs:
       short_sha: ${{ steps.revision.outputs.short_sha }}
@@ -319,6 +320,44 @@ jobs:
 
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
+      
+      - name: Install Cosign
+        if: >-
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          github.ref == 'refs/heads/main'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign commit images
+        if: >-
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          github.ref == 'refs/heads/main'
+        env:
+          SHORT_SHA: ${{ steps.revision.outputs.short_sha }}
+        run: |
+          set -Eeuo pipefail
+
+          for app in frontend backend; do
+            image="${REGISTRY}/${GITHUB_REPOSITORY}-${app}"
+
+            echo "========================================"
+            echo "Assinando: $image:sha-$SHORT_SHA"
+
+            digest="$(
+              docker buildx imagetools inspect "$image:sha-$SHORT_SHA" |
+              awk '$1 == "Digest:" && !found { print $2; found=1 }'
+            )"
+
+            echo "Digest encontrado: ${digest:-VAZIO}"
+
+            if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+              echo "Digest inválido para $image:sha-$SHORT_SHA: ${digest:-vazio}" >&2
+              exit 1
+            fi
+
+            cosign sign --yes "$image@$digest"
+
+            echo "Imagem assinada: $image@$digest"
+          done
 
   # =========================================================
   # RELEASE PLEASE
@@ -425,7 +464,7 @@ jobs:
             echo ">>> Obtendo digest..."
             digest="$(
               docker buildx imagetools inspect "$image:$VERSION" |
-              awk '$1 == "Digest:" { print $2; exit }'
+              awk '$1 == "Digest:" && !found { print $2; found=1 }'
             )"
       
             echo "Digest encontrado: ${digest:-VAZIO}"
@@ -485,44 +524,61 @@ jobs:
   # =========================================================
   deploy-production:
     name: Release / deploy production
-
-    if: needs.release.outputs.created == 'true'
-
+  
     needs:
+      - images
       - release
       - publish-release
-
+  
+    if: >-
+      always() &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main' &&
+      needs.images.result == 'success' &&
+      needs.release.result == 'success' &&
+      (needs.publish-release.result == 'success' || needs.publish-release.result == 'skipped')
+  
     runs-on: ubuntu-24.04
-
+  
     environment:
       name: production
       url: ${{ vars.PRODUCTION_URL }}
-
+  
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ needs.release.outputs.tag }}
+          ref: ${{ github.sha }}
           persist-credentials: false
-
+  
+      - name: Resolve deploy image tag
+        id: deploy-tag
+        env:
+          RELEASE_CREATED: ${{ needs.release.outputs.created }}
+          RELEASE_VERSION: ${{ needs.release.outputs.version }}
+          SHORT_SHA: ${{ needs.images.outputs.short_sha }}
+        run: |
+          if [[ "$RELEASE_CREATED" == "true" ]]; then
+            echo "tag=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+            echo "Deploy usando release: $RELEASE_VERSION"
+          else
+            echo "tag=sha-$SHORT_SHA" >> "$GITHUB_OUTPUT"
+            echo "Deploy usando commit: sha-$SHORT_SHA"
+          fi
+  
       - name: Configure SSH
         env:
           SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_SSH_KNOWN_HOSTS }}
-
         run: |
           install -m 700 -d ~/.ssh
-
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
-
           chmod 600 ~/.ssh/deploy_key
-
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-
+  
       - name: Upload Compose definitions
         env:
           HOST: ${{ secrets.PRODUCTION_HOST }}
           USER: ${{ secrets.PRODUCTION_USER }}
-
         run: |
           scp -i ~/.ssh/deploy_key \
             docker-compose.yml \
@@ -530,13 +586,12 @@ jobs:
             docker-compose.observabilidade.yml \
             scripts/backup-postgres.sh \
             "$USER@$HOST:/opt/gestao-refeitorio/"
-
+  
       - name: Deploy with health check and rollback
         env:
           HOST: ${{ secrets.PRODUCTION_HOST }}
           USER: ${{ secrets.PRODUCTION_USER }}
-          IMAGE_TAG: ${{ needs.release.outputs.version }}
-
+          IMAGE_TAG: ${{ steps.deploy-tag.outputs.tag }}
         run: |
           ssh -i ~/.ssh/deploy_key "$USER@$HOST" \
             "bash -s -- '$IMAGE_TAG' docker-compose.prod.yml" \
