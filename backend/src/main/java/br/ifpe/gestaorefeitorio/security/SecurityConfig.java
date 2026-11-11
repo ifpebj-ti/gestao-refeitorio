@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
@@ -28,6 +30,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final Environment environment;
 
     @Value("${springdoc.swagger-ui.enabled:true}")
     private boolean swaggerEnabled;
@@ -47,6 +50,10 @@ public class SecurityConfig {
                             .permitAll();
                     if (swaggerEnabled) {
                         matcherRegistry.requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll();
+                    }
+                    // Login local de testes (#298): sem o profile, a rota nem é liberada.
+                    if (environment.acceptsProfiles(Profiles.of("seguranca"))) {
+                        matcherRegistry.requestMatchers(HttpMethod.POST, "/api/auth/local").permitAll();
                     }
                     matcherRegistry.anyRequest().authenticated();
                 })

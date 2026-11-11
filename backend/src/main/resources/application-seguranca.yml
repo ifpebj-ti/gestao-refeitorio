@@ -1,0 +1,12 @@
+# Só para testes de segurança locais (#298). Nunca ativar junto com prod: a aplicação não sobe.
+seguranca:
+  login-local:
+    nutricionista:
+      email: ${LOCAL_NUTRI_EMAIL:nutricionista@seguranca.local}
+      nome: Nutricionista (teste de segurança)
+      # Sem padrão de propósito: vazio falha com mensagem clara em LoginLocalProperties.
+      senha: ${LOCAL_NUTRI_SENHA:}
+    cozinha:
+      email: ${LOCAL_COZINHA_EMAIL:cozinha@seguranca.local}
+      nome: Cozinha (teste de segurança)
+      senha: ${LOCAL_COZINHA_SENHA:}
