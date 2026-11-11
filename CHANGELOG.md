@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.11.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.10.0...gestao-refeitorio-v0.11.0) (2026-11-11)
+
+
+### Features
+
+* cria ADMIN inicial automaticamente na inicialização [#207](https://github.com/ifpebj-ti/gestao-refeitorio/issues/207) ([4e72de1](https://github.com/ifpebj-ti/gestao-refeitorio/commit/4e72de1fbdf947b4c26ebe2eaebcf2f2037c0ad1))
+* cria ADMIN inicial automaticamente na inicialização [#207](https://github.com/ifpebj-ti/gestao-refeitorio/issues/207) ([1a15920](https://github.com/ifpebj-ti/gestao-refeitorio/commit/1a159207408c1bd28ed45b56f982f78c4c8c341a))
+* **frontend:** adiciona TV do Refeitorio sem quantidades e padroniza layout das telas ([7db4030](https://github.com/ifpebj-ti/gestao-refeitorio/commit/7db403093acdb00a242bd519e417a6c4b2a2a576))
+* **frontend:** adiciona TV do Refeitório sem quantidades e padroniza layout das telas ([935f5da](https://github.com/ifpebj-ti/gestao-refeitorio/commit/935f5dac5788b13cbe22f20bace17587aeba4599))
+* remove usuários da V18 sem histórico vinculado [#207](https://github.com/ifpebj-ti/gestao-refeitorio/issues/207) ([84f2e28](https://github.com/ifpebj-ti/gestao-refeitorio/commit/84f2e28ddc472a316b76c88d879fb66e5ba1c795))
+
 ## [0.10.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.9.1...gestao-refeitorio-v0.10.0) (2026-11-05)
 
 
