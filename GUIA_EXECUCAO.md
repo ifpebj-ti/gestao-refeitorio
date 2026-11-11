@@ -114,6 +114,32 @@ notas vinculadas. Num banco local antigo, isso remove esses usuários: defina o 
 variável precisa estar no `/opt/gestao-refeitorio/.env` **antes** do deploy; sem ela, o sistema
 fica sem ADMIN até ela ser definida e o backend reiniciado.
 
+### Login local para testes de segurança (#298)
+
+Só para os testes de segurança da disciplina, **na sua máquina**. Com o profile `seguranca`, o
+backend cria dois usuários de teste (NUTRICIONISTA e COZINHA) e libera `POST /api/auth/local`,
+que devolve o mesmo JWT do login com Google. Sem o profile, nada disso existe.
+
+1. No `.env`, defina `SPRING_PROFILES_ACTIVE=seguranca`, `LOCAL_NUTRI_SENHA` e
+   `LOCAL_COZINHA_SENHA` (12 caracteres ou mais; sem elas o backend não sobe). Os e-mails
+   padrão são `nutricionista@seguranca.local` e `cozinha@seguranca.local` (mudam com
+   `LOCAL_NUTRI_EMAIL`/`LOCAL_COZINHA_EMAIL`).
+2. Suba normalmente (`docker compose up --build`).
+3. Pegue o token e use nas chamadas:
+   ```powershell
+   curl -s -X POST http://localhost:8080/api/auth/local -H "Content-Type: application/json" `
+     -d '{"email":"nutricionista@seguranca.local","senha":"<LOCAL_NUTRI_SENHA>"}'
+   # depois: -H "Authorization: Bearer <token>"
+   ```
+
+Avisos:
+- **Nunca** use no servidor: se `seguranca` for ativado junto com `prod`, o backend não sobe, e o
+  `docker-compose.prod.yml` já fixa `SPRING_PROFILES_ACTIVE: prod`.
+- Não há limite de tentativas de login. Um teste de força bruta aqui não representa a produção,
+  onde a autenticação é feita pelo Google.
+- Para desligar, tire o `SPRING_PROFILES_ACTIVE=seguranca` do `.env`. Os usuários de teste
+  continuam no banco local, mas sem o endpoint ninguém consegue entrar com eles.
+
 O `backend` só sobe depois que o `db` responde saudável (`depends_on: condition: service_healthy`
 no `docker-compose.yml`), então não tem corrida entre a migration do Flyway e o banco ainda não
 estar pronto.
