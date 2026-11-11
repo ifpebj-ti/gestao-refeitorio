@@ -50,6 +50,12 @@ google:
   oauth:
     client-id: ${GOOGLE_CLIENT_ID:411051502805-kktsu5dn98f504upsj8jlh1qmroq9k48.apps.googleusercontent.com}
 
+admin:
+  inicial:
+    # Usado só quando não existe nenhum ADMIN ativo (#207). Vazio = nada é criado (WARN no log).
+    email: ${ADMIN_INICIAL_EMAIL:}
+    nome: ${ADMIN_INICIAL_NOME:Administrador}
+
 email:
   remetente: ${MAIL_FROM:nao-responda@localhost}
   alerta:
