@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { Utensils, Maximize2, Minimize2, Clock, Users } from "lucide-react";
 import { extrairTextoRefeicao } from "@/app/cardapio/page";
@@ -112,7 +112,7 @@ export default function TvMuralPage() {
   }, []);
 
   // 2. Leitura e sincronização automática do cardápio semanal
-  const carregarCardapio = async () => {
+  const carregarCardapio = useCallback(async () => {
     try {
       const agora = new Date();
       const diaNum = agora.getDay();
@@ -186,7 +186,7 @@ export default function TvMuralPage() {
     setObservacoes("");
     setQuantidadePessoas("");
     setHorarioRefeicao(INFO_REFEICOES[refeicaoAtiva].horarioPadrao);
-  };
+  }, [refeicaoAtiva]);
 
   useEffect(() => {
     carregarCardapio();
@@ -197,7 +197,7 @@ export default function TvMuralPage() {
       clearInterval(interval);
       window.removeEventListener("storage", carregarCardapio);
     };
-  }, [diaSemana, refeicaoAtiva]);
+  }, [diaSemana, refeicaoAtiva, carregarCardapio]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -291,52 +291,14 @@ export default function TvMuralPage() {
           <div className="py-2 sm:py-4 flex-1 min-h-0 flex flex-col justify-center overflow-y-auto scrollbar-none">
             {linhasTexto.length > 0 ? (
               <div className="p-3.5 sm:p-5 lg:p-7 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-2 sm:space-y-3 text-left">
-                {linhasTexto.map((linha, idx) => {
-                  const ehItemComTraco = linha.startsWith("-");
-
-                  if (ehItemComTraco) {
-                    const limpo = linha.replace(/^-\s*/, "");
-                    const matchQtd = limpo.match(/\(([^)]+)\)/);
-                    const nome = limpo.replace(/\([^)]+\)/, "").trim();
-                    const qtd = matchQtd ? matchQtd[1].trim() : "";
-
-                    return (
-                      <div
-                        key={idx}
-                        className="flex flex-wrap sm:flex-nowrap items-baseline gap-2 sm:gap-3 pl-1 leading-snug"
-                      >
-                        <div className="flex items-baseline gap-1.5 sm:gap-2.5 min-w-0">
-                          <span className="font-extrabold text-slate-900 text-base sm:text-xl lg:text-2xl shrink-0">
-                            -
-                          </span>
-                          <span className="font-bold text-slate-950 text-base sm:text-xl lg:text-2xl 2xl:text-3xl break-words">
-                            {nome}
-                          </span>
-                        </div>
-                        {qtd && (
-                          <span className="font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 sm:px-3 sm:py-0.5 rounded-lg border border-emerald-300 text-xs sm:text-sm lg:text-lg shrink-0 whitespace-nowrap self-start sm:self-auto ml-4 sm:ml-0">
-                            ({qtd})
-                          </span>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  const ehSalada = linha.toLowerCase().startsWith("salada");
-
-                  return (
-                    <p
-                      key={idx}
-                      className={`pl-1 leading-snug text-base sm:text-xl lg:text-2xl 2xl:text-3xl ${
-                        ehSalada
-                          ? "font-extrabold text-emerald-900 bg-emerald-100/70 p-2.5 sm:p-3 rounded-xl border border-emerald-300"
-                          : "font-bold text-slate-900"
-                      }`}
-                    >
-                      {linha}
-                    </p>
-                  );
-                })}
+                {linhasTexto.map((linha, idx) => (
+                  <p
+                    key={idx}
+                    className="pl-1 leading-snug text-base sm:text-xl lg:text-2xl 2xl:text-3xl font-bold text-slate-900 break-words"
+                  >
+                    {linha}
+                  </p>
+                ))}
 
                 {observacoes && (
                   <div className="mt-2.5 pt-2 border-t border-slate-200/80 flex items-start gap-2 sm:gap-3">

@@ -223,6 +223,24 @@ export function extrairTextoRefeicao(ref?: RefeicaoCardapio): string {
   return linhas.join("\n").trim();
 }
 
+export function limparQuantidadesParaRefeitorio(linha: string): string {
+  return linha
+    // 1. Remove qualquer conteúdo entre parênteses ou colchetes: (20 kg), [10 un], etc.
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, "")
+    // 2. Remove números seguidos (com ou sem espaço) de qualquer abreviação ou unidade de medida
+    .replace(
+      /(?:[-:]\s*)?\b\d+(?:[.,]\d+)?\s*(?:kg|quilos?|kilos?|g|gr|grs|gramas?|mg|l|lt|lts|litros?|ml|un|und|unds|unid|unidades?|pct|pcts|pacotes?|cx|cxs|caixas?|latas?|bandejas?|bdj|ma[cç]os?|dz|d[uú]zias?|fatias?|por[cç][oõ]es|copos?|garrafas?|sacos?|fardos?|potes?|tabletes?|rolos?)\b/gi,
+      ""
+    )
+    // 3. Remove quaisquer números soltos restantes (ex: "pão 150", "ovo - 30")
+    .replace(/(?:[-:]\s*)?\b\d+(?:[.,]\d+)?\b/g, "")
+    // 4. Limpa espaços antes de vírgulas/pontuação e espaços duplicados (ex: "cuscuz , ovo" -> "cuscuz, ovo")
+    .replace(/\s+([,;+])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .replace(/[-:+/,;]\s*$/g, "")
+    .trim();
+}
+
 export function parseTextoParaItens(texto: string): {
   itens: ItemLinhaCardapio[];
   itensSalada: ItemLinhaCardapio[];
@@ -594,21 +612,16 @@ export default function CardapioSemanalPage() {
   const diaAtualDados = cardapio[diaSelecionado];
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto w-full space-y-6 pb-24">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-6 pb-28">
       {/* 1. CABEÇALHO */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-            <Calendar className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Cardápio Semanal
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Defina os pratos e quantidades livremente em texto aberto, sincronizando com a Cozinha e a TV.
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Cardápio Semanal
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Defina os pratos e quantidades livremente em texto aberto, sincronizando com a Cozinha e a TV.
+          </p>
         </div>
 
         {/* Botão de Edição / Salvar */}
@@ -905,34 +918,11 @@ export default function CardapioSemanalPage() {
         <div className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80 space-y-3">
           {linhasTexto.length > 0 ? (
             <div className="space-y-2 text-xs sm:text-sm text-slate-800">
-              {linhasTexto.map((linha, idx) => {
-                const ehItemComTraco = linha.startsWith("-");
-
-                if (ehItemComTraco) {
-                  const limpo = linha.replace(/^-\s*/, "");
-                  const matchQtd = limpo.match(/\(([^)]+)\)/);
-                  const nome = limpo.replace(/\([^)]+\)/, "").trim();
-                  const qtd = matchQtd ? matchQtd[1].trim() : "";
-
-                  return (
-                    <p key={idx} className="flex items-start gap-2 pl-1">
-                      <span className="font-extrabold text-slate-900">-</span>
-                      <span className="font-bold text-slate-950">{nome}</span>
-                      {qtd && (
-                        <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60 text-xs">
-                          ({qtd})
-                        </span>
-                      )}
-                    </p>
-                  );
-                }
-
-                return (
-                  <p key={idx} className="font-bold text-slate-900 pl-1">
-                    {linha}
-                  </p>
-                );
-              })}
+              {linhasTexto.map((linha, idx) => (
+                <p key={idx} className="font-bold text-slate-900 pl-1">
+                  {linha}
+                </p>
+              ))}
             </div>
           ) : (
             <p className="text-xs text-slate-400 italic py-2 text-center">
