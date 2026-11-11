@@ -408,22 +408,61 @@ jobs:
           VERSION: ${{ needs.release.outputs.version }}
         run: |
           set -Eeuo pipefail
-
+      
+          echo "Cosign version:"
+          cosign version
+      
+          echo "Trivy version:"
+          trivy --version
+      
           for app in frontend backend; do
             image="${REGISTRY}/${GITHUB_REPOSITORY}-${app}"
-            digest="$(docker buildx imagetools inspect "$image:$VERSION" | awk '$1 == "Digest:" { print $2; exit }')"
-
+      
+            echo "========================================"
+            echo "APP: $app"
+            echo "IMAGE: $image:$VERSION"
+      
+            echo ">>> Obtendo digest..."
+            digest="$(
+              docker buildx imagetools inspect "$image:$VERSION" |
+              awk '$1 == "Digest:" { print $2; exit }'
+            )"
+      
+            echo "Digest encontrado: ${digest:-VAZIO}"
+      
             if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
               echo "Digest inválido para $image:$VERSION: ${digest:-vazio}" >&2
               exit 1
             fi
-
+      
             image_ref="$image@$digest"
             sbom="sbom-${app}-${VERSION}.spdx.json"
-
+      
+            echo ">>> Assinando imagem com Cosign..."
             cosign sign --yes "$image_ref"
-            trivy image --quiet --format spdx-json --output "$sbom" "$image_ref"
-            cosign attest --yes --type spdxjson --predicate "$sbom" "$image_ref"
+      
+            echo ">>> Assinatura concluída"
+      
+            echo ">>> Gerando SBOM com Trivy..."
+            trivy image \
+              --quiet \
+              --format spdx-json \
+              --output "$sbom" \
+              "$image_ref"
+      
+            echo ">>> SBOM gerado:"
+            ls -lh "$sbom"
+      
+            echo ">>> Criando attestation..."
+            cosign attest \
+              --yes \
+              --type spdxjson \
+              --predicate "$sbom" \
+              "$image_ref"
+      
+            echo ">>> Attestation concluída"
+      
+            echo ">>> Finalizado: $app"
           done
 
       - name: Upload SBOM workflow artifact
