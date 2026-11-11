@@ -8,6 +8,8 @@ readonly state_file=".image-tag-${overlay%.yml}"
 readonly cosign_image="ghcr.io/sigstore/cosign/cosign:v3.1.4@sha256:0f06154836d2de34f887a5c273506d52ca43edaa1d9e53e6510fa78a48f69c2d"
 readonly certificate_identity="https://github.com/ifpebj-ti/gestao-refeitorio/.github/workflows/pipeline.yml@refs/heads/main"
 readonly certificate_issuer="https://token.actions.githubusercontent.com"
+readonly observability_overlay="docker-compose.observabilidade.yml"
+readonly observability_network="lgtm_default"
 # A VM leva mais de 180 s para subir uma versão com migrations novas (#322); configurável por variável.
 readonly health_timeout="${HEALTH_TIMEOUT_SECONDS:-600}"
 readonly health_interval=5
@@ -20,8 +22,15 @@ if [[ -f "$state_file" ]]; then
 fi
 schema_before=""
 
+compose_files=(-f docker-compose.yml -f "$overlay")
+# Overlay da observabilidade só com a rede do LGTM presente: sem ela, o compose falharia e o deploy faria rollback.
+if [[ -f "$observability_overlay" ]] && docker network inspect "$observability_network" >/dev/null 2>&1; then
+  compose_files+=(-f "$observability_overlay")
+  echo "Rede ${observability_network} encontrada; backend conectado à observabilidade."
+fi
+
 compose() {
-  docker compose -f docker-compose.yml -f "$overlay" "$@"
+  docker compose "${compose_files[@]}" "$@"
 }
 
 # Última migration do Flyway aplicada com sucesso; vazio quando não dá pra ler (banco fora do ar,

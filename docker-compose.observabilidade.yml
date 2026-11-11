@@ -1,0 +1,12 @@
+# Conecta o backend à rede do LGTM (#314). Não use direto: o scripts/deploy-remote.sh só aplica
+# este overlay quando a rede lgtm_default existe, pra o deploy não falhar sem o LGTM.
+services:
+  backend:
+    networks:
+      - default
+      - lgtm
+
+networks:
+  lgtm:
+    external: true
+    name: lgtm_default

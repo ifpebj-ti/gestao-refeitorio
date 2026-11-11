@@ -107,6 +107,10 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f backend 
 echo "$IMAGE_TAG" > .image-tag-docker-compose.prod   # passa a ser a versão de rollback
 ```
 
+Quando a rede `lgtm_default` existe no servidor, o deploy também conecta o backend ao LGTM; a
+observabilidade (agente OpenTelemetry, desligado por padrão) está descrita em
+[OBSERVABILIDADE.md](OBSERVABILIDADE.md).
+
 A aplicação é disponibilizada por Nginx em `https://gestao-refeitorio-ifpe.duckdns.org`, com `/`
 encaminhado ao frontend e `/api/` ao backend. O TLS é fornecido pelo Let's Encrypt e sua renovação
 foi validada com `certbot renew --dry-run`.
