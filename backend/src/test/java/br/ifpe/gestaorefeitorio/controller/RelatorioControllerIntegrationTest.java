@@ -181,7 +181,8 @@ class RelatorioControllerIntegrationTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].produtoId").value(produtoComMovimentacao.getId().toString()));
+                .andExpect(jsonPath("$[0].produtoId").value(produtoComMovimentacao.getId().toString()))
+                .andExpect(jsonPath("$[?(@.produtoId == '%s')]", produtoSemMovimentacao.getId()).isEmpty());
     }
 
     @Test
