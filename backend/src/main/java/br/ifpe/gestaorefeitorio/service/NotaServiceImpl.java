@@ -117,8 +117,7 @@ public class NotaServiceImpl implements NotaService {
         nota.setData(request.data());
         nota.setRemetente(remetente);
         // Substitui os vínculos: entrada retirada da lista volta a ficar disponível (#288).
-        nota.getMovimentacoes().clear();
-        nota.getMovimentacoes().addAll(entradas);
+        nota.substituirMovimentacoes(entradas);
         nota.setObservacoes(request.observacoes() == null || request.observacoes().isBlank()
                 ? null
                 : request.observacoes().trim());

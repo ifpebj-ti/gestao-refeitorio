@@ -37,7 +37,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -341,7 +340,7 @@ class NotaControllerIntegrationTest {
         nota.setRemetente(remetente);
         nota.setRegistradoPor(nutricionista);
         nota.setStatus(status);
-        nota.setMovimentacoes(new ArrayList<>(List.of(entrada)));
+        nota.substituirMovimentacoes(List.of(entrada));
         notaRepository.save(nota);
     }
 
