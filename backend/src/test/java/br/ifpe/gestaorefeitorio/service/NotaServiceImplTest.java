@@ -256,7 +256,7 @@ class NotaServiceImplTest {
         nota.setStatus(status);
         nota.setRemetente(remetente);
         nota.setRegistradoPor(nutricionista);
-        nota.getMovimentacoes().addAll(List.of(entradas));
+        nota.substituirMovimentacoes(List.of(entradas));
         return nota;
     }
 
