@@ -3,90 +3,33 @@
 Plataforma web, responsiva para celular, de controle de estoque da cozinha do campus: produtos, entradas e saídas por local de armazenamento, produção interna, validade e alertas, cardápio com projeção de consumo, notas de recebimento e relatórios.
 
 **Aplicação em produção:** https://gestao-refeitorio-ifpe.duckdns.org
-O login em produção é feito com uma conta Google previamente cadastrada no sistema.
+O login é feito com uma conta Google previamente cadastrada ou com e-mail e senha definidos pelo ADMIN.
 
 ---
 
-## Para os professores: testes de segurança sem Google
+## Para os professores: testes com usuário e senha
 
-Para os testes de segurança existem dois usuários locais, que entram com e-mail e senha, sem Google OAuth:
+Além do Google, a aplicação aceita login com **e-mail e senha** em todos os ambientes, inclusive na aplicação publicada. As contas de teste de cada perfil são criadas pelo ADMIN, e as credenciais são enviadas por canal privado. Nenhuma senha fica no repositório.
 
-| Perfil | E-mail |
-|---|---|
-| `NUTRICIONISTA` | `nutricionista@seguranca.local` |
-| `COZINHA` | `cozinha@seguranca.local` |
-
-- Esses usuários só existem quando o sistema roda **localmente** com o profile `seguranca`. A aplicação se recusa a subir se esse profile for ativado junto com o de produção (`prod`).
-- As senhas **não ficam no repositório**. Quem executa o sistema define cada uma no `.env`, como mostra o passo 2.
-- O perfil `ADMIN` não tem usuário local: ele só entra via Google, com o e-mail definido em `ADMIN_INICIAL_EMAIL`.
-
-### Passo a passo
-
-Pré-requisitos: Git e Docker com Docker Compose.
-
-**1. Clonar o repositório**
+Para obter o token da API (troque pela URL local `http://localhost:8080/api` se estiver rodando na sua máquina):
 
 ```bash
-git clone https://github.com/ifpebj-ti/gestao-refeitorio.git
-cd gestao-refeitorio
+curl -s -X POST https://gestao-refeitorio-ifpe.duckdns.org/api/auth/local   -H "Content-Type: application/json"   -d '{"email":"EMAIL_RECEBIDO","senha":"SENHA_RECEBIDA"}'
 ```
-
-**2. Criar o `.env` e definir as senhas**
-
-Copie o `.env.example` para `.env` (`cp .env.example .env` no bash, `Copy-Item .env.example .env` no PowerShell) e ajuste estas linhas:
-
-```dotenv
-JWT_SECRET=qualquer-texto-com-pelo-menos-32-caracteres
-SPRING_PROFILES_ACTIVE=seguranca
-LOCAL_NUTRI_SENHA=defina-uma-senha-com-12-ou-mais-caracteres
-LOCAL_COZINHA_SENHA=defina-outra-senha-com-12-ou-mais
-```
-
-- `JWT_SECRET` precisa ter **pelo menos 32 caracteres**.
-- Cada senha precisa ter **pelo menos 12 caracteres**.
-- Se algum desses valores faltar, a aplicação não sobe e mostra no log uma mensagem dizendo o que corrigir.
-
-**3. Subir o sistema**
-
-```bash
-docker compose up -d --build
-docker compose logs -f backend
-```
-
-Espere aparecer `Started GestaoRefeitorioApplication` e depois saia do log com Ctrl+C. O sistema continua rodando.
-
-**4. Obter o token**
-
-bash:
-
-```bash
-curl -s -X POST http://localhost:8080/api/auth/local \
-  -H "Content-Type: application/json" \
-  -d '{"email":"nutricionista@seguranca.local","senha":"SENHA_DEFINIDA_NO_ENV"}'
-```
-
-PowerShell:
 
 ```powershell
-$resposta = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/auth/local `
+$resposta = Invoke-RestMethod -Method Post -Uri https://gestao-refeitorio-ifpe.duckdns.org/api/auth/local `
   -ContentType "application/json" `
-  -Body '{"email":"nutricionista@seguranca.local","senha":"SENHA_DEFINIDA_NO_ENV"}'
+  -Body '{"email":"EMAIL_RECEBIDO","senha":"SENHA_RECEBIDA"}'
 $resposta.token
 ```
 
-- A resposta traz o campo `token`, um JWT da aplicação.
-- Para o perfil COZINHA, repita o pedido com `cozinha@seguranca.local` e a senha dele.
-- E-mail ou senha errados devolvem **401**, sempre com a mesma mensagem genérica.
+- A resposta traz o campo `token`, que vai no cabeçalho `Authorization: Bearer <token>`.
+- E-mail inexistente, senha errada, usuário sem senha ou inativo devolvem **401**, sempre com a mesma mensagem.
+- Após **5 tentativas erradas seguidas** para o mesmo e-mail, o login fica bloqueado por **15 minutos** (**429**, com `Retry-After`).
+- Em produção o Swagger fica desligado; localmente ele está em http://localhost:8080/swagger-ui.html (**Authorize** → colar o token).
 
-**5. Usar o token no Swagger**
-
-Abra http://localhost:8080/swagger-ui.html, clique em **Authorize**, cole o token e confirme. A partir daí, as chamadas feitas pelo Swagger vão autenticadas com esse perfil.
-
-O token também funciona fora do Swagger, no cabeçalho `Authorization: Bearer <token>`:
-
-```bash
-curl -i http://localhost:8080/api/remetentes -H "Authorization: Bearer $TOKEN"
-```
+O passo a passo completo (ADMIN local e definição de senhas) entra junto com as próximas issues do login com usuário e senha.
 
 ### Resultados esperados
 
@@ -108,7 +51,7 @@ A autorização é validada sempre no backend, com `@PreAuthorize` em cada endpo
 | Endpoint | Perfis permitidos |
 |---|---|
 | `POST /api/auth/google`, `POST /api/auth/logout` | público |
-| `POST /api/auth/local` | público, **só com o profile `seguranca`** |
+| `POST /api/auth/local` | público (login com e-mail e senha; bloqueio após 5 erros) |
 | `GET /api/auth/me` | qualquer perfil autenticado |
 | `GET /api/produtos`, `GET /api/produtos/{id}`, `GET /api/produtos/{id}/saldo-por-local`, `GET /api/produtos/{id}/movimentacoes` | qualquer perfil autenticado |
 | `POST /api/produtos`, `PATCH /api/produtos/{id}/unidade-medida`, `.../quantidade-minima`, `.../valor-referencia`, `.../controle-validade`, `DELETE /api/produtos/{id}` | `NUTRICIONISTA` |
@@ -122,8 +65,6 @@ A autorização é validada sempre no backend, com `@PreAuthorize` em cada endpo
 | `/api/remetentes/**` | `NUTRICIONISTA` |
 | `/api/relatorios/**` (mensal, PDF, Excel e consumo) | `NUTRICIONISTA` |
 | `/api/usuarios/**` | `ADMIN` |
-
-Para encerrar e apagar os dados de teste: `docker compose down -v`.
 
 ---
 
@@ -210,11 +151,10 @@ Os valores ficam no `.env`, que não é versionado. O modelo é o [.env.example]
 | `ADMIN_INICIAL_EMAIL`, `ADMIN_INICIAL_NOME` | Primeiro ADMIN, criado se não houver nenhum ativo |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` | SMTP |
 | `ALERTA_EMAIL_HABILITADO` | Envio dos alertas por e-mail (`false` = só registra no log) |
-| `SPRING_PROFILES_ACTIVE`, `LOCAL_NUTRI_SENHA`, `LOCAL_COZINHA_SENHA` | Login local de testes (só local) |
 
 ## Segurança
 
-- Login exclusivamente via Google em produção. O backend valida o `id_token` junto ao Google e emite o próprio JWT.
+- Login via Google (o backend valida o `id_token` junto ao Google) ou com e-mail e senha, guardada só como hash BCrypt, com bloqueio de 15 minutos após 5 tentativas erradas. Nos dois casos o backend emite o próprio JWT.
 - Respostas diferentes para requisição não autenticada (401) e para perfil sem permissão (403). E-mail não cadastrado e usuário inativo recebem a mesma resposta genérica, para não revelar quais contas existem.
 - Entrada validada por Bean Validation nos DTOs. Consultas sempre parametrizadas (JPA). Fotos aceitas só em JPEG ou PNG, com o tipo conferido pela assinatura do arquivo (e não pelo nome ou pelo `Content-Type` declarado), e guardadas no banco, nunca em caminho de disco escolhido pelo cliente.
 - Proteção CSRF: requisições que alteram dados e se autenticam só pelo cookie de sessão precisam de token CSRF (senão, 403). Chamadas com `Authorization: Bearer`, como as do frontend, não são afetadas. Em produção, os cookies são `HttpOnly`, `SameSite=Lax` e `Secure`.
