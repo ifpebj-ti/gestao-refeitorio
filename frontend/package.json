@@ -27,5 +27,16 @@
     "postcss": "^8.5.32",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "eslint": {
+      "minimatch": "^11.0.1"
+    },
+    "@eslint/config-array": {
+      "minimatch": "^11.0.1"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    }
   }
 }
