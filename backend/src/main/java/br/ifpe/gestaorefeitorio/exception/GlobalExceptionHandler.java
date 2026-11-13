@@ -3,6 +3,7 @@ package br.ifpe.gestaorefeitorio.exception;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -41,6 +42,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(CredenciaisInvalidasException.class)
     public ResponseEntity<Map<String, Object>> handleCredenciaisInvalidas(CredenciaisInvalidasException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(corpo(ex.getMessage()));
+    }
+
+    @ExceptionHandler(LoginBloqueadoException.class)
+    public ResponseEntity<Map<String, Object>> handleLoginBloqueado(LoginBloqueadoException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getSegundosRestantes()))
+                .body(corpo(ex.getMessage()));
     }
 
     @ExceptionHandler({ UsuarioNaoEncontradoException.class, UsuarioInativoException.class })
