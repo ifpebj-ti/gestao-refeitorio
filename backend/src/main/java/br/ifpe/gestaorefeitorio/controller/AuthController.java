@@ -2,7 +2,7 @@ package br.ifpe.gestaorefeitorio.controller;
 
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -23,10 +23,15 @@ import java.time.Duration;
 
 @RestController
 @RequestMapping("/api/auth")
-@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
+    private final boolean cookieSeguro;
+
+    public AuthController(AuthService authService, @Value("${app.cookie-seguro:false}") boolean cookieSeguro) {
+        this.authService = authService;
+        this.cookieSeguro = cookieSeguro;
+    }
 
     @PostMapping("/google")
     public ResponseEntity<AuthResponseDTO> loginComGoogle(
@@ -36,7 +41,7 @@ public class AuthController {
 
         ResponseCookie cookie = ResponseCookie.from("token", auth.token())
                 .httpOnly(true)
-                .secure(false)
+                .secure(cookieSeguro)
                 .path("/")
                 .sameSite("Lax")
                 .maxAge(Duration.ofHours(8))
@@ -50,7 +55,7 @@ public class AuthController {
     public ResponseEntity<Void> logout(HttpServletResponse response) {
         ResponseCookie cookie = ResponseCookie.from("token", "")
                 .httpOnly(true)
-                .secure(false)
+                .secure(cookieSeguro)
                 .path("/")
                 .sameSite("Lax")
                 .maxAge(0)
