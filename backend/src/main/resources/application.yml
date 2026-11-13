@@ -57,6 +57,11 @@ admin:
     # Usado só quando não existe nenhum ADMIN ativo (#207). Vazio = nada é criado (WARN no log).
     email: ${ADMIN_INICIAL_EMAIL:}
     nome: ${ADMIN_INICIAL_NOME:Administrador}
+  local:
+    # ADMIN com login por e-mail e senha (#366). Vazio = nada é criado; senha com 12+ caracteres.
+    email: ${ADMIN_LOCAL_EMAIL:}
+    nome: ${ADMIN_LOCAL_NOME:Administrador local}
+    senha: ${ADMIN_LOCAL_SENHA:}
 
 email:
   remetente: ${MAIL_FROM:nao-responda@localhost}
