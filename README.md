@@ -217,6 +217,7 @@ Os valores ficam no `.env`, que não é versionado. O modelo é o [.env.example]
 - Login exclusivamente via Google em produção. O backend valida o `id_token` junto ao Google e emite o próprio JWT.
 - Respostas diferentes para requisição não autenticada (401) e para perfil sem permissão (403). E-mail não cadastrado e usuário inativo recebem a mesma resposta genérica, para não revelar quais contas existem.
 - Entrada validada por Bean Validation nos DTOs. Consultas sempre parametrizadas (JPA). Fotos aceitas só em JPEG ou PNG, com o tipo conferido pela assinatura do arquivo (e não pelo nome ou pelo `Content-Type` declarado), e guardadas no banco, nunca em caminho de disco escolhido pelo cliente.
+- Proteção CSRF: requisições que alteram dados e se autenticam só pelo cookie de sessão precisam de token CSRF (senão, 403). Chamadas com `Authorization: Bearer`, como as do frontend, não são afetadas. Em produção, os cookies são `HttpOnly`, `SameSite=Lax` e `Secure`.
 - Segredos só por variáveis de ambiente. Tokens, senhas e `id_token` nunca vão para os logs.
 - Em produção, o Swagger fica desligado e as portas do backend e do frontend ficam restritas à própria VM, atrás do Nginx com TLS.
 - A política de segurança e o canal de reporte de vulnerabilidades estão em [SECURITY.md](SECURITY.md). A modelagem de ameaças está na [Wiki](https://github.com/ifpebj-ti/gestao-refeitorio/wiki).
