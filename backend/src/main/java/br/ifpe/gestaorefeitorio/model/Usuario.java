@@ -38,4 +38,8 @@ public class Usuario {
     private Instant criadoEm = Instant.now();
 
     private Instant primeiroAcessoEm;
+
+    /** Hash BCrypt da senha local; nulo quando o usuário só entra pelo Google. */
+    @Column(name = "senha_hash", length = 100)
+    private String senhaHash;
 }

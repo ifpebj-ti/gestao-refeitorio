@@ -6,14 +6,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -24,6 +24,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -34,7 +35,6 @@ import java.util.Set;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
-    private final Environment environment;
 
     private static final Set<String> METODOS_SEGUROS = Set.of("GET", "HEAD", "OPTIONS", "TRACE");
 
@@ -63,19 +63,28 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> {
                     var matcherRegistry = auth
                             .requestMatchers("/api/auth/google", "/api/auth/logout", "/actuator/health")
+                            .permitAll()
+                            .requestMatchers(HttpMethod.POST, "/api/auth/local")
                             .permitAll();
                     if (swaggerEnabled) {
                         matcherRegistry.requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll();
-                    }
-                    // Login local de testes (#298): sem o profile, a rota nem é liberada.
-                    if (environment.acceptsProfiles(Profiles.of("seguranca"))) {
-                        matcherRegistry.requestMatchers(HttpMethod.POST, "/api/auth/local").permitAll();
                     }
                     matcherRegistry.anyRequest().authenticated();
                 })
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    // Injetado em vez de Instant.now() direto, para o bloqueio de tentativas de login ser testável.
+    @Bean
+    public Clock clock() {
+        return Clock.systemUTC();
     }
 
     // Um formulário de outro site não consegue enviar cabeçalho customizado: com Bearer não há CSRF possível.
