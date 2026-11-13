@@ -57,6 +57,11 @@ public class TentativasLoginServiceImpl implements TentativasLoginService {
 
     @Override
     public void registrarSucesso(String email) {
+        limpar(email);
+    }
+
+    @Override
+    public void limpar(String email) {
         registros.remove(email);
     }
 

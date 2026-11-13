@@ -1,5 +1,6 @@
 package br.ifpe.gestaorefeitorio.service;
 
+import br.ifpe.gestaorefeitorio.dto.DefinirSenhaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioEdicaoDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioResponseDTO;
@@ -20,4 +21,10 @@ public interface UsuarioService {
     UsuarioResponseDTO desativar(UUID id, Usuario adminAutenticado);
 
     void reenviarConvite(UUID id);
+
+    /** Define ou redefine a senha local do usuário e libera o bloqueio de tentativas de login dele (#367). */
+    void definirSenha(UUID id, DefinirSenhaRequestDTO request, Usuario adminAutenticado);
+
+    /** Remove a senha local: o usuário volta a entrar só pelo Google. Idempotente (#367). */
+    void removerSenha(UUID id, Usuario adminAutenticado);
 }
