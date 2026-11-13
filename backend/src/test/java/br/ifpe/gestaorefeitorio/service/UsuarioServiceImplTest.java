@@ -1,5 +1,6 @@
 package br.ifpe.gestaorefeitorio.service;
 
+import br.ifpe.gestaorefeitorio.dto.DefinirSenhaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioEdicaoDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioResponseDTO;
@@ -15,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +39,12 @@ class UsuarioServiceImplTest {
 
     @Mock
     private ConviteService conviteService;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private TentativasLoginService tentativasLoginService;
 
     @InjectMocks
     private UsuarioServiceImpl usuarioService;
@@ -177,5 +185,63 @@ class UsuarioServiceImplTest {
         assertThrows(AutoDesativacaoNaoPermitidaException.class, () -> usuarioService.desativar(id, admin));
 
         verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void deveDefinirSenhaComHashELiberarBloqueioDeTentativas() {
+        UUID id = UUID.randomUUID();
+        Usuario usuario = usuarioComId(id, "Nutri@IFPE.edu.br", Perfil.NUTRICIONISTA, true);
+        Usuario admin = usuarioComId(UUID.randomUUID(), "admin@ifpe.edu.br", Perfil.ADMIN, true);
+        when(usuarioRepository.findById(id)).thenReturn(Optional.of(usuario));
+        when(passwordEncoder.encode("senha-nova-1234")).thenReturn("hash-bcrypt");
+
+        usuarioService.definirSenha(id, new DefinirSenhaRequestDTO("senha-nova-1234"), admin);
+
+        assertThat(usuario.getSenhaHash()).isEqualTo("hash-bcrypt");
+        verify(usuarioRepository).save(usuario);
+        verify(tentativasLoginService).limpar("nutri@ifpe.edu.br");
+    }
+
+    @Test
+    void deveRemoverSenhaELiberarBloqueioDeTentativas() {
+        UUID id = UUID.randomUUID();
+        Usuario usuario = usuarioComId(id, "cozinha@ifpe.edu.br", Perfil.COZINHA, true);
+        usuario.setSenhaHash("hash-antigo");
+        Usuario admin = usuarioComId(UUID.randomUUID(), "admin@ifpe.edu.br", Perfil.ADMIN, true);
+        when(usuarioRepository.findById(id)).thenReturn(Optional.of(usuario));
+
+        usuarioService.removerSenha(id, admin);
+
+        assertThat(usuario.getSenhaHash()).isNull();
+        verify(usuarioRepository).save(usuario);
+        verify(tentativasLoginService).limpar("cozinha@ifpe.edu.br");
+    }
+
+    @Test
+    void deveLancarExcecaoAoDefinirOuRemoverSenhaDeUsuarioInexistente() {
+        UUID id = UUID.randomUUID();
+        Usuario admin = usuarioComId(UUID.randomUUID(), "admin@ifpe.edu.br", Perfil.ADMIN, true);
+        when(usuarioRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(UsuarioNaoEncontradoPorIdException.class,
+                () -> usuarioService.definirSenha(id, new DefinirSenhaRequestDTO("senha-nova-1234"), admin));
+        assertThrows(UsuarioNaoEncontradoPorIdException.class, () -> usuarioService.removerSenha(id, admin));
+
+        verify(usuarioRepository, never()).save(any());
+        verifyNoInteractions(passwordEncoder, tentativasLoginService);
+    }
+
+    @Test
+    void deveInformarSeOUsuarioPossuiSenhaLocal() {
+        UUID comSenha = UUID.randomUUID();
+        UUID semSenha = UUID.randomUUID();
+        Usuario usuarioComSenha = usuarioComId(comSenha, "com@ifpe.edu.br", Perfil.NUTRICIONISTA, true);
+        usuarioComSenha.setSenhaHash("hash");
+        when(usuarioRepository.findById(comSenha)).thenReturn(Optional.of(usuarioComSenha));
+        when(usuarioRepository.findById(semSenha))
+                .thenReturn(Optional.of(usuarioComId(semSenha, "sem@ifpe.edu.br", Perfil.COZINHA, true)));
+
+        assertThat(usuarioService.buscarPorId(comSenha).possuiSenhaLocal()).isTrue();
+        assertThat(usuarioService.buscarPorId(semSenha).possuiSenhaLocal()).isFalse();
     }
 }

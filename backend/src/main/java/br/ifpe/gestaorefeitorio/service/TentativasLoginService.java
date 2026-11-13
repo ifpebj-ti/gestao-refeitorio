@@ -14,4 +14,7 @@ public interface TentativasLoginService {
     boolean registrarFalha(String email);
 
     void registrarSucesso(String email);
+
+    /** Esquece as falhas e o bloqueio do e-mail, por exemplo quando o ADMIN redefine a senha (#367). */
+    void limpar(String email);
 }

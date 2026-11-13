@@ -1,5 +1,6 @@
 package br.ifpe.gestaorefeitorio.service;
 
+import br.ifpe.gestaorefeitorio.dto.DefinirSenhaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioEdicaoDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioResponseDTO;
@@ -12,9 +13,11 @@ import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Slf4j
@@ -24,6 +27,32 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final ConviteService conviteService;
+    private final PasswordEncoder passwordEncoder;
+    private final TentativasLoginService tentativasLoginService;
+
+    @Override
+    public void definirSenha(UUID id, DefinirSenhaRequestDTO request, Usuario adminAutenticado) {
+        Usuario usuario = buscarEntidade(id);
+        usuario.setSenhaHash(passwordEncoder.encode(request.senha()));
+        usuarioRepository.save(usuario);
+        // Senha nova libera o login na hora, mesmo que o e-mail estivesse bloqueado por tentativas erradas.
+        tentativasLoginService.limpar(chaveDeLogin(usuario));
+        log.info("Senha local definida para {} (por {})", usuario.getEmail(), adminAutenticado.getEmail());
+    }
+
+    @Override
+    public void removerSenha(UUID id, Usuario adminAutenticado) {
+        Usuario usuario = buscarEntidade(id);
+        usuario.setSenhaHash(null);
+        usuarioRepository.save(usuario);
+        tentativasLoginService.limpar(chaveDeLogin(usuario));
+        log.info("Senha local removida de {} (por {})", usuario.getEmail(), adminAutenticado.getEmail());
+    }
+
+    // Mesma normalização do login local, que é a chave do bloqueio de tentativas.
+    private static String chaveDeLogin(Usuario usuario) {
+        return usuario.getEmail().trim().toLowerCase(Locale.ROOT);
+    }
 
     @Override
     public UsuarioResponseDTO cadastrar(UsuarioRequestDTO request) {
@@ -128,6 +157,7 @@ public class UsuarioServiceImpl implements UsuarioService {
                 usuario.isAtivo(),
                 usuario.getCriadoEm(),
                 usuario.getPrimeiroAcessoEm(),
+                usuario.getSenhaHash() != null,
                 conviteEnviado);
     }
 }
