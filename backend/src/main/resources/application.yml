@@ -45,6 +45,8 @@ security:
 app:
   # Origem(ns) do frontend aceitas no CORS, separadas por vírgula.
   url-frontend: ${APP_URL_FRONTEND:http://localhost:3000,https://gestao-refeitorio-ifpe.duckdns.org}
+  # Atributo Secure dos cookies de autenticação e de CSRF; false só porque o dev local roda em HTTP (#342).
+  cookie-seguro: ${APP_COOKIE_SEGURO:false}
 
 google:
   oauth:

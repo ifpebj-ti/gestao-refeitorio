@@ -16,11 +16,15 @@ import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.repository.UsuarioRepository;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
+
+    private static final Set<String> COOKIES_DE_AUTENTICACAO = Set.of("token", "jwt_token");
 
     private final JwtService jwtService;
     private final UsuarioRepository usuarioRepository;
@@ -52,11 +56,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
-                if ("token".equals(cookie.getName()) || "jwt_token".equals(cookie.getName())) {
+                if (COOKIES_DE_AUTENTICACAO.contains(cookie.getName())) {
                     return cookie.getValue();
                 }
             }
         }
         return null;
+    }
+
+    static boolean possuiCookieDeAutenticacao(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        return cookies != null
+                && Arrays.stream(cookies).anyMatch(cookie -> COOKIES_DE_AUTENTICACAO.contains(cookie.getName()));
     }
 }
