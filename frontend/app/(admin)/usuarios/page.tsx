@@ -19,12 +19,16 @@ import {
   Mail,
   User as UserIcon,
   ShieldAlert,
+  KeyRound,
+  Trash2,
 } from "lucide-react";
 import {
   listarUsuarios,
   cadastrarUsuario,
   editarUsuario,
   desativarUsuario,
+  definirSenhaUsuario,
+  removerSenhaUsuario,
   UsuarioDTO,
   PerfilUsuario,
 } from "@/lib/usuarios";
@@ -47,14 +51,22 @@ export default function GestaoUsuariosPage() {
   const [modalCadastroAberto, setModalCadastroAberto] = useState(false);
   const [modalEdicaoAberto, setModalEdicaoAberto] = useState(false);
   const [modalDesativarAberto, setModalDesativarAberto] = useState(false);
+  const [modalSenhaAberto, setModalSenhaAberto] = useState(false);
+  const [modalRemoverSenhaAberto, setModalRemoverSenhaAberto] = useState(false);
 
   // Estados dos formulários
   const [usuarioEmEdicao, setUsuarioEmEdicao] = useState<UsuarioDTO | null>(null);
   const [usuarioParaDesativar, setUsuarioParaDesativar] = useState<UsuarioDTO | null>(null);
+  const [usuarioParaSenha, setUsuarioParaSenha] = useState<UsuarioDTO | null>(null);
+  const [usuarioParaRemoverSenha, setUsuarioParaRemoverSenha] = useState<UsuarioDTO | null>(null);
 
   const [formNome, setFormNome] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formPerfil, setFormPerfil] = useState<PerfilUsuario>("NUTRICIONISTA");
+  const [formSenhaCadastro, setFormSenhaCadastro] = useState("");
+  const [formConfirmarSenhaCadastro, setFormConfirmarSenhaCadastro] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erroModal, setErroModal] = useState<string | null>(null);
 
@@ -115,6 +127,8 @@ export default function GestaoUsuariosPage() {
     setFormNome("");
     setFormEmail("");
     setFormPerfil("NUTRICIONISTA");
+    setFormSenhaCadastro("");
+    setFormConfirmarSenhaCadastro("");
     setErroModal(null);
     setModalCadastroAberto(true);
   };
@@ -133,6 +147,87 @@ export default function GestaoUsuariosPage() {
     setModalDesativarAberto(true);
   };
 
+  const abrirModalSenha = (u: UsuarioDTO) => {
+    setUsuarioParaSenha(u);
+    setNovaSenha("");
+    setConfirmarSenha("");
+    setErroModal(null);
+    setModalSenhaAberto(true);
+  };
+
+  const fecharModalSenha = () => {
+    setModalSenhaAberto(false);
+    setUsuarioParaSenha(null);
+    setNovaSenha("");
+    setConfirmarSenha("");
+    setErroModal(null);
+  };
+
+  const abrirModalRemoverSenha = (u: UsuarioDTO) => {
+    setUsuarioParaRemoverSenha(u);
+    setErro(null);
+    setModalRemoverSenhaAberto(true);
+  };
+
+  const handleDefinirSenha = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!usuarioParaSenha) return;
+
+    if (novaSenha.length < 12) {
+      setErroModal("A senha deve ter pelo menos 12 caracteres.");
+      return;
+    }
+
+    const tamanhoBytes = new TextEncoder().encode(novaSenha).length;
+    if (tamanhoBytes > 72) {
+      setErroModal("A senha não pode ultrapassar 72 bytes.");
+      return;
+    }
+
+    if (novaSenha !== confirmarSenha) {
+      setErroModal("A confirmação de senha não confere.");
+      return;
+    }
+
+    setSalvando(true);
+    setErroModal(null);
+    try {
+      await definirSenhaUsuario(usuarioParaSenha.id, novaSenha);
+      const nomeUsuario = usuarioParaSenha.nome;
+      fecharModalSenha();
+      setSucesso(`Senha local definida para "${nomeUsuario}" com sucesso!`);
+      setTimeout(() => setSucesso(null), 4000);
+      await carregarLista();
+    } catch (err: unknown) {
+      setErroModal(
+        err instanceof Error ? err.message : "Erro ao definir senha do usuário."
+      );
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const handleRemoverSenha = async () => {
+    if (!usuarioParaRemoverSenha) return;
+    setSalvando(true);
+    setErro(null);
+    try {
+      await removerSenhaUsuario(usuarioParaRemoverSenha.id);
+      const nomeUsuario = usuarioParaRemoverSenha.nome;
+      setModalRemoverSenhaAberto(false);
+      setUsuarioParaRemoverSenha(null);
+      setSucesso(`Senha local removida de "${nomeUsuario}" com sucesso!`);
+      setTimeout(() => setSucesso(null), 4000);
+      await carregarLista();
+    } catch (err: unknown) {
+      setErro(
+        err instanceof Error ? err.message : "Erro ao remover senha do usuário."
+      );
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const handleCadastrar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formNome.trim() || !formEmail.trim()) {
@@ -140,16 +235,43 @@ export default function GestaoUsuariosPage() {
       return;
     }
 
+    if (formSenhaCadastro.length > 0) {
+      if (formSenhaCadastro.length < 12) {
+        setErroModal("A senha opcional deve ter pelo menos 12 caracteres.");
+        return;
+      }
+      const tamanhoBytes = new TextEncoder().encode(formSenhaCadastro).length;
+      if (tamanhoBytes > 72) {
+        setErroModal("A senha não pode ultrapassar 72 bytes.");
+        return;
+      }
+      if (formSenhaCadastro !== formConfirmarSenhaCadastro) {
+        setErroModal("A confirmação de senha não confere.");
+        return;
+      }
+    }
+
     setSalvando(true);
     setErroModal(null);
     try {
-      await cadastrarUsuario({
+      const novoUsuario = await cadastrarUsuario({
         nome: formNome.trim(),
         email: formEmail.trim().toLowerCase(),
         perfil: formPerfil,
       });
+
+      if (formSenhaCadastro.length > 0) {
+        await definirSenhaUsuario(novoUsuario.id, formSenhaCadastro);
+      }
+
+      setFormSenhaCadastro("");
+      setFormConfirmarSenhaCadastro("");
       setModalCadastroAberto(false);
-      setSucesso(`Usuário "${formNome}" cadastrado com sucesso!`);
+      setSucesso(
+        formSenhaCadastro.length > 0
+          ? `Usuário "${formNome}" cadastrado com senha local definida!`
+          : `Usuário "${formNome}" cadastrado com sucesso!`
+      );
       setTimeout(() => setSucesso(null), 4000);
       await carregarLista();
     } catch (err: unknown) {
@@ -205,14 +327,14 @@ export default function GestaoUsuariosPage() {
     switch (perfil) {
       case "ADMIN":
         return {
-          label: "Administrador",
+          label: "Admin",
           bg: "bg-purple-50 text-purple-700 border-purple-200",
           icon: ShieldCheck,
           avatarBg: "bg-purple-600",
         };
       case "NUTRICIONISTA":
         return {
-          label: "Nutricionista",
+          label: "Nutri",
           bg: "bg-emerald-50 text-emerald-800 border-emerald-200",
           icon: Sparkles,
           avatarBg: "bg-emerald-600",
@@ -385,11 +507,13 @@ export default function GestaoUsuariosPage() {
             <table className="w-full text-left text-xs sm:text-sm">
               <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 uppercase text-[11px] font-bold">
                 <tr>
-                  <th className="px-5 py-3.5">Usuário</th>
-                  <th className="px-4 py-3.5">Perfil</th>
-                  <th className="px-4 py-3.5">Status</th>
-                  <th className="px-4 py-3.5">Cadastrado em</th>
-                  <th className="px-5 py-3.5 text-right">Ações</th>
+                  <th className="px-5 py-3.5 whitespace-nowrap">Usuário</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">Perfil</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">Status</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">Senha</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">Cadastrado em</th>
+                  <th className="px-4 py-3.5 text-center whitespace-nowrap">Gerenciar Senha</th>
+                  <th className="px-5 py-3.5 text-right whitespace-nowrap">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800">
@@ -456,31 +580,60 @@ export default function GestaoUsuariosPage() {
                         </span>
                       </td>
 
-                      <td className="px-4 py-3.5 text-slate-500 font-medium">
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        {u.possuiSenhaLocal ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                            <KeyRound className="w-3.5 h-3.5 shrink-0" />
+                            <span>Sim</span>
+                          </span>
+                        ) : (
+                          <span className="text-xs font-medium text-slate-400">
+                            Não
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3.5 text-slate-500 font-medium whitespace-nowrap">
                         {dataCriacao}
                       </td>
 
-                      <td className="px-5 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => abrirModalEdicao(u)}
-                            className="p-1.5 text-slate-500 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
-                            title="Editar usuário"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => abrirModalSenha(u)}
+                          className="w-[118px] inline-flex items-center justify-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors cursor-pointer shrink-0"
+                          title={u.possuiSenhaLocal ? "Redefinir ou remover senha local" : "Definir senha local"}
+                        >
+                          <KeyRound className="w-3.5 h-3.5 shrink-0" />
+                          <span>{u.possuiSenhaLocal ? "Redefinir senha" : "Definir senha"}</span>
+                        </button>
+                      </td>
 
-                          {u.ativo && !isMeuUsuario && (
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <div className="w-7 h-7 flex items-center justify-center shrink-0">
                             <button
                               type="button"
-                              onClick={() => abrirModalDesativar(u)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                              title="Desativar usuário"
+                              onClick={() => abrirModalEdicao(u)}
+                              className="p-1.5 text-slate-500 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
+                              title="Editar usuário"
                             >
-                              <UserX className="w-4 h-4" />
+                              <Edit2 className="w-4 h-4" />
                             </button>
-                          )}
+                          </div>
+
+                          <div className="w-7 h-7 flex items-center justify-center shrink-0">
+                            {u.ativo && !isMeuUsuario && (
+                              <button
+                                type="button"
+                                onClick={() => abrirModalDesativar(u)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                title="Desativar usuário"
+                              >
+                                <UserX className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -548,8 +701,55 @@ export default function GestaoUsuariosPage() {
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
                 />
                 <p className="text-[11px] text-slate-400">
-                  O usuário usará este e-mail para autenticar via Google no sistema.
+                  O usuário usará este e-mail para autenticar via Google ou com senha local.
                 </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <span>Senha Local</span>
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-md">
+                        Opcional
+                      </span>
+                    </label>
+                    {formSenhaCadastro.length > 0 && (
+                      <span className="text-[11px] text-slate-400">
+                        {formSenhaCadastro.length}/12 caracteres
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Mínimo de 12 caracteres"
+                    value={formSenhaCadastro}
+                    onChange={(e) => {
+                      setFormSenhaCadastro(e.target.value);
+                      if (!e.target.value) setFormConfirmarSenhaCadastro("");
+                    }}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                  />
+                </div>
+
+                {formSenhaCadastro.length > 0 && (
+                  <div className="space-y-1 animate-in fade-in duration-150">
+                    <label className="text-xs font-bold text-slate-700">
+                      Confirmar Senha *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      minLength={12}
+                      autoComplete="new-password"
+                      placeholder="Repita a senha (mínimo de 12 caracteres)"
+                      value={formConfirmarSenhaCadastro}
+                      onChange={(e) => setFormConfirmarSenhaCadastro(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -835,6 +1035,166 @@ export default function GestaoUsuariosPage() {
               >
                 {salvando && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>Confirmar Desativação</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL DE DEFINIR / REDEFINIR SENHA LOCAL ─────────────────────── */}
+      {modalSenhaAberto && usuarioParaSenha && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    {usuarioParaSenha.possuiSenhaLocal ? "Redefinir Senha Local" : "Definir Senha Local"}
+                  </h3>
+                  <p className="text-xs text-slate-400">{usuarioParaSenha.email}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={fecharModalSenha}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {erroModal && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-medium flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{erroModal}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleDefinirSenha} autoComplete="off" className="space-y-4">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed">
+                Defina uma senha para que <strong className="text-slate-800">{usuarioParaSenha.nome}</strong> possa entrar com e-mail e senha. A senha deve ter <strong>no mínimo 12 caracteres</strong>.
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="input-nova-senha" className="text-xs font-bold text-slate-700">
+                  Nova Senha *
+                </label>
+                <input
+                  id="input-nova-senha"
+                  type="password"
+                  required
+                  minLength={12}
+                  autoComplete="new-password"
+                  placeholder="Mínimo de 12 caracteres"
+                  value={novaSenha}
+                  onChange={(e) => setNovaSenha(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                />
+                <p className="text-[11px] text-slate-400">
+                  Mínimo de 12 caracteres ({novaSenha.length}/12).
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="input-confirmar-senha" className="text-xs font-bold text-slate-700">
+                  Confirmar Senha *
+                </label>
+                <input
+                  id="input-confirmar-senha"
+                  type="password"
+                  required
+                  minLength={12}
+                  autoComplete="new-password"
+                  placeholder="Repita a senha"
+                  value={confirmarSenha}
+                  onChange={(e) => setConfirmarSenha(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
+                <div>
+                  {usuarioParaSenha.possuiSenhaLocal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const alvo = usuarioParaSenha;
+                        fecharModalSenha();
+                        abrirModalRemoverSenha(alvo);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Remover senha</span>
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={fecharModalSenha}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={salvando}
+                    className="flex items-center gap-2 px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {salvando && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>Salvar Senha</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL DE CONFIRMAÇÃO DE REMOÇÃO DE SENHA ────────────────────── */}
+      {modalRemoverSenhaAberto && usuarioParaRemoverSenha && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">Remover Senha Local</h3>
+                <p className="text-xs text-slate-400">Desabilitar login por senha</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Tem certeza que deseja remover a senha local de{" "}
+              <strong className="text-slate-900">{usuarioParaRemoverSenha.nome}</strong> (
+              <span className="text-slate-500">{usuarioParaRemoverSenha.email}</span>)? O usuário
+              continuará podendo acessar apenas via conta Google.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setModalRemoverSenhaAberto(false);
+                  setUsuarioParaRemoverSenha(null);
+                }}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleRemoverSenha}
+                disabled={salvando}
+                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
+              >
+                {salvando && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>Remover Senha</span>
               </button>
             </div>
           </div>
