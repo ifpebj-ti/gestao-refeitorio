@@ -45,6 +45,7 @@ import {
 } from "@/lib/relatorios";
 import { produtoService } from "@/lib/produtos";
 import { api } from "@/lib/api";
+import nextConfig from "../next.config.js";
 
 function criarJwtValido(expOffsetSegundos = 3600): string {
   const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
@@ -394,5 +395,20 @@ describe("Serviços de API (usuarios, movimentacoes, relatorios, produtos, api)"
     await produtoService.atualizarControleValidade("p2", true);
     await produtoService.atualizarValorReferencia("p2", 8.5);
     await produtoService.excluir("p2");
+  });
+
+  it("configura os Security Headers obrigatórios no next.config.js (AppSec #359)", async () => {
+    expect(nextConfig.poweredByHeader).toBe(false);
+    const rules = await nextConfig.headers!();
+    expect(rules).toHaveLength(1);
+    const headersMap = Object.fromEntries(
+      rules[0].headers.map((h: { key: string; value: string }) => [h.key, h.value])
+    );
+
+    expect(headersMap["Content-Security-Policy"]).toContain("default-src 'self'");
+    expect(headersMap["X-Frame-Options"]).toBe("SAMEORIGIN");
+    expect(headersMap["X-Content-Type-Options"]).toBe("nosniff");
+    expect(headersMap["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
+    expect(headersMap["Permissions-Policy"]).toContain("camera=()");
   });
 });
