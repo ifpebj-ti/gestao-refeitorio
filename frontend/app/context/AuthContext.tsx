@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const total = calcularTotalAlertas(prods, movs);
           setTotalAlertasPendentes(total);
         }
-      } catch (err) {
+      } catch {
         // ignora se offline
       }
     }
