@@ -52,6 +52,18 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      - name: Test and coverage
+        run: npm run test:coverage
+
+      - name: Upload frontend coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: frontend-coverage-report
+          path: frontend/coverage/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Dependency audit
         run: npm audit --audit-level=critical
 
