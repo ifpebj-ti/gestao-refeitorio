@@ -24,6 +24,7 @@ interface AuthContextType {
   setTotalAlertasPendentes: (total: number) => void;
   bannerAlertasVisivel: boolean;
   loginComGoogle: (idToken: string) => Promise<void>;
+  loginComCredenciais: (email: string, senha: string) => Promise<void>;
   logout: () => void;
   toggleMenuMobile: () => void;
   fecharMenuMobile: () => void;
@@ -240,6 +241,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginComCredenciais = async (email: string, senha: string) => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+    const response = await fetch(`${baseUrl}/auth/local`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: email.trim(), senha }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("E-mail ou senha inválidos.");
+      }
+      if (response.status === 429) {
+        throw new Error("Muitas tentativas. Tente novamente em alguns minutos.");
+      }
+      const erro = await response.json().catch(() => null);
+      throw new Error(erro?.mensagem || erro?.message || "E-mail ou senha inválidos.");
+    }
+
+    const data: { token: string; nome: string; email: string; perfil: PerfilUsuario } = await response.json();
+
+    const dadosUsuario: UsuarioAuth = {
+      nome: data.nome,
+      email: data.email,
+      perfil: data.perfil,
+    };
+
+    setToken(data.token);
+    setUsuario(dadosUsuario);
+    setPerfil(data.perfil);
+    setAutenticado(true);
+
+    salvarSessaoToken(data.token);
+    localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(dadosUsuario));
+    localStorage.setItem(STORAGE_PERFIL_KEY, data.perfil);
+
+    if (data.perfil === "ADMIN") {
+      router.push("/usuarios");
+    } else {
+      router.push("/consumo");
+    }
+  };
+
   const logout = async () => {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
@@ -282,6 +328,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTotalAlertasPendentes,
         bannerAlertasVisivel,
         loginComGoogle,
+        loginComCredenciais,
         logout,
         toggleMenuMobile,
         fecharMenuMobile,
