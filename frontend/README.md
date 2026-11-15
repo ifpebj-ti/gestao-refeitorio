@@ -51,7 +51,8 @@ O frontend utiliza **Vitest**, **React Testing Library**, **`@testing-library/je
 ### 1. Security Headers (`next.config.js`)
 O servidor Next.js aplica cabeçalhos de segurança HTTP em todas as rotas (`/(.*)`), além de ocultar o cabeçalho `X-Powered-By` (`poweredByHeader: false`):
 
-- **`Content-Security-Policy` (CSP):** restringe origens de scripts, estilos, imagens, conexões e iframes exclusivamente ao próprio domínio (`'self'`), à API do backend e aos endpoints oficiais do Google Identity Services (`https://accounts.google.com` e `https://apis.google.com`).
+- **`Content-Security-Policy` (CSP):** restringe origens de scripts, estilos, imagens, conexões e iframes exclusivamente ao próprio domínio (`'self'`), à API do backend e aos endpoints oficiais do Google Identity Services (`https://accounts.google.com` e `https://apis.google.com`). A diretiva `'unsafe-eval'` fica restrita apenas ao ambiente de desenvolvimento (`NODE_ENV !== 'production'`), sendo removida em produção.
+- **`Strict-Transport-Security: max-age=31536000; includeSubDomains` (HSTS):** instrui o navegador a comunicar-se exclusivamente via HTTPS.
 - **`X-Frame-Options: SAMEORIGIN`:** protege contra ataques de *Clickjacking* impedindo que a aplicação seja embutida em iframes de terceiros.
 - **`X-Content-Type-Options: nosniff`:** bloqueia *MIME-sniffing* no navegador.
 - **`Referrer-Policy: strict-origin-when-cross-origin`:** evita vazamento de caminhos internos e parâmetros de URL em requisições para origens externas.
