@@ -102,6 +102,48 @@ Não existe auto-cadastro: um usuário só entra se o ADMIN já tiver cadastrado
 | Infraestrutura | Docker Compose, Nginx com TLS (Let's Encrypt), VM na OCI |
 | CI/CD e segurança | GitHub Actions, Release Please, Semgrep, Trivy, CodeQL, Dependabot, Cosign |
 
+### Diagrama de Arquitetura
+
+```mermaid
+flowchart TB
+    subgraph Clientes["Clientes e Dispositivos"]
+        Browser["Navegador Web / Mobile<br/>(Admin, Nutricionista, Cozinha)"]
+        SmartTV["Smart TVs<br/>(Cozinha e Refeitório)"]
+    end
+
+    subgraph Externos["Serviços Externos"]
+        GoogleOIDC["Google Identity Services<br/>(OAuth2 / OIDC)"]
+        SMTP["Servidor SMTP / Mailpit<br/>(Convites e Alertas)"]
+    end
+
+    subgraph OCI["VM de Produção (OCI) / Ambiente Docker"]
+        Nginx["Nginx Reverse Proxy<br/>(TLS 1.2/1.3 Let's Encrypt)"]
+
+        subgraph AppContainers["Rede Interna Docker (127.0.0.1)"]
+            Frontend["Frontend: Next.js 16 (App Router)<br/>Porta 3000 | Security Headers & CSP"]
+            Backend["Backend: Spring Boot 4.1 / Java 21<br/>Porta 8080 | Spring Security + JWT + RBAC"]
+            Postgres[("PostgreSQL 16<br/>Dados + Fotos (BYTEA) + Flyway V1..V25")]
+        end
+
+        subgraph Observabilidade["Rede LGTM (Opcional)"]
+            Otel["OpenTelemetry Java Agent<br/>(Traces, Métricas e Logs -> Tempo/Mimir/Loki)"]
+        end
+    end
+
+    Browser -->|"HTTPS (443)"| Nginx
+    SmartTV -->|"HTTPS (443)"| Nginx
+    Nginx -->|"Rota / (Proxy)"| Frontend
+    Nginx -->|"Rota /api/* (Proxy)"| Backend
+    Frontend -->|"REST API (Bearer JWT / Cookie CSRF)"| Backend
+    Browser -.->|"Login OAuth2"| GoogleOIDC
+    Backend -->|"Valida id_token"| GoogleOIDC
+    Backend -->|"JPA / JDBC (5432)"| Postgres
+    Backend -->|"STARTTLS (587)"| SMTP
+    Backend -.->|"OTLP HTTP"| Otel
+```
+
+As decisões arquiteturais detalhadas (ADRs) estão registradas em [docs/adr/](docs/adr/README.md).
+
 O backend é organizado em camadas, sempre na ordem controller → service → repository:
 
 ```
@@ -174,6 +216,7 @@ Os detalhes estão em [docs/CI_CD.md](docs/CI_CD.md). O histórico de versões e
 
 - [Wiki do repositório](https://github.com/ifpebj-ti/gestao-refeitorio/wiki): Documento de Visão, Arquitetura e Modelagem de Ameaças.
 - [Protótipo no Figma](https://www.figma.com/design/4ndEJajgHfDGwRlFqvI7so/Gest%C3%A3o-Refeit%C3%B3rio---Esbo%C3%A7o-Baixa-Fidelidade?node-id=0-1&t=lGlpIrKxmdAmCb68-1): esboço de baixa fidelidade das telas do sistema.
+- [docs/adr/](docs/adr/README.md): registros de decisões arquiteturais (ADRs).
 - [GUIA_EXECUCAO.md](GUIA_EXECUCAO.md): execução, configuração, testes e solução de problemas.
 - [docs/CI_CD.md](docs/CI_CD.md): esteira, releases, deploy e rollback.
 - [docs/MODELAGEM_DADOS.md](docs/MODELAGEM_DADOS.md): modelo de dados.

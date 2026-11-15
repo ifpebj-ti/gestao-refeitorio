@@ -397,18 +397,30 @@ describe("Serviços de API (usuarios, movimentacoes, relatorios, produtos, api)"
     await produtoService.excluir("p2");
   });
 
-  it("configura os Security Headers obrigatórios no next.config.js (AppSec #359)", async () => {
+  it("configura os Security Headers obrigatórios no next.config.js (AppSec #359, #381)", async () => {
     expect(nextConfig.poweredByHeader).toBe(false);
-    const rules = await nextConfig.headers!();
-    expect(rules).toHaveLength(1);
-    const headersMap = Object.fromEntries(
-      rules[0].headers.map((h: { key: string; value: string }) => [h.key, h.value])
+
+    vi.stubEnv("NODE_ENV", "production");
+    const prodRules = await nextConfig.headers!();
+    expect(prodRules).toHaveLength(1);
+    const prodHeadersMap = Object.fromEntries(
+      prodRules[0].headers.map((h: { key: string; value: string }) => [h.key, h.value])
     );
 
-    expect(headersMap["Content-Security-Policy"]).toContain("default-src 'self'");
-    expect(headersMap["X-Frame-Options"]).toBe("SAMEORIGIN");
-    expect(headersMap["X-Content-Type-Options"]).toBe("nosniff");
-    expect(headersMap["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
-    expect(headersMap["Permissions-Policy"]).toContain("camera=()");
+    expect(prodHeadersMap["Content-Security-Policy"]).toContain("default-src 'self'");
+    expect(prodHeadersMap["Content-Security-Policy"]).not.toContain("'unsafe-eval'");
+    expect(prodHeadersMap["Strict-Transport-Security"]).toBe("max-age=31536000; includeSubDomains");
+    expect(prodHeadersMap["X-Frame-Options"]).toBe("SAMEORIGIN");
+    expect(prodHeadersMap["X-Content-Type-Options"]).toBe("nosniff");
+    expect(prodHeadersMap["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
+    expect(prodHeadersMap["Permissions-Policy"]).toContain("camera=()");
+
+    vi.stubEnv("NODE_ENV", "development");
+    const devRules = await nextConfig.headers!();
+    const devHeadersMap = Object.fromEntries(
+      devRules[0].headers.map((h: { key: string; value: string }) => [h.key, h.value])
+    );
+    expect(devHeadersMap["Content-Security-Policy"]).toContain("'unsafe-eval'");
+    vi.unstubAllEnvs();
   });
 });
