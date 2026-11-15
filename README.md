@@ -9,13 +9,28 @@ O login é feito com uma conta Google previamente cadastrada ou com e-mail e sen
 
 ## Para os professores: testes com usuário e senha
 
-Além do Google, a aplicação aceita login com **e-mail e senha** em todos os ambientes, inclusive na aplicação publicada. As contas de teste de cada perfil são criadas pelo ADMIN, e as credenciais são enviadas por canal privado. Nenhuma senha fica no repositório.
+Além do Google, a aplicação aceita login com **e-mail e senha** em todos os ambientes, inclusive na aplicação publicada (homologação). Nenhuma senha fica no repositório: as contas de teste de cada perfil são criadas pelo ADMIN, e as credenciais são entregues por canal privado.
 
-Para obter o token da API (troque pela URL local `http://localhost:8080/api` se estiver rodando na sua máquina):
+### Como as contas de teste são criadas
+
+1. Um **ADMIN local** (e-mail e senha, sem Google) é criado na subida da aplicação a partir das variáveis `ADMIN_LOCAL_EMAIL`, `ADMIN_LOCAL_NOME` e `ADMIN_LOCAL_SENHA`, definidas só no `.env` do servidor.
+2. O ADMIN cadastra os usuários de teste (`POST /api/usuarios`) e define a senha de cada um com `PUT /api/usuarios/{id}/senha` (corpo `{"senha": "..."}`, mínimo de 12 caracteres).
+3. As credenciais são enviadas ao professor por canal privado.
+4. Ao fim dos testes, o ADMIN revoga o acesso com `DELETE /api/usuarios/{id}/senha` (o usuário volta a entrar só pelo Google) ou desativando a conta.
+
+### Como obter o token
+
+Troque a URL por `http://localhost:8080/api/auth/local` se estiver rodando na sua máquina.
+
+bash:
 
 ```bash
-curl -s -X POST https://gestao-refeitorio-ifpe.duckdns.org/api/auth/local   -H "Content-Type: application/json"   -d '{"email":"EMAIL_RECEBIDO","senha":"SENHA_RECEBIDA"}'
+curl -s -X POST https://gestao-refeitorio-ifpe.duckdns.org/api/auth/local \
+  -H "Content-Type: application/json" \
+  -d '{"email":"EMAIL_RECEBIDO","senha":"SENHA_RECEBIDA"}'
 ```
+
+PowerShell:
 
 ```powershell
 $resposta = Invoke-RestMethod -Method Post -Uri https://gestao-refeitorio-ifpe.duckdns.org/api/auth/local `
@@ -25,11 +40,9 @@ $resposta.token
 ```
 
 - A resposta traz o campo `token`, que vai no cabeçalho `Authorization: Bearer <token>`.
-- E-mail inexistente, senha errada, usuário sem senha ou inativo devolvem **401**, sempre com a mesma mensagem.
-- Após **5 tentativas erradas seguidas** para o mesmo e-mail, o login fica bloqueado por **15 minutos** (**429**, com `Retry-After`).
+- E-mail inexistente, senha errada, usuário sem senha local ou inativo devolvem **401**, sempre com a mesma mensagem.
+- Após **5 tentativas erradas seguidas** para o mesmo e-mail, o login fica bloqueado por **15 minutos** (**429**, com `Retry-After`). Redefinir a senha libera o bloqueio na hora.
 - Em produção o Swagger fica desligado; localmente ele está em http://localhost:8080/swagger-ui.html (**Authorize** → colar o token).
-
-O passo a passo completo (ADMIN local e definição de senhas) entra junto com as próximas issues do login com usuário e senha.
 
 ### Resultados esperados
 
@@ -64,6 +77,7 @@ A autorização é validada sempre no backend, com `@PreAuthorize` em cada endpo
 | `/api/notas/**` | `NUTRICIONISTA` |
 | `/api/remetentes/**` | `NUTRICIONISTA` |
 | `/api/relatorios/**` (mensal, PDF, Excel e consumo) | `NUTRICIONISTA` |
+| `PUT /api/usuarios/{id}/senha`, `DELETE /api/usuarios/{id}/senha` (definir e remover a senha local) | `ADMIN` |
 | `/api/usuarios/**` | `ADMIN` |
 
 ---
@@ -85,11 +99,11 @@ A autorização é validada sempre no backend, com `@PreAuthorize` em cada endpo
 
 | Perfil | Quem é | O que faz |
 |---|---|---|
-| `ADMIN` | Equipe técnica (TI) | Só gerencia usuários; não opera estoque nem catálogo. |
+| `ADMIN` | Equipe técnica (TI) | Só gerencia usuários e suas senhas locais; não opera estoque nem catálogo. |
 | `NUTRICIONISTA` | Nutricionista do campus | Gerencia o catálogo, confere entradas, cardápios, notas e relatórios. |
 | `COZINHA` | Equipe da cozinha | Registra saídas, produção interna e fotos; consulta o estoque. |
 
-Não existe auto-cadastro: um usuário só entra se o ADMIN já tiver cadastrado o e-mail dele. Um e-mail não cadastrado recebe 403.
+Não existe auto-cadastro: um usuário só entra se o ADMIN já tiver cadastrado o e-mail dele. Pelo Google, um e-mail não cadastrado recebe 403. Pelo login com e-mail e senha, só entra quem tem uma senha local definida pelo ADMIN (ou o ADMIN local criado pelas variáveis de ambiente).
 
 ## Arquitetura e stack
 
@@ -98,7 +112,7 @@ Não existe auto-cadastro: um usuário só entra se o ADMIN já tiver cadastrado
 | Frontend | Next.js 16, React 19, TypeScript 6, Tailwind CSS 4 |
 | Backend | Java 21, Spring Boot 4.1, Spring Security, Spring Data JPA, Flyway |
 | Banco de dados | PostgreSQL 16 (as fotos também ficam no banco, em tabela própria) |
-| Autenticação | Google OAuth2/OIDC + JWT próprio da aplicação; RBAC com `@PreAuthorize` |
+| Autenticação | Google OAuth2/OIDC ou e-mail e senha (BCrypt) + JWT próprio da aplicação; RBAC com `@PreAuthorize` |
 | Infraestrutura | Docker Compose, Nginx com TLS (Let's Encrypt), VM na OCI |
 | CI/CD e segurança | GitHub Actions, Release Please, Semgrep, Trivy, CodeQL, Dependabot, Cosign |
 
@@ -121,7 +135,7 @@ flowchart TB
 
         subgraph AppContainers["Rede Interna Docker (127.0.0.1)"]
             Frontend["Frontend: Next.js 16 (App Router)<br/>Porta 3000 | Security Headers & CSP"]
-            Backend["Backend: Spring Boot 4.1 / Java 21<br/>Porta 8080 | Spring Security + JWT + RBAC"]
+            Backend["Backend: Spring Boot 4.1 / Java 21<br/>Porta 8080 | Spring Security + JWT + RBAC<br/>Login Google ou e-mail e senha (BCrypt)"]
             Postgres[("PostgreSQL 16<br/>Dados + Fotos (BYTEA) + Flyway V1..V25")]
         end
 
@@ -153,7 +167,7 @@ backend/src/main/java/br/ifpe/gestaorefeitorio/
 ├── repository/   # acesso a dados (Spring Data JPA)
 ├── model/        # entidades JPA e enums de domínio
 ├── dto/          # DTOs de requisição (validados) e de resposta
-├── security/     # Google OAuth2, JWT, filtros, RBAC
+├── security/     # Google OAuth2, senha local (BCrypt), JWT, filtros, RBAC
 ├── job/          # jobs agendados (alertas, inicializadores)
 └── exception/    # exceções de domínio e handler global
 ```
@@ -190,13 +204,14 @@ Os valores ficam no `.env`, que não é versionado. O modelo é o [.env.example]
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Login com Google |
 | `APP_URL_FRONTEND` | Origens aceitas no CORS (separadas por vírgula) |
 | `APP_URL_LOGIN` | Link da tela de login enviado no convite |
-| `ADMIN_INICIAL_EMAIL`, `ADMIN_INICIAL_NOME` | Primeiro ADMIN, criado se não houver nenhum ativo |
+| `ADMIN_INICIAL_EMAIL`, `ADMIN_INICIAL_NOME` | Primeiro ADMIN via Google, criado se não houver nenhum ativo |
+| `ADMIN_LOCAL_EMAIL`, `ADMIN_LOCAL_NOME`, `ADMIN_LOCAL_SENHA` | ADMIN com login por e-mail e senha (senha com 12+ caracteres), criado na subida se o e-mail não existir; nunca sobrescreve uma senha já definida |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` | SMTP |
 | `ALERTA_EMAIL_HABILITADO` | Envio dos alertas por e-mail (`false` = só registra no log) |
 
 ## Segurança
 
-- Login via Google (o backend valida o `id_token` junto ao Google) ou com e-mail e senha, guardada só como hash BCrypt, com bloqueio de 15 minutos após 5 tentativas erradas. Nos dois casos o backend emite o próprio JWT.
+- Login via Google (o backend valida o `id_token` junto ao Google) ou com e-mail e senha, guardada só como hash BCrypt, com bloqueio de 15 minutos após 5 tentativas erradas. Nos dois casos o backend emite o próprio JWT. A senha local é definida e revogada apenas pelo ADMIN. A decisão de aceitar os dois formatos de login está registrada no [ADR 0001](docs/adr/0001-autenticacao-hibrida-google-oidc-e-jwt-local.md).
 - Respostas diferentes para requisição não autenticada (401) e para perfil sem permissão (403). E-mail não cadastrado e usuário inativo recebem a mesma resposta genérica, para não revelar quais contas existem.
 - Entrada validada por Bean Validation nos DTOs. Consultas sempre parametrizadas (JPA). Fotos aceitas só em JPEG ou PNG, com o tipo conferido pela assinatura do arquivo (e não pelo nome ou pelo `Content-Type` declarado), e guardadas no banco, nunca em caminho de disco escolhido pelo cliente.
 - Proteção CSRF: requisições que alteram dados e se autenticam só pelo cookie de sessão precisam de token CSRF (senão, 403). Chamadas com `Authorization: Bearer`, como as do frontend, não são afetadas. Em produção, os cookies são `HttpOnly`, `SameSite=Lax` e `Secure`.
