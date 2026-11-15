@@ -5,9 +5,8 @@ e a diferença entre o ambiente de desenvolvimento e produção. Baseado nos arq
 repositório: `backend/Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml`,
 `docker-compose.override.yml`, `docker-compose.prod.yml`, `.env.example` e `backend/pom.xml`.
 
-> Para arquitetura de código, camadas do backend e convenções, ver `README.md` e o `CLAUDE.md`
-> (local, não versionado). Este guia é só sobre **rodar** o projeto, não sobre como o código é
-> organizado.
+> Para arquitetura de código, camadas do backend e convenções, ver o `README.md` e os ADRs em
+> `docs/adr/`. Este guia é só sobre **rodar** o projeto, não sobre como o código é organizado.
 
 ## 1. Pré-requisitos
 
@@ -44,7 +43,7 @@ Depois, edite o `.env` e ajuste:
 | `DB_NAME`, `DB_USER` | Nome do banco e usuário do Postgres | Não, salvo preferência |
 | `DB_PASSWORD` | Senha do Postgres | **Sim** — troque o valor de exemplo |
 | `JWT_SECRET` | Segredo usado pra assinar os JWTs próprios da aplicação | **Sim, principalmente em produção** — mínimo 32 caracteres. Com o profile `prod`, o backend **não sobe** se a variável faltar, estiver vazia ou for mais curta que isso |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Credenciais OAuth2 do Google (login é exclusivo via Google, ver `CLAUDE.md` seção 5) | **Sim** — sem isso o login não valida o `id_token` de verdade. Cria em https://console.cloud.google.com/apis/credentials |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Credenciais OAuth2 do Google (login via Google; o login com e-mail e senha não depende delas, ver ADR 0001) | **Sim** — sem isso o login não valida o `id_token` de verdade. Cria em https://console.cloud.google.com/apis/credentials |
 | `NEXT_PUBLIC_API_URL` | URL que o frontend usa pra chamar o backend | Não, em dev local (já aponta pro `localhost:8080/api`) |
 | `APP_URL_FRONTEND` | Origem do frontend que o backend aceita no CORS (várias separadas por vírgula, ex: `http://localhost:3000,http://136.248.103.235:3000`) | Não, em dev local. **Sim, no servidor** — tem que ser exatamente o endereço que aparece na barra do navegador ao abrir o front (esquema + host + porta, sem barra no final), senão o navegador bloqueia todas as chamadas à API |
 | `MAIL_HOST`, `MAIL_PORT` | Servidor SMTP usado pra enviar e-mails (porta padrão 587, com STARTTLS) | Não, em dev local (o override usa o Mailpit). **Sim, no servidor**, quando o SMTP de produção for definido |
@@ -114,21 +113,42 @@ notas vinculadas. Num banco local antigo, isso remove esses usuários: defina o 
 variável precisa estar no `/opt/gestao-refeitorio/.env` **antes** do deploy; sem ela, o sistema
 fica sem ADMIN até ela ser definida e o backend reiniciado.
 
-### Login com e-mail e senha (#365)
+### Login com e-mail e senha (#365, #366, #367)
 
 `POST /api/auth/local` funciona em todos os ambientes para usuários que têm senha local (hash BCrypt
 em `usuarios.senha_hash`); quem não tem senha só entra pelo Google. E-mail ou senha errados dão 401
 genérico, e 5 erros seguidos bloqueiam aquele e-mail por 15 minutos (429). O bloqueio fica em
-memória e zera quando o backend reinicia.
+memória: zera quando o backend reinicia ou quando o ADMIN redefine a senha daquele usuário.
 
-```powershell
-curl -s -X POST http://localhost:8080/api/auth/local -H "Content-Type: application/json" `
-  -d '{"email":"<email>","senha":"<senha>"}'
-# depois: -H "Authorization: Bearer <token>"
-```
+Para testar localmente:
 
-Até existirem o ADMIN local e a definição de senha pelo ADMIN (próximas issues), a senha só pode ser
-gravada direto no banco local, com um hash BCrypt.
+1. No `.env`, defina o ADMIN local (senha com 12 ou mais caracteres) e suba o sistema:
+   ```dotenv
+   ADMIN_LOCAL_EMAIL=admin.local@exemplo.com
+   ADMIN_LOCAL_NOME=Administrador local
+   ADMIN_LOCAL_SENHA=<senha-com-12-ou-mais-caracteres>
+   ```
+   Na subida, o log mostra `ADMIN local criado`. Se o e-mail já existir com senha, nada muda:
+   reiniciar nunca sobrescreve uma senha trocada depois.
+2. Faça login como o ADMIN local e guarde o token:
+   ```powershell
+   $admin = (Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/auth/local `
+     -ContentType "application/json" `
+     -Body '{"email":"admin.local@exemplo.com","senha":"<senha-do-admin>"}').token
+   ```
+3. Defina a senha de outro usuário já cadastrado (o `id` vem de `GET /api/usuarios`):
+   ```powershell
+   Invoke-RestMethod -Method Put -Uri http://localhost:8080/api/usuarios/<id>/senha `
+     -Headers @{ Authorization = "Bearer $admin" } -ContentType "application/json" `
+     -Body '{"senha":"<senha-com-12-ou-mais-caracteres>"}'
+   ```
+   Para remover a senha (o usuário volta a entrar só pelo Google), use `-Method Delete` na mesma
+   URL, sem corpo.
+4. Esse usuário passa a entrar com `POST /api/auth/local` e a usar o token em
+   `Authorization: Bearer <token>`.
+
+Nunca coloque senhas reais no `.env.example`, em issues ou em PRs: no servidor, as variáveis
+`ADMIN_LOCAL_*` ficam só no `/opt/gestao-refeitorio/.env`.
 
 O `backend` só sobe depois que o `db` responde saudável (`depends_on: condition: service_healthy`
 no `docker-compose.yml`), então não tem corrida entre a migration do Flyway e o banco ainda não
