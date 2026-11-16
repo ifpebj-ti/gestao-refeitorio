@@ -102,6 +102,16 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      # Evidência da cobertura (#360): o mvn verify gera o relatório e o jacoco:check quebra o build abaixo de 70%.
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: backend-coverage-report
+          path: backend/target/site/jacoco/
+          if-no-files-found: ignore
+          retention-days: 14
+
   # =========================================================
   # SECURITY
   # =========================================================
