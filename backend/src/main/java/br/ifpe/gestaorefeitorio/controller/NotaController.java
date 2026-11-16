@@ -3,12 +3,14 @@ package br.ifpe.gestaorefeitorio.controller;
 import br.ifpe.gestaorefeitorio.dto.NotaCancelamentoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaDocumentoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaEntradaDTO;
+import br.ifpe.gestaorefeitorio.dto.NotaLocalRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaResumoDTO;
 import br.ifpe.gestaorefeitorio.model.NotaDocumento;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.model.enums.StatusNota;
+import br.ifpe.gestaorefeitorio.model.enums.TipoNota;
 import br.ifpe.gestaorefeitorio.service.NotaDocumentoService;
 import br.ifpe.gestaorefeitorio.service.NotaService;
 import jakarta.validation.Valid;
@@ -70,6 +72,15 @@ public class NotaController {
         return ResponseEntity.status(HttpStatus.CREATED).body(notaService.registrar(request, registradoPor));
     }
 
+    // Comprovante emitido pela cozinha para entregas sem documento próprio (US33/#293); o número é gerado.
+    @PostMapping("/locais")
+    @PreAuthorize("hasRole('NUTRICIONISTA')")
+    public ResponseEntity<NotaResponseDTO> emitirLocal(
+            @Valid @RequestBody NotaLocalRequestDTO request,
+            @AuthenticationPrincipal Usuario emitidoPor) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(notaService.emitirLocal(request, emitidoPor));
+    }
+
     // Correção de nota PENDENTE (#289); a lista de entradas enviada substitui os vínculos atuais.
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('NUTRICIONISTA')")
@@ -102,10 +113,11 @@ public class NotaController {
     @PreAuthorize("hasRole('NUTRICIONISTA')")
     public List<NotaResumoDTO> listar(
             @RequestParam(required = false) StatusNota status,
+            @RequestParam(required = false) TipoNota tipo,
             @RequestParam(required = false) UUID remetenteId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim) {
-        return notaService.listar(status, remetenteId, dataInicio, dataFim);
+        return notaService.listar(status, tipo, remetenteId, dataInicio, dataFim);
     }
 
     @GetMapping("/{id}")

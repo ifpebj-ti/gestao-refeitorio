@@ -139,6 +139,8 @@ erDiagram
         UUID remetente_id FK
         VARCHAR status
         VARCHAR observacoes
+        VARCHAR tipo
+        VARCHAR responsavel_entrega
         TEXT justificativa_cancelamento
         UUID registrado_por_id FK
         UUID validado_por_id FK
@@ -159,6 +161,11 @@ erDiagram
     NOTA_MOVIMENTACOES {
         UUID nota_id FK
         UUID movimentacao_id PK,FK
+    }
+
+    NOTA_LOCAL_SEQUENCIAS {
+        INTEGER ano PK
+        INTEGER ultimo_numero
     }
 
     NOTA_DOCUMENTOS {
@@ -344,6 +351,8 @@ Registra as notas de recebimento emitidas por um remetente e submetidas à valid
 | `remetente_id` | `UUID` | FK para `remetentes`, `NOT NULL` | Quem emitiu a nota (V23). |
 | `status` | `VARCHAR(20)` | `NOT NULL`, padrão `PENDENTE` | Situação da validação. |
 | `observacoes` | `VARCHAR(500)` | Opcional | Observações livres sobre a nota (V23). |
+| `tipo` | `VARCHAR(10)` | `NOT NULL`, padrão `EXTERNA`, `CHECK` (`EXTERNA` ou `LOCAL`) | `EXTERNA`: recebida de terceiro, número informado. `LOCAL`: emitida pela cozinha, número gerado (V28). |
+| `responsavel_entrega` | `VARCHAR(150)` | Opcional | Nome de quem entregou, em texto livre; preenchido nas notas locais (V28). |
 | `justificativa_cancelamento` | `TEXT` | Opcional | Motivo informado ao cancelar a nota; nulo nas pendentes e validadas (V27). |
 | `registrado_por_id` | `UUID` | FK para `usuarios`, `NOT NULL` | Usuário que registrou a nota (V23). |
 | `validado_por_id` | `UUID` | FK para `usuarios`, opcional | Quem decidiu a nota: validou ou cancelou. |
@@ -355,7 +364,7 @@ Valores reconhecidos pela aplicação para `status`: `PENDENTE`, `VALIDADA` e `C
 
 Transições permitidas: só `PENDENTE → VALIDADA` e `PENDENTE → CANCELADA` (esta exige justificativa). Uma nota validada ou cancelada não muda mais de status. Cancelar não estorna nem desvincula as entradas: elas continuam no estoque e ligadas à nota.
 
-O número da nota é único por remetente (`uk_notas_remetente_numero`), não no sistema inteiro: dois remetentes podem emitir notas com o mesmo número. A coluna `origem`, que existia até a V22, foi removida na V23; o remetente passou a ser uma entidade própria. A coluna `documento_url`, nunca usada, foi removida na V26: o documento digitalizado fica em `nota_documentos`.
+O número da nota é único por remetente (`uk_notas_remetente_numero`), não no sistema inteiro: dois remetentes podem emitir notas com o mesmo número. Nas notas `LOCAL`, o número é gerado no formato `NL-AAAA-NNNN` (ano da emissão no horário de Recife e sequencial de 4 dígitos), é único no sistema inteiro (`uk_notas_numero_local`), nunca é editado e não é reaproveitado, nem quando a nota é cancelada. A coluna `origem`, que existia até a V22, foi removida na V23; o remetente passou a ser uma entidade própria. A coluna `documento_url`, nunca usada, foi removida na V26: o documento digitalizado fica em `nota_documentos`.
 
 ### 4.11. `remetentes`
 
@@ -396,6 +405,17 @@ Guarda o documento digitalizado da nota (NF-e do fornecedor ou cópia assinada),
 
 Anexar o documento é opcional. Enquanto a nota está `PENDENTE`, um novo envio substitui o anterior; com a nota `VALIDADA` ou `CANCELADA`, o documento não pode mais ser alterado. O nome do arquivo enviado nunca é armazenado.
 
+### 4.14. `nota_local_sequencias`
+
+Guarda o último número de nota local emitido em cada ano (V28).
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `ano` | `INTEGER` | PK | Ano da emissão. |
+| `ultimo_numero` | `INTEGER` | `NOT NULL` | Último sequencial emitido no ano. |
+
+A linha do ano é criada na primeira emissão do ano e travada (`SELECT ... FOR UPDATE`) durante cada emissão. O incremento acontece na mesma transação da nota: se a emissão falhar, o número volta, sem deixar buraco; emissões simultâneas são atendidas uma depois da outra, sem repetir número. A sequência recomeça em `0001` a cada ano.
+
 ## 5. Relacionamentos e cardinalidades
 
 | Origem | Destino | Cardinalidade | Chave estrangeira |
@@ -435,6 +455,8 @@ Possuem unicidade explícita:
 - `setores_produtivos.nome`;
 - `remetentes.nome`, sem diferenciar maiúsculas e minúsculas (índice único `uk_remetentes_nome_lower` sobre `LOWER(nome)`);
 - `notas.remetente_id` + `notas.numero` (`uk_notas_remetente_numero`), ou seja, o número é único por remetente;
+- `notas.numero` das notas `LOCAL` (índice único parcial `uk_notas_numero_local`, `WHERE tipo = 'LOCAL'`);
+- `nota_local_sequencias.ano` (chave primária);
 - `nota_movimentacoes.movimentacao_id` (chave primária);
 - `nota_documentos.nota_id`;
 - `movimentacao_fotos.movimentacao_id`;
@@ -450,7 +472,7 @@ As principais regras de integridade são:
 4. Uma movimentação possui, no máximo, uma foto, e uma nota possui, no máximo, um documento anexado.
 5. Uma movimentação possui, no máximo, um detalhamento de produção interna.
 6. E-mails de usuários, nomes de locais, nomes de setores e nomes de remetentes não podem se repetir; o número de uma nota não se repete para o mesmo remetente.
-7. Toda nota tem um remetente e um usuário que a registrou.
+7. Toda nota tem um remetente e um usuário que a registrou; a nota local tem número gerado sequencial por ano, sem repetição nem buraco.
 8. Uma movimentação é comprovada por, no máximo, uma nota.
 9. Quantidades usam três casas decimais e valores monetários usam duas casas decimais.
 10. Registros de domínio possuem UUID e data/hora de criação.
@@ -459,7 +481,7 @@ Validações adicionais, como saldo suficiente, valores positivos, autorização
 
 ## 8. Evolução do banco de dados
 
-O Flyway executa as migrations em ordem crescente. As migrations existentes vão de `V1` a `V27`.
+O Flyway executa as migrations em ordem crescente. As migrations existentes vão de `V1` a `V28`.
 
 Migrations que alteraram a estrutura do banco:
 
@@ -473,6 +495,7 @@ Migrations que alteraram a estrutura do banco:
 | `V25` | `usuarios.senha_hash` (hash BCrypt da senha local). |
 | `V26` | Tabela `nota_documentos`; sai a coluna `notas.documento_url`. |
 | `V27` | `notas.justificativa_recusa` vira `justificativa_cancelamento`; nova coluna `notas.versao` (lock otimista). |
+| `V28` | `notas.tipo` e `notas.responsavel_entrega`; índice único parcial `uk_notas_numero_local`; tabela `nota_local_sequencias`. |
 
 As demais migrations só mexem em dados: carga e revisão do catálogo de produtos (`V8`, `V13` a `V17` e `V20`), usuários iniciais de homologação (`V18`) e remoção dos que ficaram sem vínculo (`V24`).
 
@@ -488,7 +511,7 @@ Para evoluir o modelo:
 Exemplo:
 
 ```text
-V28__adicionar_indice_movimentacao_local.sql
+V29__adicionar_indice_movimentacao_local.sql
 ```
 
 ## 9. Considerações de segurança e privacidade

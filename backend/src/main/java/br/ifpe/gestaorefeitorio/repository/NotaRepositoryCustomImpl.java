@@ -6,6 +6,7 @@ import br.ifpe.gestaorefeitorio.model.Nota;
 import br.ifpe.gestaorefeitorio.model.NotaDocumento;
 import br.ifpe.gestaorefeitorio.model.Remetente;
 import br.ifpe.gestaorefeitorio.model.enums.StatusNota;
+import br.ifpe.gestaorefeitorio.model.enums.TipoNota;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -31,7 +32,7 @@ public class NotaRepositoryCustomImpl implements NotaRepositoryCustom {
     private EntityManager entityManager;
 
     @Override
-    public List<NotaResumoDTO> listarResumos(StatusNota status, UUID remetenteId,
+    public List<NotaResumoDTO> listarResumos(StatusNota status, TipoNota tipo, UUID remetenteId,
                                              LocalDate dataInicio, LocalDate dataFim) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<NotaResumoDTO> query = cb.createQuery(NotaResumoDTO.class);
@@ -50,8 +51,10 @@ public class NotaRepositoryCustomImpl implements NotaRepositoryCustom {
         query.select(cb.construct(NotaResumoDTO.class,
                 nota.get("id"),
                 nota.get("numero"),
+                nota.get("tipo"),
                 nota.get("data"),
                 remetente.get("nome"),
+                nota.get("responsavelEntrega"),
                 nota.get("status"),
                 quantidadeEntradas,
                 cb.<Boolean>selectCase().when(cb.exists(documento), true).otherwise(false)));
@@ -59,6 +62,9 @@ public class NotaRepositoryCustomImpl implements NotaRepositoryCustom {
         List<Predicate> filtros = new ArrayList<>();
         if (status != null) {
             filtros.add(cb.equal(nota.get("status"), status));
+        }
+        if (tipo != null) {
+            filtros.add(cb.equal(nota.get("tipo"), tipo));
         }
         if (remetenteId != null) {
             filtros.add(cb.equal(remetente.get("id"), remetenteId));
