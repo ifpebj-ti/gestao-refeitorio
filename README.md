@@ -66,6 +66,7 @@ A autorização é validada sempre no backend, com `@PreAuthorize` em cada endpo
 | `POST /api/auth/google`, `POST /api/auth/logout` | público |
 | `POST /api/auth/local` | público (login com e-mail e senha; bloqueio após 5 erros) |
 | `GET /api/auth/me` | qualquer perfil autenticado |
+| `GET /api/versao` (versão da aplicação em execução) | qualquer perfil autenticado |
 | `GET /api/produtos`, `GET /api/produtos/{id}`, `GET /api/produtos/{id}/saldo-por-local`, `GET /api/produtos/{id}/movimentacoes` | qualquer perfil autenticado |
 | `POST /api/produtos`, `PATCH /api/produtos/{id}/unidade-medida`, `.../quantidade-minima`, `.../valor-referencia`, `.../controle-validade`, `DELETE /api/produtos/{id}` | `NUTRICIONISTA` |
 | `POST /api/movimentacoes/entrada` | `NUTRICIONISTA` |
@@ -204,6 +205,7 @@ Os valores ficam no `.env`, que não é versionado. O modelo é o [.env.example]
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Login com Google |
 | `APP_URL_FRONTEND` | Origens aceitas no CORS (separadas por vírgula) |
 | `APP_URL_LOGIN` | Link da tela de login enviado no convite |
+| `APP_VERSION` | Versão exibida no menu lateral (`GET /api/versao`); em produção vem da tag implantada; sem ela, `dev` |
 | `ADMIN_INICIAL_EMAIL`, `ADMIN_INICIAL_NOME` | Primeiro ADMIN via Google, criado se não houver nenhum ativo |
 | `ADMIN_LOCAL_EMAIL`, `ADMIN_LOCAL_NOME`, `ADMIN_LOCAL_SENHA` | ADMIN com login por e-mail e senha (senha com 12+ caracteres), criado na subida se o e-mail não existir; nunca sobrescreve uma senha já definida |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` | SMTP |
