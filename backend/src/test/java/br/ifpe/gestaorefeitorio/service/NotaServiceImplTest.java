@@ -2,6 +2,7 @@ package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.NotaCancelamentoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaEntradaDTO;
+import br.ifpe.gestaorefeitorio.dto.NotaLocalRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaResumoDTO;
@@ -18,14 +19,17 @@ import br.ifpe.gestaorefeitorio.exception.RemetenteNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.LocalArmazenamento;
 import br.ifpe.gestaorefeitorio.model.Movimentacao;
 import br.ifpe.gestaorefeitorio.model.Nota;
+import br.ifpe.gestaorefeitorio.model.NotaLocalSequencia;
 import br.ifpe.gestaorefeitorio.model.Produto;
 import br.ifpe.gestaorefeitorio.model.Remetente;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.model.enums.Perfil;
 import br.ifpe.gestaorefeitorio.model.enums.StatusNota;
 import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
+import br.ifpe.gestaorefeitorio.model.enums.TipoNota;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
 import br.ifpe.gestaorefeitorio.repository.NotaDocumentoRepository;
+import br.ifpe.gestaorefeitorio.repository.NotaLocalSequenciaRepository;
 import br.ifpe.gestaorefeitorio.repository.NotaRepository;
 import br.ifpe.gestaorefeitorio.repository.RemetenteRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +43,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -68,6 +73,12 @@ class NotaServiceImplTest {
 
     @Mock
     private NotaDocumentoRepository notaDocumentoRepository;
+
+    @Mock
+    private NotaLocalSequenciaRepository notaLocalSequenciaRepository;
+
+    @Mock
+    private Clock clock;
 
     @InjectMocks
     private NotaServiceImpl notaService;
@@ -137,6 +148,8 @@ class NotaServiceImplTest {
         assertThat(resposta.entradas().get(0).lote()).isEqualTo("L-01");
         assertThat(resposta.entradas().get(0).unidadeMedida()).isEqualTo("kg");
         assertThat(resposta.possuiDocumento()).isFalse();
+        assertThat(resposta.tipo()).isEqualTo(TipoNota.EXTERNA);
+        assertThat(resposta.responsavelEntrega()).isNull();
 
         ArgumentCaptor<Nota> captor = ArgumentCaptor.forClass(Nota.class);
         verify(notaRepository).save(captor.capture());
@@ -473,11 +486,13 @@ class NotaServiceImplTest {
     void deveRepassarOsFiltrosDaListagemAoRepositorio() {
         LocalDate inicio = LocalDate.now().minusDays(7);
         LocalDate fim = LocalDate.now();
-        List<NotaResumoDTO> resumos = List.of(new NotaResumoDTO(UUID.randomUUID(), "NF-1", inicio,
-                "Agroindústria", StatusNota.PENDENTE, 2, true));
-        when(notaRepository.listarResumos(StatusNota.PENDENTE, remetente.getId(), inicio, fim)).thenReturn(resumos);
+        List<NotaResumoDTO> resumos = List.of(new NotaResumoDTO(UUID.randomUUID(), "NF-1", TipoNota.EXTERNA,
+                inicio, "Agroindústria", null, StatusNota.PENDENTE, 2, true));
+        when(notaRepository.listarResumos(StatusNota.PENDENTE, TipoNota.EXTERNA, remetente.getId(), inicio, fim))
+                .thenReturn(resumos);
 
-        assertThat(notaService.listar(StatusNota.PENDENTE, remetente.getId(), inicio, fim)).isEqualTo(resumos);
+        assertThat(notaService.listar(StatusNota.PENDENTE, TipoNota.EXTERNA, remetente.getId(), inicio, fim))
+                .isEqualTo(resumos);
     }
 
     @Test
@@ -485,8 +500,103 @@ class NotaServiceImplTest {
         LocalDate hoje = LocalDate.now();
 
         assertThrows(PeriodoInvalidoException.class,
-                () -> notaService.listar(null, null, hoje, hoje.minusDays(1)));
-        verify(notaRepository, never()).listarResumos(any(), any(), any(), any());
+                () -> notaService.listar(null, null, null, hoje, hoje.minusDays(1)));
+        verify(notaRepository, never()).listarResumos(any(), any(), any(), any(), any());
+    }
+
+    // ---- Emitir nota local (US33/#293) ----
+
+    private NotaLocalRequestDTO requestLocal(List<UUID> movimentacaoIds) {
+        return new NotaLocalRequestDTO(LocalDate.now(), remetente.getId(), movimentacaoIds,
+                "  João da Agroindústria  ", null);
+    }
+
+    private NotaLocalSequencia sequencia(int ano, int ultimoNumero) {
+        NotaLocalSequencia sequencia = new NotaLocalSequencia();
+        sequencia.setAno(ano);
+        sequencia.setUltimoNumero(ultimoNumero);
+        return sequencia;
+    }
+
+    private void prepararEmissaoValida(Movimentacao entrada, String numeroEsperado) {
+        when(remetenteRepository.findById(remetente.getId())).thenReturn(Optional.of(remetente));
+        when(notaRepository.existsByRemetenteIdAndNumero(remetente.getId(), numeroEsperado)).thenReturn(false);
+        when(movimentacaoRepository.findById(entrada.getId())).thenReturn(Optional.of(entrada));
+        when(notaRepository.existsByMovimentacaoId(entrada.getId())).thenReturn(false);
+        when(notaRepository.save(any(Nota.class))).thenAnswer(chamada -> {
+            Nota salva = chamada.getArgument(0);
+            salva.setId(UUID.randomUUID());
+            return salva;
+        });
+    }
+
+    @Test
+    void deveEmitirNotaLocalComONumeroDoAnoDaEmissaoEContadorNovo() {
+        Movimentacao entrada = movimentacao(TipoMovimentacao.ENTRADA);
+        // 31/12 às 23h em Recife ainda é 2026, embora em UTC já seja 2027.
+        when(clock.instant()).thenReturn(Instant.parse("2027-01-01T02:00:00Z"));
+        NotaLocalSequencia contador = sequencia(2026, 0);
+        when(notaLocalSequenciaRepository.buscarParaAtualizar(2026)).thenReturn(Optional.of(contador));
+        prepararEmissaoValida(entrada, "NL-2026-0001");
+
+        NotaResponseDTO resposta = notaService.emitirLocal(requestLocal(List.of(entrada.getId())), nutricionista);
+
+        assertThat(resposta.numero()).isEqualTo("NL-2026-0001");
+        assertThat(resposta.tipo()).isEqualTo(TipoNota.LOCAL);
+        assertThat(resposta.status()).isEqualTo(StatusNota.PENDENTE);
+        assertThat(resposta.responsavelEntrega()).isEqualTo("João da Agroindústria");
+        assertThat(resposta.registradoPor().email()).isEqualTo("nutri@ifpe.edu.br");
+        assertThat(contador.getUltimoNumero()).isEqualTo(1);
+        verify(notaLocalSequenciaRepository).criarSeNaoExistir(2026);
+        verify(notaLocalSequenciaRepository).save(contador);
+    }
+
+    @Test
+    void deveContinuarASequenciaDoAno() {
+        Movimentacao entrada = movimentacao(TipoMovimentacao.ENTRADA);
+        when(clock.instant()).thenReturn(Instant.parse("2026-06-10T12:00:00Z"));
+        when(notaLocalSequenciaRepository.buscarParaAtualizar(2026)).thenReturn(Optional.of(sequencia(2026, 42)));
+        prepararEmissaoValida(entrada, "NL-2026-0043");
+
+        NotaResponseDTO resposta = notaService.emitirLocal(requestLocal(List.of(entrada.getId())), nutricionista);
+
+        assertThat(resposta.numero()).isEqualTo("NL-2026-0043");
+    }
+
+    @Test
+    void deveAplicarNaNotaLocalAsMesmasValidacoesDoRegistro() {
+        Movimentacao jaVinculada = movimentacao(TipoMovimentacao.ENTRADA);
+        when(clock.instant()).thenReturn(Instant.parse("2026-06-10T12:00:00Z"));
+        when(notaLocalSequenciaRepository.buscarParaAtualizar(2026)).thenReturn(Optional.of(sequencia(2026, 0)));
+        when(remetenteRepository.findById(remetente.getId())).thenReturn(Optional.of(remetente));
+        when(movimentacaoRepository.findById(jaVinculada.getId())).thenReturn(Optional.of(jaVinculada));
+        when(notaRepository.existsByMovimentacaoId(jaVinculada.getId())).thenReturn(true);
+
+        assertThrows(MovimentacaoJaVinculadaException.class,
+                () -> notaService.emitirLocal(requestLocal(List.of(jaVinculada.getId())), nutricionista));
+        verify(notaRepository, never()).save(any());
+    }
+
+    @Test
+    void deveIgnorarONumeroDoCorpoAoEditarNotaLocal() {
+        Movimentacao entrada = movimentacao(TipoMovimentacao.ENTRADA);
+        Nota nota = notaExistente(StatusNota.PENDENTE, entrada);
+        nota.setTipo(TipoNota.LOCAL);
+        nota.setNumero("NL-2026-0007");
+        when(notaRepository.findById(nota.getId())).thenReturn(Optional.of(nota));
+        when(remetenteRepository.findById(remetente.getId())).thenReturn(Optional.of(remetente));
+        when(notaRepository.existsByRemetenteIdAndNumeroAndIdNot(remetente.getId(), "NL-2026-0007", nota.getId()))
+                .thenReturn(false);
+        when(movimentacaoRepository.findById(entrada.getId())).thenReturn(Optional.of(entrada));
+        when(notaRepository.existsByMovimentacaoIdAndNotaIdNot(entrada.getId(), nota.getId())).thenReturn(false);
+        when(notaRepository.save(nota)).thenReturn(nota);
+
+        NotaResponseDTO resposta = notaService.editar(nota.getId(),
+                new NotaRequestDTO("OUTRO-NUMERO", LocalDate.now(), remetente.getId(), List.of(entrada.getId()), null),
+                nutricionista);
+
+        assertThat(resposta.numero()).isEqualTo("NL-2026-0007");
+        assertThat(resposta.tipo()).isEqualTo(TipoNota.LOCAL);
     }
 
     @Test

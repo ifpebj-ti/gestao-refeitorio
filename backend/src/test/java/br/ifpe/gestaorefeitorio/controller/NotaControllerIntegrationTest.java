@@ -38,6 +38,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -46,6 +48,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -870,5 +873,101 @@ class NotaControllerIntegrationTest {
         mockMvc.perform(get("/api/notas/{id}", notaId).header("Authorization", "Bearer " + tokenCozinha))
                 .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/notas")).andExpect(status().isUnauthorized());
+    }
+
+    // ---- POST /api/notas/locais (US33/#293) ----
+
+    private ResultActions emitirLocal(String token, UUID remetenteId, String responsavelEntrega,
+                                      UUID... movimentacaoIds) throws Exception {
+        String ids = Arrays.stream(movimentacaoIds).map(id -> "\"" + id + "\"")
+                .collect(Collectors.joining(","));
+        return mockMvc.perform(post("/api/notas/locais")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"data":"%s","remetenteId":"%s","movimentacaoIds":[%s],"responsavelEntrega":"%s"}
+                        """.formatted(LocalDate.now(), remetenteId, ids, responsavelEntrega)));
+    }
+
+    private String emitirLocalEPegarNumero() throws Exception {
+        String resposta = emitirLocal(tokenNutricionista, remetente.getId(), "Setor de Agroindústria", novaEntrada())
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return JsonPath.read(resposta, "$.numero");
+    }
+
+    private static int sequencial(String numero) {
+        return Integer.parseInt(numero.substring(numero.lastIndexOf('-') + 1));
+    }
+
+    @Test
+    void deveEmitirNotaLocalPendenteComNumeroGerado() throws Exception {
+        int ano = LocalDate.now(ZoneId.of("America/Recife")).getYear();
+        Movimentacao entrada = criarMovimentacao(TipoMovimentacao.ENTRADA);
+
+        emitirLocal(tokenNutricionista, remetente.getId(), "  Setor de Agroindústria  ", entrada.getId())
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.tipo").value("LOCAL"))
+                .andExpect(jsonPath("$.numero").value(matchesPattern("NL-" + ano + "-\\d{4}")))
+                .andExpect(jsonPath("$.status").value("PENDENTE"))
+                .andExpect(jsonPath("$.responsavelEntrega").value("Setor de Agroindústria"))
+                .andExpect(jsonPath("$.entradas[0].movimentacaoId").value(entrada.getId().toString()));
+    }
+
+    @Test
+    void deveNumerarEmSequenciaSemReaproveitarONumeroDeNotaCancelada() throws Exception {
+        String primeira = emitirLocalEPegarNumero();
+        String segunda = emitirLocalEPegarNumero();
+        String idSegunda = JsonPath.read(listarNotas(tokenNutricionista, "?tipo=LOCAL&remetenteId=" + remetente.getId())
+                .andReturn().getResponse().getContentAsString(), "$[1].id");
+        cancelar(tokenNutricionista, UUID.fromString(idSegunda), "Entrega devolvida").andExpect(status().isOk());
+
+        String terceira = emitirLocalEPegarNumero();
+
+        assertThat(sequencial(segunda)).isEqualTo(sequencial(primeira) + 1);
+        assertThat(sequencial(terceira)).isEqualTo(sequencial(segunda) + 1);
+    }
+
+    @Test
+    void deveValidarAEmissaoDaNotaLocal() throws Exception {
+        emitirLocal(tokenNutricionista, remetente.getId(), "   ", novaEntrada()).andExpect(status().isBadRequest());
+        emitirLocal(tokenNutricionista, UUID.randomUUID(), "Setor", novaEntrada()).andExpect(status().isNotFound());
+        emitirLocal(tokenPara(criarUsuario(Perfil.COZINHA)), remetente.getId(), "Setor", novaEntrada())
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveManterNumeroETipoAoEditarNotaLocal() throws Exception {
+        Movimentacao entrada = criarMovimentacao(TipoMovimentacao.ENTRADA);
+        String resposta = emitirLocal(tokenNutricionista, remetente.getId(), "Setor", entrada.getId())
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        UUID notaId = UUID.fromString(JsonPath.read(resposta, "$.id"));
+        String numero = JsonPath.read(resposta, "$.numero");
+
+        editar(tokenNutricionista, notaId, corpo("NUMERO-NOVO", remetente.getId(), List.of(entrada.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.numero").value(numero))
+                .andExpect(jsonPath("$.tipo").value("LOCAL"))
+                .andExpect(jsonPath("$.observacoes").value("Entrega parcial"));
+    }
+
+    @Test
+    void deveManterANotaExternaEFiltrarPorTipo() throws Exception {
+        UUID externa = registrarNotaEm("NF-900", LocalDate.now().minusDays(1), novaEntrada());
+        String local = emitirLocalEPegarNumero();
+
+        mockMvc.perform(get("/api/notas/{id}", externa).header("Authorization", "Bearer " + tokenNutricionista))
+                .andExpect(jsonPath("$.tipo").value("EXTERNA"))
+                .andExpect(jsonPath("$.numero").value("NF-900"));
+        listarNotas(tokenNutricionista, "?tipo=LOCAL&remetenteId=" + remetente.getId())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].numero").value(local))
+                .andExpect(jsonPath("$[0].tipo").value("LOCAL"))
+                .andExpect(jsonPath("$[0].responsavelEntrega").value("Setor de Agroindústria"));
+        listarNotas(tokenNutricionista, "?tipo=EXTERNA&remetenteId=" + remetente.getId())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(externa.toString()));
     }
 }
