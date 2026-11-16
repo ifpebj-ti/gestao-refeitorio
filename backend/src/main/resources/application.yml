@@ -47,6 +47,8 @@ app:
   url-frontend: ${APP_URL_FRONTEND:http://localhost:3000,https://gestao-refeitorio-ifpe.duckdns.org}
   # Atributo Secure dos cookies de autenticação e de CSRF; false só porque o dev local roda em HTTP (#342).
   cookie-seguro: ${APP_COOKIE_SEGURO:false}
+  # Versão exibida no menu lateral (#371); o deploy repassa a tag implantada. Sem ela, "dev".
+  versao: ${APP_VERSION:dev}
 
 google:
   oauth:
