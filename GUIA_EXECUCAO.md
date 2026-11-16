@@ -5,9 +5,8 @@ e a diferença entre o ambiente de desenvolvimento e produção. Baseado nos arq
 repositório: `backend/Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml`,
 `docker-compose.override.yml`, `docker-compose.prod.yml`, `.env.example` e `backend/pom.xml`.
 
-> Para arquitetura de código, camadas do backend e convenções, ver `README.md` e o `CLAUDE.md`
-> (local, não versionado). Este guia é só sobre **rodar** o projeto, não sobre como o código é
-> organizado.
+> Para arquitetura de código, camadas do backend e convenções, ver o `README.md` e os ADRs em
+> `docs/adr/`. Este guia é só sobre **rodar** o projeto, não sobre como o código é organizado.
 
 ## 1. Pré-requisitos
 
@@ -44,7 +43,7 @@ Depois, edite o `.env` e ajuste:
 | `DB_NAME`, `DB_USER` | Nome do banco e usuário do Postgres | Não, salvo preferência |
 | `DB_PASSWORD` | Senha do Postgres | **Sim** — troque o valor de exemplo |
 | `JWT_SECRET` | Segredo usado pra assinar os JWTs próprios da aplicação | **Sim, principalmente em produção** — mínimo 32 caracteres. Com o profile `prod`, o backend **não sobe** se a variável faltar, estiver vazia ou for mais curta que isso |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Credenciais OAuth2 do Google (login é exclusivo via Google, ver `CLAUDE.md` seção 5) | **Sim** — sem isso o login não valida o `id_token` de verdade. Cria em https://console.cloud.google.com/apis/credentials |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Credenciais OAuth2 do Google (login via Google; o login com e-mail e senha não depende delas, ver ADR 0001) | **Sim** — sem isso o login não valida o `id_token` de verdade. Cria em https://console.cloud.google.com/apis/credentials |
 | `NEXT_PUBLIC_API_URL` | URL que o frontend usa pra chamar o backend | Não, em dev local (já aponta pro `localhost:8080/api`) |
 | `APP_URL_FRONTEND` | Origem do frontend que o backend aceita no CORS (várias separadas por vírgula, ex: `http://localhost:3000,http://136.248.103.235:3000`) | Não, em dev local. **Sim, no servidor** — tem que ser exatamente o endereço que aparece na barra do navegador ao abrir o front (esquema + host + porta, sem barra no final), senão o navegador bloqueia todas as chamadas à API |
 | `MAIL_HOST`, `MAIL_PORT` | Servidor SMTP usado pra enviar e-mails (porta padrão 587, com STARTTLS) | Não, em dev local (o override usa o Mailpit). **Sim, no servidor**, quando o SMTP de produção for definido |
@@ -52,7 +51,7 @@ Depois, edite o `.env` e ajuste:
 | `MAIL_FROM` | Endereço de remetente dos e-mails do sistema | Só no servidor |
 | `APP_URL_LOGIN` | Link da tela de login enviado no e-mail de convite quando o ADMIN cadastra um usuário. É um endereço só, diferente de `APP_URL_FRONTEND`, que é uma lista de origens do CORS | Não, em dev local (padrão `http://localhost:3000/login`). **Sim, no servidor**: `https://gestao-refeitorio-ifpe.duckdns.org/login` |
 | `ALERTA_EMAIL_HABILITADO` | Liga o envio diário dos alertas de estoque baixo (06:05) e validade (06:00, horário de Brasília) para as nutricionistas ativas. Com `false`, os jobs só registram no log | Padrão `false`. Ligar no servidor só depois de o SMTP de produção estar configurado |
-| `ADMIN_INICIAL_EMAIL` / `ADMIN_INICIAL_NOME` | Primeiro ADMIN, criado ao subir **só se não existir nenhum ADMIN ativo** (ver "Primeiro ADMIN" abaixo). Depois disso, mudar o valor não tem efeito | **Sim**: em dev, o seu próprio e-mail Google; no servidor, `misb@discente.ifpe.edu.br`, definido **antes** do deploy que traz a #207 |
+| `ADMIN_INICIAL_EMAIL` / `ADMIN_INICIAL_NOME` | Primeiro ADMIN, criado ao subir **só se não existir nenhum ADMIN ativo** (ver "Primeiro ADMIN" abaixo). Depois disso, mudar o valor não tem efeito | **Sim**: em dev, o seu próprio e-mail Google; no servidor, o e-mail Google institucional do ADMIN responsável, definido **antes** do deploy que traz a #207 |
 
 O frontend tem seu próprio arquivo de exemplo separado:
 
@@ -114,31 +113,42 @@ notas vinculadas. Num banco local antigo, isso remove esses usuários: defina o 
 variável precisa estar no `/opt/gestao-refeitorio/.env` **antes** do deploy; sem ela, o sistema
 fica sem ADMIN até ela ser definida e o backend reiniciado.
 
-### Login local para testes de segurança (#298)
+### Login com e-mail e senha (#365, #366, #367)
 
-Só para os testes de segurança da disciplina, **na sua máquina**. Com o profile `seguranca`, o
-backend cria dois usuários de teste (NUTRICIONISTA e COZINHA) e libera `POST /api/auth/local`,
-que devolve o mesmo JWT do login com Google. Sem o profile, nada disso existe.
+`POST /api/auth/local` funciona em todos os ambientes para usuários que têm senha local (hash BCrypt
+em `usuarios.senha_hash`); quem não tem senha só entra pelo Google. E-mail ou senha errados dão 401
+genérico, e 5 erros seguidos bloqueiam aquele e-mail por 15 minutos (429). O bloqueio fica em
+memória: zera quando o backend reinicia ou quando o ADMIN redefine a senha daquele usuário.
 
-1. No `.env`, defina `SPRING_PROFILES_ACTIVE=seguranca`, `LOCAL_NUTRI_SENHA` e
-   `LOCAL_COZINHA_SENHA` (12 caracteres ou mais; sem elas o backend não sobe). Os e-mails
-   padrão são `nutricionista@seguranca.local` e `cozinha@seguranca.local` (mudam com
-   `LOCAL_NUTRI_EMAIL`/`LOCAL_COZINHA_EMAIL`).
-2. Suba normalmente (`docker compose up --build`).
-3. Pegue o token e use nas chamadas:
-   ```powershell
-   curl -s -X POST http://localhost:8080/api/auth/local -H "Content-Type: application/json" `
-     -d '{"email":"nutricionista@seguranca.local","senha":"<LOCAL_NUTRI_SENHA>"}'
-   # depois: -H "Authorization: Bearer <token>"
+Para testar localmente:
+
+1. No `.env`, defina o ADMIN local (senha com 12 ou mais caracteres) e suba o sistema:
+   ```dotenv
+   ADMIN_LOCAL_EMAIL=admin.local@exemplo.com
+   ADMIN_LOCAL_NOME=Administrador local
+   ADMIN_LOCAL_SENHA=<senha-com-12-ou-mais-caracteres>
    ```
+   Na subida, o log mostra `ADMIN local criado`. Se o e-mail já existir com senha, nada muda:
+   reiniciar nunca sobrescreve uma senha trocada depois.
+2. Faça login como o ADMIN local e guarde o token:
+   ```powershell
+   $admin = (Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/auth/local `
+     -ContentType "application/json" `
+     -Body '{"email":"admin.local@exemplo.com","senha":"<senha-do-admin>"}').token
+   ```
+3. Defina a senha de outro usuário já cadastrado (o `id` vem de `GET /api/usuarios`):
+   ```powershell
+   Invoke-RestMethod -Method Put -Uri http://localhost:8080/api/usuarios/<id>/senha `
+     -Headers @{ Authorization = "Bearer $admin" } -ContentType "application/json" `
+     -Body '{"senha":"<senha-com-12-ou-mais-caracteres>"}'
+   ```
+   Para remover a senha (o usuário volta a entrar só pelo Google), use `-Method Delete` na mesma
+   URL, sem corpo.
+4. Esse usuário passa a entrar com `POST /api/auth/local` e a usar o token em
+   `Authorization: Bearer <token>`.
 
-Avisos:
-- **Nunca** use no servidor: se `seguranca` for ativado junto com `prod`, o backend não sobe, e o
-  `docker-compose.prod.yml` já fixa `SPRING_PROFILES_ACTIVE: prod`.
-- Não há limite de tentativas de login. Um teste de força bruta aqui não representa a produção,
-  onde a autenticação é feita pelo Google.
-- Para desligar, tire o `SPRING_PROFILES_ACTIVE=seguranca` do `.env`. Os usuários de teste
-  continuam no banco local, mas sem o endpoint ninguém consegue entrar com eles.
+Nunca coloque senhas reais no `.env.example`, em issues ou em PRs: no servidor, as variáveis
+`ADMIN_LOCAL_*` ficam só no `/opt/gestao-refeitorio/.env`.
 
 O `backend` só sobe depois que o `db` responde saudável (`depends_on: condition: service_healthy`
 no `docker-compose.yml`), então não tem corrida entre a migration do Flyway e o banco ainda não

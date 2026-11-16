@@ -352,4 +352,58 @@ class MovimentacaoServiceImplTest {
 
         verify(movimentacaoRepository, never()).save(any());
     }
+
+    @Test
+    void deveListarHistoricoComSaldoPorProdutoELocalEResponsavel() {
+        Produto produto = new Produto();
+        produto.setId(UUID.randomUUID());
+        produto.setNome("Arroz");
+        LocalArmazenamento local = new LocalArmazenamento();
+        local.setId(UUID.randomUUID());
+        local.setNome("Despensa");
+        Usuario responsavel = new Usuario();
+        responsavel.setNome("Nutri");
+        responsavel.setEmail("nutri@ifpe.edu.br");
+        responsavel.setPerfil(Perfil.NUTRICIONISTA);
+
+        Movimentacao entrada = new Movimentacao();
+        entrada.setId(UUID.randomUUID());
+        entrada.setProduto(produto);
+        entrada.setLocal(local);
+        entrada.setTipo(TipoMovimentacao.ENTRADA);
+        entrada.setOrigem(OrigemMovimentacao.EXTERNA);
+        entrada.setQuantidade(new BigDecimal("10"));
+        entrada.setData(LocalDate.of(2026, 11, 10));
+        entrada.setLote("L-01");
+        entrada.setResponsavel(responsavel);
+
+        Movimentacao semResponsavel = new Movimentacao();
+        semResponsavel.setId(UUID.randomUUID());
+        semResponsavel.setProduto(produto);
+        semResponsavel.setLocal(local);
+        semResponsavel.setTipo(TipoMovimentacao.SAIDA);
+        semResponsavel.setTipoSaida(TipoSaida.CONSUMO);
+        semResponsavel.setQuantidade(new BigDecimal("3"));
+
+        when(movimentacaoRepository.findAll()).thenReturn(java.util.List.of(entrada, semResponsavel));
+        when(movimentacaoRepository.calcularSaldo(produto.getId(), local.getId())).thenReturn(new BigDecimal("7"));
+
+        java.util.List<MovimentacaoResponseDTO> historico = movimentacaoService.listarHistorico();
+
+        assertThat(historico).hasSize(2);
+        MovimentacaoResponseDTO primeira = historico.get(0);
+        assertThat(primeira.produtoNome()).isEqualTo("Arroz");
+        assertThat(primeira.localNome()).isEqualTo("Despensa");
+        assertThat(primeira.tipo()).isEqualTo(TipoMovimentacao.ENTRADA);
+        assertThat(primeira.saldoAtual()).isEqualByComparingTo("7");
+        assertThat(primeira.responsavelEmail()).isEqualTo("nutri@ifpe.edu.br");
+        assertThat(primeira.responsavelPerfil()).isEqualTo("NUTRICIONISTA");
+        assertThat(primeira.lote()).isEqualTo("L-01");
+
+        MovimentacaoResponseDTO segunda = historico.get(1);
+        assertThat(segunda.tipoSaida()).isEqualTo(TipoSaida.CONSUMO);
+        assertThat(segunda.responsavelNome()).isNull();
+        assertThat(segunda.responsavelEmail()).isNull();
+        assertThat(segunda.responsavelPerfil()).isNull();
+    }
 }

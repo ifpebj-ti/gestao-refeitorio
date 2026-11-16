@@ -45,6 +45,10 @@ security:
 app:
   # Origem(ns) do frontend aceitas no CORS, separadas por vírgula.
   url-frontend: ${APP_URL_FRONTEND:http://localhost:3000,https://gestao-refeitorio-ifpe.duckdns.org}
+  # Atributo Secure dos cookies de autenticação e de CSRF; false só porque o dev local roda em HTTP (#342).
+  cookie-seguro: ${APP_COOKIE_SEGURO:false}
+  # Versão exibida no menu lateral (#371); o deploy repassa a tag implantada. Sem ela, "dev".
+  versao: ${APP_VERSION:dev}
 
 google:
   oauth:
@@ -55,6 +59,11 @@ admin:
     # Usado só quando não existe nenhum ADMIN ativo (#207). Vazio = nada é criado (WARN no log).
     email: ${ADMIN_INICIAL_EMAIL:}
     nome: ${ADMIN_INICIAL_NOME:Administrador}
+  local:
+    # ADMIN com login por e-mail e senha (#366). Vazio = nada é criado; senha com 12+ caracteres.
+    email: ${ADMIN_LOCAL_EMAIL:}
+    nome: ${ADMIN_LOCAL_NOME:Administrador local}
+    senha: ${ADMIN_LOCAL_SENHA:}
 
 email:
   remetente: ${MAIL_FROM:nao-responda@localhost}

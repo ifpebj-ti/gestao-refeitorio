@@ -14,6 +14,8 @@ public record UsuarioResponseDTO(
         boolean ativo,
         Instant criadoEm,
         Instant primeiroAcessoEm,
+        // Só informa se existe senha local (#367); o hash nunca sai da entidade.
+        boolean possuiSenhaLocal,
         // Só preenchido na resposta do cadastro (#208); nas demais operações fica fora do JSON.
         @JsonInclude(JsonInclude.Include.NON_NULL) Boolean conviteEnviado
 ) {

@@ -1,1 +1,29 @@
 @import "tailwindcss";
+
+@theme {
+  /* Paleta Verde Oficial IFPE (#2f9e41) aplicada globalmente em todo o sistema */
+  --color-emerald-50: #f1faef;
+  --color-emerald-100: #dff4dc;
+  --color-emerald-200: #bfe9bb;
+  --color-emerald-300: #91d78c;
+  --color-emerald-400: #5bbd56;
+  --color-emerald-500: #39a845;
+  --color-emerald-600: #2f9e41;
+  --color-emerald-700: #268436;
+  --color-emerald-800: #20682c;
+  --color-emerald-900: #1b5525;
+  --color-emerald-950: #0c2e13;
+
+  --color-teal-50: #f1faef;
+  --color-teal-100: #dff4dc;
+  --color-teal-200: #bfe9bb;
+  --color-teal-300: #91d78c;
+  --color-teal-400: #5bbd56;
+  --color-teal-500: #39a845;
+  --color-teal-600: #2f9e41;
+  --color-teal-700: #268436;
+  --color-teal-800: #20682c;
+  --color-teal-900: #1b5525;
+  --color-teal-950: #0c2e13;
+}
+

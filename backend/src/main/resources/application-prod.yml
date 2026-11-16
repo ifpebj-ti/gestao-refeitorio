@@ -7,6 +7,10 @@ security:
     # Sem fallback de propósito: sem JWT_SECRET o contexto não sobe (#229, A11/R02).
     secret: ${JWT_SECRET}
 
+app:
+  # Produção só responde por HTTPS (Nginx + Let's Encrypt): cookies nunca trafegam em texto puro (#342).
+  cookie-seguro: true
+
 springdoc:
   api-docs:
     enabled: false

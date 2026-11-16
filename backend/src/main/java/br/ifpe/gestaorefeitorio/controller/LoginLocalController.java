@@ -5,16 +5,14 @@ import br.ifpe.gestaorefeitorio.dto.LoginLocalRequestDTO;
 import br.ifpe.gestaorefeitorio.service.LoginLocalService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-// Só existe no profile seguranca (#298). Devolve o token no corpo, sem cookie: os testes usam Authorization: Bearer.
+// Devolve o token só no corpo, sem cookie: o front usa Authorization: Bearer e não abre nova superfície de CSRF.
 @RestController
-@Profile("seguranca")
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class LoginLocalController {

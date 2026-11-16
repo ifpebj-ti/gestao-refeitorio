@@ -16,6 +16,8 @@ public record NotaResponseDTO(
         List<NotaEntradaDTO> entradas,
         RegistradoPor registradoPor,
         String observacoes,
+        // Só informa se há documento anexado (#290); o arquivo vem de GET /api/notas/{id}/documento.
+        boolean possuiDocumento,
         Instant criadoEm
 ) {
     // Só o necessário para exibir a nota; o documento do remetente (CPF/CNPJ) fica fora.

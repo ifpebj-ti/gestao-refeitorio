@@ -6,6 +6,7 @@ import br.ifpe.gestaorefeitorio.model.enums.Perfil;
 import br.ifpe.gestaorefeitorio.repository.UsuarioRepository;
 import br.ifpe.gestaorefeitorio.security.GoogleTokenValidator;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -19,6 +20,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -88,6 +91,29 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(post("/api/auth/logout"))
                 .andExpect(status().isNoContent())
                 .andExpect(header().exists("Set-Cookie"));
+    }
+
+    @Test
+    void deveFazerLogoutComCookieDeAutenticacaoSemTokenCsrf() throws Exception {
+        mockMvc.perform(post("/api/auth/logout").cookie(new Cookie("token", "token-antigo")))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deveFazerLoginComCookieAntigoSemTokenCsrfECookieSemSecureEmDev() throws Exception {
+        String email = "nutricionista.cookie@ifpe.edu.br";
+        criarUsuario(email, Perfil.NUTRICIONISTA, true);
+        when(googleTokenValidator.validar("token-valido")).thenReturn(payloadComEmail(email));
+
+        mockMvc.perform(post("/api/auth/google")
+                        .cookie(new Cookie("token", "token-antigo"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"idToken":"token-valido"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", containsString("HttpOnly")))
+                .andExpect(header().string("Set-Cookie", not(containsString("Secure"))));
     }
 
     @Test

@@ -714,6 +714,7 @@ export default function ConsumoDiarioPage() {
 
   useEffect(() => {
     carregarInsumos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Quando mudar a data ou a refeição selecionada, atualiza as referências planejadas mantendo os campos zerados para nova entrada

@@ -6,6 +6,8 @@ export interface UsuarioDTO {
   ativo: boolean;
   criadoEm?: string;
   atualizadoEm?: string;
+  primeiroAcessoEm?: string | null;
+  possuiSenhaLocal?: boolean;
 }
 
 export interface UsuarioRequestDTO {
@@ -141,4 +143,51 @@ export async function desativarUsuario(id: string): Promise<UsuarioDTO> {
   }
 
   return res.json();
+}
+
+export async function definirSenhaUsuario(
+  id: string,
+  senha: string
+): Promise<void> {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/usuarios/${id}/senha`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+    body: JSON.stringify({ senha }),
+  });
+
+  if (!res.ok) {
+    tratarSessaoExpiradaSe401(res.status);
+    const errorData = await res.json().catch(() => null);
+    throw new Error(
+      errorData?.mensagem ||
+        errorData?.message ||
+        `Erro ao definir senha do usuário (${res.status})`
+    );
+  }
+}
+
+export async function removerSenhaUsuario(id: string): Promise<void> {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/usuarios/${id}/senha`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    tratarSessaoExpiradaSe401(res.status);
+    const errorData = await res.json().catch(() => null);
+    throw new Error(
+      errorData?.mensagem ||
+        errorData?.message ||
+        `Erro ao remover senha do usuário (${res.status})`
+    );
+  }
 }

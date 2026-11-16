@@ -52,6 +52,18 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      - name: Test and coverage
+        run: npm run test:coverage
+
+      - name: Upload frontend coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: frontend-coverage-report
+          path: frontend/coverage/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Dependency audit
         run: npm audit --audit-level=critical
 
@@ -90,6 +102,16 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      # Evidência da cobertura (#360): o mvn verify gera o relatório e o jacoco:check quebra o build abaixo de 70%.
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: backend-coverage-report
+          path: backend/target/site/jacoco/
+          if-no-files-found: ignore
+          retention-days: 14
+
   # =========================================================
   # SECURITY
   # =========================================================
@@ -109,7 +131,8 @@ jobs:
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294
         with:
           fail-on-severity: high
-          comment-summary-in-pr: always
+          warn-on-openssf-scorecard-level: 1
+          comment-summary-in-pr: on-failure
 
       - name: SAST / Semgrep
         run: >-

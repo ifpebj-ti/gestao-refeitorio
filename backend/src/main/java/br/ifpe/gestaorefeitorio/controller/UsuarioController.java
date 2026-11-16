@@ -1,5 +1,6 @@
 package br.ifpe.gestaorefeitorio.controller;
 
+import br.ifpe.gestaorefeitorio.dto.DefinirSenhaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioEdicaoDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioResponseDTO;
@@ -47,6 +48,21 @@ public class UsuarioController {
     @PatchMapping("/{id}/desativar")
     public UsuarioResponseDTO desativar(@PathVariable UUID id, @AuthenticationPrincipal Usuario adminAutenticado) {
         return usuarioService.desativar(id, adminAutenticado);
+    }
+
+    @PutMapping("/{id}/senha")
+    public ResponseEntity<Void> definirSenha(@PathVariable UUID id,
+                                             @Valid @RequestBody DefinirSenhaRequestDTO request,
+                                             @AuthenticationPrincipal Usuario adminAutenticado) {
+        usuarioService.definirSenha(id, request, adminAutenticado);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/senha")
+    public ResponseEntity<Void> removerSenha(@PathVariable UUID id,
+                                             @AuthenticationPrincipal Usuario adminAutenticado) {
+        usuarioService.removerSenha(id, adminAutenticado);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/convite")

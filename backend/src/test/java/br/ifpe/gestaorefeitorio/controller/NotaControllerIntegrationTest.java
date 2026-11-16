@@ -37,7 +37,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -179,6 +178,7 @@ class NotaControllerIntegrationTest {
                 .andExpect(jsonPath("$.numero").value("NF-100"))
                 .andExpect(jsonPath("$.status").value("PENDENTE"))
                 .andExpect(jsonPath("$.observacoes").value("Entrega parcial"))
+                .andExpect(jsonPath("$.possuiDocumento").value(false))
                 .andExpect(jsonPath("$.remetente.id").value(remetente.getId().toString()))
                 .andExpect(jsonPath("$.remetente.nome").value(remetente.getNome()))
                 .andExpect(jsonPath("$.registradoPor.email").value(nutricionista.getEmail()))
@@ -341,7 +341,7 @@ class NotaControllerIntegrationTest {
         nota.setRemetente(remetente);
         nota.setRegistradoPor(nutricionista);
         nota.setStatus(status);
-        nota.setMovimentacoes(new ArrayList<>(List.of(entrada)));
+        nota.substituirMovimentacoes(List.of(entrada));
         notaRepository.save(nota);
     }
 

@@ -21,18 +21,23 @@ O modelo está dividido nos seguintes domínios:
 
 | Domínio | Tabelas | Responsabilidade |
 |---|---|---|
-| Acesso | `usuarios` | Identidade, perfil e situação dos usuários. |
+| Acesso | `usuarios` | Identidade, perfil, situação e senha local opcional dos usuários. |
 | Estoque | `produtos`, `locais_armazenamento`, `movimentacoes`, `movimentacao_fotos` | Catálogo, saldos, entradas, saídas, armazenamento e evidências. |
 | Produção interna | `setores_produtivos`, `producoes_internas` | Origem interna de produtos recebidos pelo refeitório. |
 | Cardápio | `cardapios`, `itens_cardapio` | Planejamento das refeições e projeção de consumo. |
-| Notas | `notas` | Registro e validação de documentos de recebimento. |
+| Notas | `notas`, `remetentes`, `nota_movimentacoes` | Registro e validação de notas de recebimento, vinculadas às entradas que comprovam. |
 
 ## 3. Diagrama entidade-relacionamento
 
 ```mermaid
 erDiagram
     USUARIOS ||--o{ MOVIMENTACOES : registra
+    USUARIOS ||--o{ NOTAS : registra
     USUARIOS ||--o{ NOTAS : valida
+    REMETENTES ||--o{ NOTAS : emite
+    NOTAS ||--|{ NOTA_MOVIMENTACOES : comprova
+    MOVIMENTACOES ||--o| NOTA_MOVIMENTACOES : vinculada
+    NOTAS ||--o| NOTA_DOCUMENTOS : anexa
     PRODUTOS ||--o{ MOVIMENTACOES : movimenta
     LOCAIS_ARMAZENAMENTO ||--o{ MOVIMENTACOES : armazena
     MOVIMENTACOES ||--o| MOVIMENTACAO_FOTOS : possui
@@ -48,6 +53,8 @@ erDiagram
         VARCHAR perfil
         BOOLEAN ativo
         TIMESTAMPTZ criado_em
+        TIMESTAMPTZ primeiro_acesso_em
+        VARCHAR senha_hash
     }
 
     PRODUTOS {
@@ -127,14 +134,38 @@ erDiagram
 
     NOTAS {
         UUID id PK
-        VARCHAR numero UK
+        VARCHAR numero
         DATE data
-        VARCHAR origem
+        UUID remetente_id FK
         VARCHAR status
+        VARCHAR observacoes
         TEXT justificativa_recusa
+        UUID registrado_por_id FK
         UUID validado_por_id FK
         TIMESTAMPTZ validado_em
-        VARCHAR documento_url
+        TIMESTAMPTZ criado_em
+    }
+
+    REMETENTES {
+        UUID id PK
+        VARCHAR nome UK
+        VARCHAR documento
+        VARCHAR contato
+        BOOLEAN ativo
+        TIMESTAMPTZ criado_em
+    }
+
+    NOTA_MOVIMENTACOES {
+        UUID nota_id FK
+        UUID movimentacao_id PK,FK
+    }
+
+    NOTA_DOCUMENTOS {
+        UUID id PK
+        UUID nota_id FK,UK
+        BYTEA conteudo
+        VARCHAR content_type
+        BIGINT tamanho_bytes
         TIMESTAMPTZ criado_em
     }
 ```
@@ -163,8 +194,12 @@ Armazena as identidades autorizadas a utilizar o sistema.
 | `perfil` | `VARCHAR(30)` | `NOT NULL` | Perfil de autorização. |
 | `ativo` | `BOOLEAN` | `NOT NULL`, padrão `TRUE` | Indica se o acesso está habilitado. |
 | `criado_em` | `TIMESTAMPTZ` | `NOT NULL`, padrão `now()` | Data e hora de criação. |
+| `primeiro_acesso_em` | `TIMESTAMPTZ` | Opcional | Data e hora do primeiro login. Nulo enquanto o usuário nunca entrou; usado para decidir o reenvio do convite (V19). |
+| `senha_hash` | `VARCHAR(100)` | Opcional | Hash BCrypt da senha local. Nulo quando o usuário só entra pelo Google (V25). |
 
 Valores válidos na aplicação para `perfil`: `ADMIN`, `NUTRICIONISTA` e `COZINHA`.
+
+A senha local nunca é armazenada em texto: só o hash BCrypt, definido ou removido pelo ADMIN (`PUT`/`DELETE /api/usuarios/{id}/senha`) ou pelo ADMIN local criado a partir das variáveis de ambiente.
 
 ### 4.2. `produtos`
 
@@ -298,31 +333,76 @@ O valor calculado não é persistido, evitando redundância e inconsistência.
 
 ### 4.10. `notas`
 
-Registra documentos de recebimento submetidos à validação.
+Registra as notas de recebimento emitidas por um remetente e submetidas à validação. Produto, quantidade, lote e local não ficam na nota: vêm das entradas vinculadas a ela em `nota_movimentacoes`.
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `UUID` | PK, `DEFAULT gen_random_uuid()` | Identificador da nota. |
-| `numero` | `VARCHAR(50)` | `NOT NULL`, `UNIQUE` | Número do documento. |
+| `numero` | `VARCHAR(50)` | `NOT NULL`; único por remetente | Número do documento. |
 | `data` | `DATE` | `NOT NULL` | Data da nota. |
-| `origem` | `VARCHAR(100)` | Opcional | Origem descrita no documento. |
+| `remetente_id` | `UUID` | FK para `remetentes`, `NOT NULL` | Quem emitiu a nota (V23). |
 | `status` | `VARCHAR(20)` | `NOT NULL`, padrão `PENDENTE` | Situação da validação. |
+| `observacoes` | `VARCHAR(500)` | Opcional | Observações livres sobre a nota (V23). |
 | `justificativa_recusa` | `TEXT` | Opcional | Motivo da recusa ou cancelamento. |
+| `registrado_por_id` | `UUID` | FK para `usuarios`, `NOT NULL` | Usuário que registrou a nota (V23). |
 | `validado_por_id` | `UUID` | FK para `usuarios`, opcional | Usuário responsável pela validação. |
 | `validado_em` | `TIMESTAMPTZ` | Opcional | Data e hora da validação. |
-| `documento_url` | `VARCHAR(500)` | Opcional | Referência para o documento. |
 | `criado_em` | `TIMESTAMPTZ` | `NOT NULL`, padrão `now()` | Data e hora de criação. |
 
 Valores reconhecidos pela aplicação para `status`: `PENDENTE`, `VALIDADA` e `CANCELADA`.
 
-No esquema atual, uma nota não possui relacionamento direto com `movimentacoes`.
+O número da nota é único por remetente (`uk_notas_remetente_numero`), não no sistema inteiro: dois remetentes podem emitir notas com o mesmo número. A coluna `origem`, que existia até a V22, foi removida na V23; o remetente passou a ser uma entidade própria. A coluna `documento_url`, nunca usada, foi removida na V26: o documento digitalizado fica em `nota_documentos`.
+
+### 4.11. `remetentes`
+
+Cadastro de quem emite as notas de recebimento (fornecedores, cooperativas e setores do campus).
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `UUID` | PK, `DEFAULT gen_random_uuid()` | Identificador do remetente. |
+| `nome` | `VARCHAR(150)` | `NOT NULL`; único sem diferenciar maiúsculas | Nome do remetente. |
+| `documento` | `VARCHAR(14)` | Opcional | CPF ou CNPJ, só dígitos. |
+| `contato` | `VARCHAR(150)` | Opcional | Telefone ou e-mail de contato. |
+| `ativo` | `BOOLEAN` | `NOT NULL`, padrão `TRUE` | Remetente inativo não pode receber notas novas, mas continua nas antigas. |
+| `criado_em` | `TIMESTAMPTZ` | `NOT NULL`, padrão `now()` | Data e hora de criação. |
+
+### 4.12. `nota_movimentacoes`
+
+Vincula cada nota às entradas de estoque que ela comprova.
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `nota_id` | `UUID` | FK para `notas`, `NOT NULL` | Nota que comprova a entrada. |
+| `movimentacao_id` | `UUID` | PK, FK para `movimentacoes` | Entrada comprovada. Por ser a chave primária, uma entrada pertence a no máximo uma nota. |
+
+A aplicação só permite vincular movimentações do tipo `ENTRADA`.
+
+### 4.13. `nota_documentos`
+
+Guarda o documento digitalizado da nota (NF-e do fornecedor ou cópia assinada), separado de `notas` para não carregar o arquivo nas consultas comuns. Mesma decisão de armazenamento de `movimentacao_fotos` (V26).
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `UUID` | PK, `DEFAULT gen_random_uuid()` | Identificador do documento. |
+| `nota_id` | `UUID` | FK para `notas`, `NOT NULL`, `UNIQUE` | Nota a que o documento pertence. |
+| `conteudo` | `BYTEA` | `NOT NULL` | Conteúdo binário do arquivo. |
+| `content_type` | `VARCHAR(100)` | `NOT NULL` | `application/pdf`, `image/jpeg` ou `image/png`, conferido pela assinatura do arquivo. |
+| `tamanho_bytes` | `BIGINT` | `NOT NULL` | Tamanho do arquivo em bytes (até 5MB). |
+| `criado_em` | `TIMESTAMPTZ` | `NOT NULL`, padrão `now()` | Data e hora do primeiro anexo. |
+
+Anexar o documento é opcional. Enquanto a nota está `PENDENTE`, um novo envio substitui o anterior; com a nota `VALIDADA` ou `CANCELADA`, o documento não pode mais ser alterado. O nome do arquivo enviado nunca é armazenado.
 
 ## 5. Relacionamentos e cardinalidades
 
 | Origem | Destino | Cardinalidade | Chave estrangeira |
 |---|---|---|---|
 | `usuarios` | `movimentacoes` | 1:N | `movimentacoes.responsavel_id` |
+| `usuarios` | `notas` | 1:N | `notas.registrado_por_id` |
 | `usuarios` | `notas` | 1:N opcional | `notas.validado_por_id` |
+| `remetentes` | `notas` | 1:N | `notas.remetente_id` |
+| `notas` | `nota_movimentacoes` | 1:N | `nota_movimentacoes.nota_id` |
+| `movimentacoes` | `nota_movimentacoes` | 1:0..1 | `nota_movimentacoes.movimentacao_id` |
+| `notas` | `nota_documentos` | 1:0..1 | `nota_documentos.nota_id` |
 | `produtos` | `movimentacoes` | 1:N | `movimentacoes.produto_id` |
 | `locais_armazenamento` | `movimentacoes` | 1:N | `movimentacoes.local_id` |
 | `movimentacoes` | `movimentacao_fotos` | 1:0..1 | `movimentacao_fotos.movimentacao_id` |
@@ -342,13 +422,17 @@ Além dos índices criados automaticamente para chaves primárias e restrições
 | `idx_movimentacoes_produto` | `movimentacoes` | `produto_id` | Otimizar histórico e consultas por produto. |
 | `idx_movimentacoes_data` | `movimentacoes` | `data` | Otimizar consultas e relatórios por período. |
 | `idx_notas_status` | `notas` | `status` | Otimizar listagens por situação da nota. |
+| `idx_nota_movimentacoes_nota` | `nota_movimentacoes` | `nota_id` | Buscar as entradas vinculadas a uma nota. |
 
 Possuem unicidade explícita:
 
 - `usuarios.email`;
 - `locais_armazenamento.nome`;
 - `setores_produtivos.nome`;
-- `notas.numero`;
+- `remetentes.nome`, sem diferenciar maiúsculas e minúsculas (índice único `uk_remetentes_nome_lower` sobre `LOWER(nome)`);
+- `notas.remetente_id` + `notas.numero` (`uk_notas_remetente_numero`), ou seja, o número é único por remetente;
+- `nota_movimentacoes.movimentacao_id` (chave primária);
+- `nota_documentos.nota_id`;
 - `movimentacao_fotos.movimentacao_id`;
 - `producoes_internas.movimentacao_id`.
 
@@ -359,17 +443,33 @@ As principais regras de integridade são:
 1. Toda movimentação referencia um produto, um local e um usuário responsável existentes.
 2. Entradas exigem origem e não aceitam tipo de saída.
 3. Saídas exigem tipo de saída e não aceitam origem nem valor de compra.
-4. Uma movimentação possui, no máximo, uma foto.
+4. Uma movimentação possui, no máximo, uma foto, e uma nota possui, no máximo, um documento anexado.
 5. Uma movimentação possui, no máximo, um detalhamento de produção interna.
-6. E-mails de usuários, nomes de locais, nomes de setores e números de notas não podem se repetir.
-7. Quantidades usam três casas decimais e valores monetários usam duas casas decimais.
-8. Registros de domínio possuem UUID e data/hora de criação.
+6. E-mails de usuários, nomes de locais, nomes de setores e nomes de remetentes não podem se repetir; o número de uma nota não se repete para o mesmo remetente.
+7. Toda nota tem um remetente e um usuário que a registrou.
+8. Uma movimentação é comprovada por, no máximo, uma nota.
+9. Quantidades usam três casas decimais e valores monetários usam duas casas decimais.
+10. Registros de domínio possuem UUID e data/hora de criação.
 
-Validações adicionais, como saldo suficiente, valores positivos, autorização por perfil e coerência da data de validade, são realizadas pela camada de serviço da aplicação.
+Validações adicionais, como saldo suficiente, valores positivos, autorização por perfil, coerência da data de validade, vínculo de notas só a entradas e bloqueio de notas para remetentes inativos, são realizadas pela camada de serviço da aplicação.
 
 ## 8. Evolução do banco de dados
 
-O Flyway executa as migrations em ordem crescente. As migrations existentes vão de `V1` a `V12`, incluindo a carga inicial do catálogo em `V8`.
+O Flyway executa as migrations em ordem crescente. As migrations existentes vão de `V1` a `V26`.
+
+Migrations que alteraram a estrutura do banco:
+
+| Migration | Alteração |
+|---|---|
+| `V1` a `V12` | Estrutura inicial: usuários, produtos, locais, movimentações (entrada e saída), fotos, produção interna, quantidade mínima, cardápio, fornecedor e notas. |
+| `V19` | `usuarios.primeiro_acesso_em`. |
+| `V21` | `movimentacoes.lote`. |
+| `V22` | Tabela `remetentes`. |
+| `V23` | `notas` passa a ter remetente, quem registrou e observações; sai a coluna `origem`; número único por remetente; tabela `nota_movimentacoes`. |
+| `V25` | `usuarios.senha_hash` (hash BCrypt da senha local). |
+| `V26` | Tabela `nota_documentos`; sai a coluna `notas.documento_url`. |
+
+As demais migrations só mexem em dados: carga e revisão do catálogo de produtos (`V8`, `V13` a `V17` e `V20`), usuários iniciais de homologação (`V18`) e remoção dos que ficaram sem vínculo (`V24`).
 
 Para evoluir o modelo:
 
@@ -383,14 +483,14 @@ Para evoluir o modelo:
 Exemplo:
 
 ```text
-V13__adicionar_indice_movimentacao_local.sql
+V27__adicionar_indice_movimentacao_local.sql
 ```
 
 ## 9. Considerações de segurança e privacidade
 
-- A tabela `usuarios` não armazena senha local.
+- A coluna `usuarios.senha_hash` guarda apenas o hash BCrypt da senha local, nunca a senha em texto. Ela é nula para quem só entra pelo Google, nunca aparece em respostas da API nem em logs, e só o ADMIN pode defini-la ou removê-la.
 - E-mails são dados pessoais e não devem ser expostos em logs desnecessários.
-- O conteúdo de `movimentacao_fotos` deve ser entregue apenas a usuários autorizados.
+- O conteúdo de `movimentacao_fotos` e de `nota_documentos` deve ser entregue apenas a usuários autorizados; o documento da nota só é servido à NUTRICIONISTA.
 - Backups do PostgreSQL devem ser criptografados e ter acesso restrito.
 - Credenciais do banco devem ser fornecidas por variáveis de ambiente ou secrets do ambiente de execução.
 - Operações administrativas e movimentações devem preservar a identificação do usuário responsável.
@@ -406,4 +506,4 @@ Em caso de divergência, devem ser consultadas nesta ordem:
 
 ---
 
-**Última atualização:** 30 de setembro de 2026.
+**Última atualização:** 16 de novembro de 2026.

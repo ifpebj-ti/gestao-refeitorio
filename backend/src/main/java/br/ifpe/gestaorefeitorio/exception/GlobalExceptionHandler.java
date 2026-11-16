@@ -3,6 +3,7 @@ package br.ifpe.gestaorefeitorio.exception;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -43,6 +44,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(corpo(ex.getMessage()));
     }
 
+    @ExceptionHandler(LoginBloqueadoException.class)
+    public ResponseEntity<Map<String, Object>> handleLoginBloqueado(LoginBloqueadoException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getSegundosRestantes()))
+                .body(corpo(ex.getMessage()));
+    }
+
     @ExceptionHandler({ UsuarioNaoEncontradoException.class, UsuarioInativoException.class })
     public ResponseEntity<Map<String, Object>> handleAcessoNegado(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(corpo(ex.getMessage()));
@@ -63,7 +71,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({ UsuarioNaoEncontradoPorIdException.class, ProdutoNaoEncontradoException.class,
             LocalArmazenamentoNaoEncontradoException.class, MovimentacaoNaoEncontradaException.class,
             MovimentacaoFotoNaoEncontradaException.class, CardapioNaoEncontradoException.class,
-            RemetenteNaoEncontradoException.class, NotaNaoEncontradaException.class })
+            RemetenteNaoEncontradoException.class, NotaNaoEncontradaException.class,
+            NotaDocumentoNaoEncontradoException.class })
     public ResponseEntity<Map<String, Object>> handleNaoEncontradoPorId(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(corpo(ex.getMessage()));
     }
