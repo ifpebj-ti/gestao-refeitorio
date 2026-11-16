@@ -37,6 +37,7 @@ erDiagram
     REMETENTES ||--o{ NOTAS : emite
     NOTAS ||--|{ NOTA_MOVIMENTACOES : comprova
     MOVIMENTACOES ||--o| NOTA_MOVIMENTACOES : vinculada
+    NOTAS ||--o| NOTA_DOCUMENTOS : anexa
     PRODUTOS ||--o{ MOVIMENTACOES : movimenta
     LOCAIS_ARMAZENAMENTO ||--o{ MOVIMENTACOES : armazena
     MOVIMENTACOES ||--o| MOVIMENTACAO_FOTOS : possui
@@ -142,7 +143,6 @@ erDiagram
         UUID registrado_por_id FK
         UUID validado_por_id FK
         TIMESTAMPTZ validado_em
-        VARCHAR documento_url
         TIMESTAMPTZ criado_em
     }
 
@@ -158,6 +158,15 @@ erDiagram
     NOTA_MOVIMENTACOES {
         UUID nota_id FK
         UUID movimentacao_id PK,FK
+    }
+
+    NOTA_DOCUMENTOS {
+        UUID id PK
+        UUID nota_id FK,UK
+        BYTEA conteudo
+        VARCHAR content_type
+        BIGINT tamanho_bytes
+        TIMESTAMPTZ criado_em
     }
 ```
 
@@ -338,12 +347,11 @@ Registra as notas de recebimento emitidas por um remetente e submetidas à valid
 | `registrado_por_id` | `UUID` | FK para `usuarios`, `NOT NULL` | Usuário que registrou a nota (V23). |
 | `validado_por_id` | `UUID` | FK para `usuarios`, opcional | Usuário responsável pela validação. |
 | `validado_em` | `TIMESTAMPTZ` | Opcional | Data e hora da validação. |
-| `documento_url` | `VARCHAR(500)` | Opcional | Referência para o documento. |
 | `criado_em` | `TIMESTAMPTZ` | `NOT NULL`, padrão `now()` | Data e hora de criação. |
 
 Valores reconhecidos pela aplicação para `status`: `PENDENTE`, `VALIDADA` e `CANCELADA`.
 
-O número da nota é único por remetente (`uk_notas_remetente_numero`), não no sistema inteiro: dois remetentes podem emitir notas com o mesmo número. A coluna `origem`, que existia até a V22, foi removida na V23; o remetente passou a ser uma entidade própria.
+O número da nota é único por remetente (`uk_notas_remetente_numero`), não no sistema inteiro: dois remetentes podem emitir notas com o mesmo número. A coluna `origem`, que existia até a V22, foi removida na V23; o remetente passou a ser uma entidade própria. A coluna `documento_url`, nunca usada, foi removida na V26: o documento digitalizado fica em `nota_documentos`.
 
 ### 4.11. `remetentes`
 
@@ -369,6 +377,21 @@ Vincula cada nota às entradas de estoque que ela comprova.
 
 A aplicação só permite vincular movimentações do tipo `ENTRADA`.
 
+### 4.13. `nota_documentos`
+
+Guarda o documento digitalizado da nota (NF-e do fornecedor ou cópia assinada), separado de `notas` para não carregar o arquivo nas consultas comuns. Mesma decisão de armazenamento de `movimentacao_fotos` (V26).
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `UUID` | PK, `DEFAULT gen_random_uuid()` | Identificador do documento. |
+| `nota_id` | `UUID` | FK para `notas`, `NOT NULL`, `UNIQUE` | Nota a que o documento pertence. |
+| `conteudo` | `BYTEA` | `NOT NULL` | Conteúdo binário do arquivo. |
+| `content_type` | `VARCHAR(100)` | `NOT NULL` | `application/pdf`, `image/jpeg` ou `image/png`, conferido pela assinatura do arquivo. |
+| `tamanho_bytes` | `BIGINT` | `NOT NULL` | Tamanho do arquivo em bytes (até 5MB). |
+| `criado_em` | `TIMESTAMPTZ` | `NOT NULL`, padrão `now()` | Data e hora do primeiro anexo. |
+
+Anexar o documento é opcional. Enquanto a nota está `PENDENTE`, um novo envio substitui o anterior; com a nota `VALIDADA` ou `CANCELADA`, o documento não pode mais ser alterado. O nome do arquivo enviado nunca é armazenado.
+
 ## 5. Relacionamentos e cardinalidades
 
 | Origem | Destino | Cardinalidade | Chave estrangeira |
@@ -379,6 +402,7 @@ A aplicação só permite vincular movimentações do tipo `ENTRADA`.
 | `remetentes` | `notas` | 1:N | `notas.remetente_id` |
 | `notas` | `nota_movimentacoes` | 1:N | `nota_movimentacoes.nota_id` |
 | `movimentacoes` | `nota_movimentacoes` | 1:0..1 | `nota_movimentacoes.movimentacao_id` |
+| `notas` | `nota_documentos` | 1:0..1 | `nota_documentos.nota_id` |
 | `produtos` | `movimentacoes` | 1:N | `movimentacoes.produto_id` |
 | `locais_armazenamento` | `movimentacoes` | 1:N | `movimentacoes.local_id` |
 | `movimentacoes` | `movimentacao_fotos` | 1:0..1 | `movimentacao_fotos.movimentacao_id` |
@@ -408,6 +432,7 @@ Possuem unicidade explícita:
 - `remetentes.nome`, sem diferenciar maiúsculas e minúsculas (índice único `uk_remetentes_nome_lower` sobre `LOWER(nome)`);
 - `notas.remetente_id` + `notas.numero` (`uk_notas_remetente_numero`), ou seja, o número é único por remetente;
 - `nota_movimentacoes.movimentacao_id` (chave primária);
+- `nota_documentos.nota_id`;
 - `movimentacao_fotos.movimentacao_id`;
 - `producoes_internas.movimentacao_id`.
 
@@ -418,7 +443,7 @@ As principais regras de integridade são:
 1. Toda movimentação referencia um produto, um local e um usuário responsável existentes.
 2. Entradas exigem origem e não aceitam tipo de saída.
 3. Saídas exigem tipo de saída e não aceitam origem nem valor de compra.
-4. Uma movimentação possui, no máximo, uma foto.
+4. Uma movimentação possui, no máximo, uma foto, e uma nota possui, no máximo, um documento anexado.
 5. Uma movimentação possui, no máximo, um detalhamento de produção interna.
 6. E-mails de usuários, nomes de locais, nomes de setores e nomes de remetentes não podem se repetir; o número de uma nota não se repete para o mesmo remetente.
 7. Toda nota tem um remetente e um usuário que a registrou.
@@ -430,7 +455,7 @@ Validações adicionais, como saldo suficiente, valores positivos, autorização
 
 ## 8. Evolução do banco de dados
 
-O Flyway executa as migrations em ordem crescente. As migrations existentes vão de `V1` a `V25`.
+O Flyway executa as migrations em ordem crescente. As migrations existentes vão de `V1` a `V26`.
 
 Migrations que alteraram a estrutura do banco:
 
@@ -442,6 +467,7 @@ Migrations que alteraram a estrutura do banco:
 | `V22` | Tabela `remetentes`. |
 | `V23` | `notas` passa a ter remetente, quem registrou e observações; sai a coluna `origem`; número único por remetente; tabela `nota_movimentacoes`. |
 | `V25` | `usuarios.senha_hash` (hash BCrypt da senha local). |
+| `V26` | Tabela `nota_documentos`; sai a coluna `notas.documento_url`. |
 
 As demais migrations só mexem em dados: carga e revisão do catálogo de produtos (`V8`, `V13` a `V17` e `V20`), usuários iniciais de homologação (`V18`) e remoção dos que ficaram sem vínculo (`V24`).
 
@@ -457,14 +483,14 @@ Para evoluir o modelo:
 Exemplo:
 
 ```text
-V26__adicionar_indice_movimentacao_local.sql
+V27__adicionar_indice_movimentacao_local.sql
 ```
 
 ## 9. Considerações de segurança e privacidade
 
 - A coluna `usuarios.senha_hash` guarda apenas o hash BCrypt da senha local, nunca a senha em texto. Ela é nula para quem só entra pelo Google, nunca aparece em respostas da API nem em logs, e só o ADMIN pode defini-la ou removê-la.
 - E-mails são dados pessoais e não devem ser expostos em logs desnecessários.
-- O conteúdo de `movimentacao_fotos` deve ser entregue apenas a usuários autorizados.
+- O conteúdo de `movimentacao_fotos` e de `nota_documentos` deve ser entregue apenas a usuários autorizados; o documento da nota só é servido à NUTRICIONISTA.
 - Backups do PostgreSQL devem ser criptografados e ter acesso restrito.
 - Credenciais do banco devem ser fornecidas por variáveis de ambiente ou secrets do ambiente de execução.
 - Operações administrativas e movimentações devem preservar a identificação do usuário responsável.

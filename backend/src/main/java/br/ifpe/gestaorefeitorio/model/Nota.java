@@ -66,8 +66,6 @@ public class Nota {
 
     private Instant validadoEm;
 
-    private String documentoUrl;
-
     @Column(nullable = false, updatable = false)
     private Instant criadoEm = Instant.now();
 

@@ -178,6 +178,7 @@ class NotaControllerIntegrationTest {
                 .andExpect(jsonPath("$.numero").value("NF-100"))
                 .andExpect(jsonPath("$.status").value("PENDENTE"))
                 .andExpect(jsonPath("$.observacoes").value("Entrega parcial"))
+                .andExpect(jsonPath("$.possuiDocumento").value(false))
                 .andExpect(jsonPath("$.remetente.id").value(remetente.getId().toString()))
                 .andExpect(jsonPath("$.remetente.nome").value(remetente.getNome()))
                 .andExpect(jsonPath("$.registradoPor.email").value(nutricionista.getEmail()))
