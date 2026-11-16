@@ -4,6 +4,8 @@ import br.ifpe.gestaorefeitorio.dto.NotaCancelamentoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaEntradaDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaResponseDTO;
+import br.ifpe.gestaorefeitorio.dto.NotaResumoDTO;
+import br.ifpe.gestaorefeitorio.model.enums.StatusNota;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 
 import java.time.LocalDate;
@@ -44,4 +46,19 @@ public interface NotaService {
      */
     List<NotaEntradaDTO> listarEntradasDisponiveis(LocalDate dataInicio, LocalDate dataFim, UUID produtoId,
                                                    String fornecedor);
+
+    /**
+     * Resumo das notas com os filtros informados, combinados com E; filtro nulo não é aplicado.
+     * Da nota mais antiga para a mais recente (US30/#292).
+     *
+     * @throws br.ifpe.gestaorefeitorio.exception.PeriodoInvalidoException dataFim antes de dataInicio (400).
+     */
+    List<NotaResumoDTO> listar(StatusNota status, UUID remetenteId, LocalDate dataInicio, LocalDate dataFim);
+
+    /**
+     * Detalhe completo da nota, com entradas, documento e decisão.
+     *
+     * @throws br.ifpe.gestaorefeitorio.exception.NotaNaoEncontradaException nota inexistente (404).
+     */
+    NotaResponseDTO buscarPorId(UUID id);
 }

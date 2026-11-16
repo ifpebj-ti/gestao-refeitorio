@@ -4,6 +4,7 @@ import br.ifpe.gestaorefeitorio.dto.NotaCancelamentoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaEntradaDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaResponseDTO;
+import br.ifpe.gestaorefeitorio.dto.NotaResumoDTO;
 import br.ifpe.gestaorefeitorio.exception.MovimentacaoJaVinculadaException;
 import br.ifpe.gestaorefeitorio.exception.MovimentacaoNaoEncontradaException;
 import br.ifpe.gestaorefeitorio.exception.MovimentacaoNaoEntradaException;
@@ -111,6 +112,27 @@ public class NotaServiceImpl implements NotaService {
         return paraDTO(nota);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<NotaResumoDTO> listar(StatusNota status, UUID remetenteId, LocalDate dataInicio, LocalDate dataFim) {
+        log.debug("Listagem de notas: status {}, remetente {}, dataInicio {}, dataFim {}",
+                status, remetenteId, dataInicio, dataFim);
+        validarPeriodo(dataInicio, dataFim);
+        return notaRepository.listarResumos(status, remetenteId, dataInicio, dataFim);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public NotaResponseDTO buscarPorId(UUID id) {
+        return paraDTO(notaRepository.findById(id).orElseThrow(() -> new NotaNaoEncontradaException(id)));
+    }
+
+    private static void validarPeriodo(LocalDate dataInicio, LocalDate dataFim) {
+        if (dataInicio != null && dataFim != null && dataFim.isBefore(dataInicio)) {
+            throw new PeriodoInvalidoException();
+        }
+    }
+
     private Nota buscarPendente(UUID id, String operacao) {
         Nota nota = notaRepository.findById(id)
                 .orElseThrow(() -> new NotaNaoEncontradaException(id));
@@ -170,10 +192,7 @@ public class NotaServiceImpl implements NotaService {
                                                           String fornecedor) {
         log.debug("Listagem de entradas disponíveis: dataInicio {}, dataFim {}, produto {}, fornecedor '{}'",
                 dataInicio, dataFim, produtoId, fornecedor);
-
-        if (dataInicio != null && dataFim != null && dataFim.isBefore(dataInicio)) {
-            throw new PeriodoInvalidoException();
-        }
+        validarPeriodo(dataInicio, dataFim);
 
         return movimentacaoRepository.findAll(
                         MovimentacaoSpecifications.entradasDisponiveis(dataInicio, dataFim, produtoId,
