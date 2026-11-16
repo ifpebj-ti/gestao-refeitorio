@@ -1,5 +1,6 @@
 package br.ifpe.gestaorefeitorio.controller;
 
+import br.ifpe.gestaorefeitorio.dto.NotaCancelamentoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaDocumentoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaEntradaDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaRequestDTO;
@@ -17,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -74,6 +76,23 @@ public class NotaController {
             @Valid @RequestBody NotaRequestDTO request,
             @AuthenticationPrincipal Usuario editadoPor) {
         return notaService.editar(id, request, editadoPor);
+    }
+
+    // Conferência da nota pela nutricionista (US29/#291): só PENDENTE → VALIDADA.
+    @PatchMapping("/{id}/validar")
+    @PreAuthorize("hasRole('NUTRICIONISTA')")
+    public NotaResponseDTO validar(@PathVariable UUID id, @AuthenticationPrincipal Usuario decidiuPor) {
+        return notaService.validar(id, decidiuPor);
+    }
+
+    // Só PENDENTE → CANCELADA, com justificativa; as entradas vinculadas não são estornadas.
+    @PatchMapping("/{id}/cancelar")
+    @PreAuthorize("hasRole('NUTRICIONISTA')")
+    public NotaResponseDTO cancelar(
+            @PathVariable UUID id,
+            @Valid @RequestBody NotaCancelamentoRequestDTO request,
+            @AuthenticationPrincipal Usuario decidiuPor) {
+        return notaService.cancelar(id, request, decidiuPor);
     }
 
     // Entradas ainda sem nota, para o front montar uma nota com várias entradas (#288).

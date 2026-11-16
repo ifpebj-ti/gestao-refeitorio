@@ -4,6 +4,7 @@ import br.ifpe.gestaorefeitorio.model.Usuario;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -84,6 +85,15 @@ public class GlobalExceptionHandler {
             MovimentacaoJaVinculadaException.class, NotaNaoPendenteException.class })
     public ResponseEntity<Map<String, Object>> handleConflito(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo(ex.getMessage()));
+    }
+
+    // Lock otimista (@Version): outra operação alterou o mesmo registro antes. A mensagem do Hibernate
+    // cita classe e chave, então o cliente recebe só uma mensagem genérica.
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>> handleAlteracaoConcorrente(ObjectOptimisticLockingFailureException ex) {
+        log.info("Alteração concorrente rejeitada: {}", ex.getPersistentClassName());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(corpo(
+                "O registro foi alterado por outra operação ao mesmo tempo. Recarregue e tente novamente."));
     }
 
     @ExceptionHandler({ ArquivoInvalidoException.class, MaxUploadSizeExceededException.class })
