@@ -139,10 +139,11 @@ erDiagram
         UUID remetente_id FK
         VARCHAR status
         VARCHAR observacoes
-        TEXT justificativa_recusa
+        TEXT justificativa_cancelamento
         UUID registrado_por_id FK
         UUID validado_por_id FK
         TIMESTAMPTZ validado_em
+        BIGINT versao
         TIMESTAMPTZ criado_em
     }
 
@@ -343,13 +344,16 @@ Registra as notas de recebimento emitidas por um remetente e submetidas à valid
 | `remetente_id` | `UUID` | FK para `remetentes`, `NOT NULL` | Quem emitiu a nota (V23). |
 | `status` | `VARCHAR(20)` | `NOT NULL`, padrão `PENDENTE` | Situação da validação. |
 | `observacoes` | `VARCHAR(500)` | Opcional | Observações livres sobre a nota (V23). |
-| `justificativa_recusa` | `TEXT` | Opcional | Motivo da recusa ou cancelamento. |
+| `justificativa_cancelamento` | `TEXT` | Opcional | Motivo informado ao cancelar a nota; nulo nas pendentes e validadas (V27). |
 | `registrado_por_id` | `UUID` | FK para `usuarios`, `NOT NULL` | Usuário que registrou a nota (V23). |
-| `validado_por_id` | `UUID` | FK para `usuarios`, opcional | Usuário responsável pela validação. |
-| `validado_em` | `TIMESTAMPTZ` | Opcional | Data e hora da validação. |
+| `validado_por_id` | `UUID` | FK para `usuarios`, opcional | Quem decidiu a nota: validou ou cancelou. |
+| `validado_em` | `TIMESTAMPTZ` | Opcional | Quando a nota foi validada ou cancelada. |
+| `versao` | `BIGINT` | `NOT NULL`, padrão `0` | Controle de concorrência otimista (`@Version`): de duas decisões simultâneas, só a primeira é gravada (V27). |
 | `criado_em` | `TIMESTAMPTZ` | `NOT NULL`, padrão `now()` | Data e hora de criação. |
 
 Valores reconhecidos pela aplicação para `status`: `PENDENTE`, `VALIDADA` e `CANCELADA`.
+
+Transições permitidas: só `PENDENTE → VALIDADA` e `PENDENTE → CANCELADA` (esta exige justificativa). Uma nota validada ou cancelada não muda mais de status. Cancelar não estorna nem desvincula as entradas: elas continuam no estoque e ligadas à nota.
 
 O número da nota é único por remetente (`uk_notas_remetente_numero`), não no sistema inteiro: dois remetentes podem emitir notas com o mesmo número. A coluna `origem`, que existia até a V22, foi removida na V23; o remetente passou a ser uma entidade própria. A coluna `documento_url`, nunca usada, foi removida na V26: o documento digitalizado fica em `nota_documentos`.
 
@@ -398,7 +402,7 @@ Anexar o documento é opcional. Enquanto a nota está `PENDENTE`, um novo envio 
 |---|---|---|---|
 | `usuarios` | `movimentacoes` | 1:N | `movimentacoes.responsavel_id` |
 | `usuarios` | `notas` | 1:N | `notas.registrado_por_id` |
-| `usuarios` | `notas` | 1:N opcional | `notas.validado_por_id` |
+| `usuarios` | `notas` | 1:N opcional (quem decidiu) | `notas.validado_por_id` |
 | `remetentes` | `notas` | 1:N | `notas.remetente_id` |
 | `notas` | `nota_movimentacoes` | 1:N | `nota_movimentacoes.nota_id` |
 | `movimentacoes` | `nota_movimentacoes` | 1:0..1 | `nota_movimentacoes.movimentacao_id` |
@@ -455,7 +459,7 @@ Validações adicionais, como saldo suficiente, valores positivos, autorização
 
 ## 8. Evolução do banco de dados
 
-O Flyway executa as migrations em ordem crescente. As migrations existentes vão de `V1` a `V26`.
+O Flyway executa as migrations em ordem crescente. As migrations existentes vão de `V1` a `V27`.
 
 Migrations que alteraram a estrutura do banco:
 
@@ -468,6 +472,7 @@ Migrations que alteraram a estrutura do banco:
 | `V23` | `notas` passa a ter remetente, quem registrou e observações; sai a coluna `origem`; número único por remetente; tabela `nota_movimentacoes`. |
 | `V25` | `usuarios.senha_hash` (hash BCrypt da senha local). |
 | `V26` | Tabela `nota_documentos`; sai a coluna `notas.documento_url`. |
+| `V27` | `notas.justificativa_recusa` vira `justificativa_cancelamento`; nova coluna `notas.versao` (lock otimista). |
 
 As demais migrations só mexem em dados: carga e revisão do catálogo de produtos (`V8`, `V13` a `V17` e `V20`), usuários iniciais de homologação (`V18`) e remoção dos que ficaram sem vínculo (`V24`).
 
@@ -483,7 +488,7 @@ Para evoluir o modelo:
 Exemplo:
 
 ```text
-V27__adicionar_indice_movimentacao_local.sql
+V28__adicionar_indice_movimentacao_local.sql
 ```
 
 ## 9. Considerações de segurança e privacidade
