@@ -236,6 +236,7 @@ Os detalhes estão em [docs/CI_CD.md](docs/CI_CD.md). O histórico de versões e
 - [docs/adr/](docs/adr/README.md): registros de decisões arquiteturais (ADRs).
 - [GUIA_EXECUCAO.md](GUIA_EXECUCAO.md): execução, configuração, testes e solução de problemas.
 - [docs/CI_CD.md](docs/CI_CD.md): esteira, releases, deploy e rollback.
+- [docs/TESTES.md](docs/TESTES.md): testes automatizados, relatório de cobertura (JaCoCo) e gate de 70%.
 - [docs/MODELAGEM_DADOS.md](docs/MODELAGEM_DADOS.md): modelo de dados.
 - [docs/BACKUP_POSTGRES.md](docs/BACKUP_POSTGRES.md): backup e restauração do banco.
 - [docs/OBSERVABILIDADE.md](docs/OBSERVABILIDADE.md): logs, traces e métricas com OpenTelemetry e LGTM.
