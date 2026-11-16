@@ -4,6 +4,7 @@ import br.ifpe.gestaorefeitorio.dto.NotaCancelamentoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaEntradaDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaResponseDTO;
+import br.ifpe.gestaorefeitorio.dto.NotaResumoDTO;
 import br.ifpe.gestaorefeitorio.exception.MovimentacaoJaVinculadaException;
 import br.ifpe.gestaorefeitorio.exception.MovimentacaoNaoEncontradaException;
 import br.ifpe.gestaorefeitorio.exception.MovimentacaoNaoEntradaException;
@@ -464,6 +465,43 @@ class NotaServiceImplTest {
         assertThrows(NotaNaoPendenteException.class,
                 () -> notaService.cancelar(cancelada.getId(), cancelamento, nutricionista));
         verify(notaRepository, never()).save(any());
+    }
+
+    // ---- Consultar notas (US30/#292) ----
+
+    @Test
+    void deveRepassarOsFiltrosDaListagemAoRepositorio() {
+        LocalDate inicio = LocalDate.now().minusDays(7);
+        LocalDate fim = LocalDate.now();
+        List<NotaResumoDTO> resumos = List.of(new NotaResumoDTO(UUID.randomUUID(), "NF-1", inicio,
+                "Agroindústria", StatusNota.PENDENTE, 2, true));
+        when(notaRepository.listarResumos(StatusNota.PENDENTE, remetente.getId(), inicio, fim)).thenReturn(resumos);
+
+        assertThat(notaService.listar(StatusNota.PENDENTE, remetente.getId(), inicio, fim)).isEqualTo(resumos);
+    }
+
+    @Test
+    void deveRecusarPeriodoInvertidoSemConsultar() {
+        LocalDate hoje = LocalDate.now();
+
+        assertThrows(PeriodoInvalidoException.class,
+                () -> notaService.listar(null, null, hoje, hoje.minusDays(1)));
+        verify(notaRepository, never()).listarResumos(any(), any(), any(), any());
+    }
+
+    @Test
+    void deveBuscarODetalheDaNotaOuLancarNaoEncontrada() {
+        Movimentacao entrada = movimentacao(TipoMovimentacao.ENTRADA);
+        Nota nota = notaExistente(StatusNota.PENDENTE, entrada);
+        UUID inexistente = UUID.randomUUID();
+        when(notaRepository.findById(nota.getId())).thenReturn(Optional.of(nota));
+        when(notaRepository.findById(inexistente)).thenReturn(Optional.empty());
+
+        NotaResponseDTO detalhe = notaService.buscarPorId(nota.getId());
+
+        assertThat(detalhe.id()).isEqualTo(nota.getId());
+        assertThat(detalhe.entradas()).extracting(NotaEntradaDTO::movimentacaoId).containsExactly(entrada.getId());
+        assertThrows(NotaNaoEncontradaException.class, () -> notaService.buscarPorId(inexistente));
     }
 
     @Test

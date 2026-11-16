@@ -10,7 +10,7 @@ import br.ifpe.gestaorefeitorio.model.enums.StatusNota;
 import java.util.List;
 import java.util.UUID;
 
-public interface NotaRepository extends JpaRepository<Nota, UUID> {
+public interface NotaRepository extends JpaRepository<Nota, UUID>, NotaRepositoryCustom {
     List<Nota> findByStatus(StatusNota status);
 
     boolean existsByRemetenteIdAndNumero(UUID remetenteId, String numero);

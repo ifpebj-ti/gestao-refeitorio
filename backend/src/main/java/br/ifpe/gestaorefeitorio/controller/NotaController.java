@@ -5,8 +5,10 @@ import br.ifpe.gestaorefeitorio.dto.NotaDocumentoResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaEntradaDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaResponseDTO;
+import br.ifpe.gestaorefeitorio.dto.NotaResumoDTO;
 import br.ifpe.gestaorefeitorio.model.NotaDocumento;
 import br.ifpe.gestaorefeitorio.model.Usuario;
+import br.ifpe.gestaorefeitorio.model.enums.StatusNota;
 import br.ifpe.gestaorefeitorio.service.NotaDocumentoService;
 import br.ifpe.gestaorefeitorio.service.NotaService;
 import jakarta.validation.Valid;
@@ -93,6 +95,23 @@ public class NotaController {
             @Valid @RequestBody NotaCancelamentoRequestDTO request,
             @AuthenticationPrincipal Usuario decidiuPor) {
         return notaService.cancelar(id, request, decidiuPor);
+    }
+
+    // Acompanhamento das notas, sobretudo as PENDENTES (US30/#292); filtros opcionais, combinados com E.
+    @GetMapping
+    @PreAuthorize("hasRole('NUTRICIONISTA')")
+    public List<NotaResumoDTO> listar(
+            @RequestParam(required = false) StatusNota status,
+            @RequestParam(required = false) UUID remetenteId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim) {
+        return notaService.listar(status, remetenteId, dataInicio, dataFim);
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('NUTRICIONISTA')")
+    public NotaResponseDTO buscar(@PathVariable UUID id) {
+        return notaService.buscarPorId(id);
     }
 
     // Entradas ainda sem nota, para o front montar uma nota com várias entradas (#288).
