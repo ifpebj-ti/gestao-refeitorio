@@ -21,6 +21,7 @@ import br.ifpe.gestaorefeitorio.model.enums.StatusNota;
 import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoSpecifications;
+import br.ifpe.gestaorefeitorio.repository.NotaDocumentoRepository;
 import br.ifpe.gestaorefeitorio.repository.NotaRepository;
 import br.ifpe.gestaorefeitorio.repository.RemetenteRepository;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,7 @@ public class NotaServiceImpl implements NotaService {
     private final NotaRepository notaRepository;
     private final RemetenteRepository remetenteRepository;
     private final MovimentacaoRepository movimentacaoRepository;
+    private final NotaDocumentoRepository notaDocumentoRepository;
 
     @Override
     @Transactional
@@ -198,6 +200,7 @@ public class NotaServiceImpl implements NotaService {
                 new NotaResponseDTO.RegistradoPor(registradoPor.getId(), registradoPor.getNome(),
                         registradoPor.getEmail()),
                 nota.getObservacoes(),
+                nota.getId() != null && notaDocumentoRepository.existsByNotaId(nota.getId()),
                 nota.getCriadoEm());
     }
 
