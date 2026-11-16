@@ -41,9 +41,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -659,5 +661,87 @@ class NotaControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(corpo("NF-1", remetente.getId(), List.of(UUID.randomUUID()))))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // ---- PATCH /api/notas/{id}/validar e /cancelar (US29/#291) ----
+
+    private ResultActions validar(String token, UUID notaId) throws Exception {
+        return mockMvc.perform(patch("/api/notas/{id}/validar", notaId)
+                .header("Authorization", "Bearer " + token));
+    }
+
+    private ResultActions cancelar(String token, UUID notaId, String justificativa) throws Exception {
+        return mockMvc.perform(patch("/api/notas/{id}/cancelar", notaId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"justificativa\":" + (justificativa == null ? "null" : "\"" + justificativa + "\"") + "}"));
+    }
+
+    @Test
+    void deveValidarNotaPendenteRegistrandoQuemDecidiuEQuando() throws Exception {
+        UUID notaId = registrarNota("NF-700", List.of(criarMovimentacao(TipoMovimentacao.ENTRADA).getId()));
+
+        validar(tokenNutricionista, notaId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("VALIDADA"))
+                .andExpect(jsonPath("$.decididoPor.email").value(nutricionista.getEmail()))
+                .andExpect(jsonPath("$.decididoEm").exists())
+                .andExpect(jsonPath("$.justificativaCancelamento").doesNotExist());
+    }
+
+    @Test
+    void deveCancelarNotaComJustificativaMantendoAsEntradasVinculadas() throws Exception {
+        Movimentacao entrada = criarMovimentacao(TipoMovimentacao.ENTRADA);
+        UUID notaId = registrarNota("NF-710", List.of(entrada.getId()));
+
+        cancelar(tokenNutricionista, notaId, "  Fornecedor emitiu com valor errado  ")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELADA"))
+                .andExpect(jsonPath("$.justificativaCancelamento").value("Fornecedor emitiu com valor errado"))
+                .andExpect(jsonPath("$.decididoPor.email").value(nutricionista.getEmail()))
+                .andExpect(jsonPath("$.decididoEm").exists())
+                .andExpect(jsonPath("$.entradas[0].movimentacaoId").value(entrada.getId().toString()));
+
+        // A entrada continua vinculada (não volta para a lista de disponíveis) e não foi estornada.
+        assertThat(notaRepository.existsByMovimentacaoId(entrada.getId())).isTrue();
+        assertThat(movimentacaoRepository.existsById(entrada.getId())).isTrue();
+    }
+
+    @Test
+    void deveRetornar400AoCancelarSemJustificativa() throws Exception {
+        UUID notaId = registrarNota("NF-720", List.of(criarMovimentacao(TipoMovimentacao.ENTRADA).getId()));
+
+        cancelar(tokenNutricionista, notaId, "   ").andExpect(status().isBadRequest());
+        cancelar(tokenNutricionista, notaId, "").andExpect(status().isBadRequest());
+        cancelar(tokenNutricionista, notaId, null).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveRetornar409ParaQualquerTransicaoDeNotaJaDecidida() throws Exception {
+        UUID validada = registrarNota("NF-730", List.of(criarMovimentacao(TipoMovimentacao.ENTRADA).getId()));
+        UUID cancelada = registrarNota("NF-731", List.of(criarMovimentacao(TipoMovimentacao.ENTRADA).getId()));
+        validar(tokenNutricionista, validada).andExpect(status().isOk());
+        cancelar(tokenNutricionista, cancelada, "motivo").andExpect(status().isOk());
+
+        validar(tokenNutricionista, validada).andExpect(status().isConflict());
+        cancelar(tokenNutricionista, validada, "motivo").andExpect(status().isConflict());
+        validar(tokenNutricionista, cancelada).andExpect(status().isConflict());
+        cancelar(tokenNutricionista, cancelada, "motivo").andExpect(status().isConflict());
+    }
+
+    @Test
+    void deveRetornar404ParaNotaInexistente() throws Exception {
+        validar(tokenNutricionista, UUID.randomUUID()).andExpect(status().isNotFound());
+        cancelar(tokenNutricionista, UUID.randomUUID(), "motivo").andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRestringirValidarECancelarANutricionista() throws Exception {
+        UUID notaId = registrarNota("NF-740", List.of(criarMovimentacao(TipoMovimentacao.ENTRADA).getId()));
+        String tokenCozinha = tokenPara(criarUsuario(Perfil.COZINHA));
+
+        validar(tokenCozinha, notaId).andExpect(status().isForbidden());
+        cancelar(tokenCozinha, notaId, "motivo").andExpect(status().isForbidden());
+        mockMvc.perform(patch("/api/notas/{id}/validar", notaId)).andExpect(status().isUnauthorized());
     }
 }
