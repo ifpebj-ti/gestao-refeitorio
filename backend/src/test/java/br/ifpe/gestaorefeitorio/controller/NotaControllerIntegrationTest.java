@@ -28,6 +28,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,9 +43,12 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -743,5 +747,128 @@ class NotaControllerIntegrationTest {
         validar(tokenCozinha, notaId).andExpect(status().isForbidden());
         cancelar(tokenCozinha, notaId, "motivo").andExpect(status().isForbidden());
         mockMvc.perform(patch("/api/notas/{id}/validar", notaId)).andExpect(status().isUnauthorized());
+    }
+
+    // ---- GET /api/notas e /api/notas/{id} (US30/#292) ----
+
+    private UUID registrarNotaEm(String numero, LocalDate data, UUID... movimentacaoIds) throws Exception {
+        String resposta = registrar(tokenNutricionista,
+                corpo(numero, data.toString(), remetente.getId(), List.of(movimentacaoIds)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return UUID.fromString(JsonPath.read(resposta, "$.id"));
+    }
+
+    private UUID novaEntrada() {
+        return criarMovimentacao(TipoMovimentacao.ENTRADA).getId();
+    }
+
+    private ResultActions listarNotas(String token, String query) throws Exception {
+        return mockMvc.perform(get("/api/notas" + query).header("Authorization", "Bearer " + token));
+    }
+
+    @Test
+    void deveListarSoAsPendentesDaMaisAntigaParaAMaisRecente() throws Exception {
+        LocalDate hoje = LocalDate.now();
+        UUID recente = registrarNotaEm("NF-800", hoje, novaEntrada());
+        UUID antiga = registrarNotaEm("NF-801", hoje.minusDays(10), novaEntrada());
+        UUID validada = registrarNotaEm("NF-802", hoje.minusDays(5), novaEntrada());
+        validar(tokenNutricionista, validada).andExpect(status().isOk());
+
+        listarNotas(tokenNutricionista, "?status=PENDENTE&remetenteId=" + remetente.getId())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(antiga.toString()))
+                .andExpect(jsonPath("$[1].id").value(recente.toString()))
+                .andExpect(jsonPath("$[*].status").value(everyItem(
+                        is("PENDENTE"))));
+    }
+
+    @Test
+    void deveDevolverOResumoComRemetenteQuantidadeDeEntradasEDocumento() throws Exception {
+        UUID comDocumento = registrarNotaEm("NF-810", LocalDate.now().minusDays(2), novaEntrada(), novaEntrada());
+        UUID semDocumento = registrarNotaEm("NF-811", LocalDate.now().minusDays(1), novaEntrada());
+        mockMvc.perform(multipart("/api/notas/{id}/documento", comDocumento)
+                        .file(new MockMultipartFile("arquivo", "nota.pdf", "application/pdf",
+                                "%PDF-1.7 nota".getBytes()))
+                        .header("Authorization", "Bearer " + tokenNutricionista))
+                .andExpect(status().isCreated());
+
+        listarNotas(tokenNutricionista, "?remetenteId=" + remetente.getId())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(comDocumento.toString()))
+                .andExpect(jsonPath("$[0].numero").value("NF-810"))
+                .andExpect(jsonPath("$[0].remetenteNome").value(remetente.getNome()))
+                .andExpect(jsonPath("$[0].quantidadeEntradas").value(2))
+                .andExpect(jsonPath("$[0].possuiDocumento").value(true))
+                .andExpect(jsonPath("$[1].id").value(semDocumento.toString()))
+                .andExpect(jsonPath("$[1].quantidadeEntradas").value(1))
+                .andExpect(jsonPath("$[1].possuiDocumento").value(false))
+                .andExpect(jsonPath("$[0].entradas").doesNotExist());
+    }
+
+    @Test
+    void deveAplicarOsFiltrosCombinadosESemFiltroDevolverTodas() throws Exception {
+        LocalDate hoje = LocalDate.now();
+        UUID dentro = registrarNotaEm("NF-820", hoje.minusDays(3), novaEntrada());
+        UUID foraDoPeriodo = registrarNotaEm("NF-821", hoje.minusDays(30), novaEntrada());
+        UUID cancelada = registrarNotaEm("NF-822", hoje.minusDays(3), novaEntrada());
+        cancelar(tokenNutricionista, cancelada, "motivo").andExpect(status().isOk());
+
+        listarNotas(tokenNutricionista, "?status=PENDENTE&remetenteId=" + remetente.getId()
+                + "&dataInicio=" + hoje.minusDays(7) + "&dataFim=" + hoje)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(dentro.toString()));
+
+        listarNotas(tokenNutricionista, "")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].id").value(hasItem(dentro.toString())))
+                .andExpect(jsonPath("$[*].id").value(hasItem(foraDoPeriodo.toString())))
+                .andExpect(jsonPath("$[*].id").value(hasItem(cancelada.toString())));
+    }
+
+    @Test
+    void deveRetornar400ParaPeriodoInvertidoStatusInexistenteOuRemetenteInvalido() throws Exception {
+        LocalDate hoje = LocalDate.now();
+
+        listarNotas(tokenNutricionista, "?dataInicio=" + hoje + "&dataFim=" + hoje.minusDays(1))
+                .andExpect(status().isBadRequest());
+        listarNotas(tokenNutricionista, "?status=INEXISTENTE")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensagem").value("Valor inválido para o parâmetro: status"));
+        listarNotas(tokenNutricionista, "?remetenteId=nao-e-uuid")
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deveDevolverODetalheCompletoOu404() throws Exception {
+        Movimentacao entrada = criarMovimentacao(TipoMovimentacao.ENTRADA);
+        UUID notaId = registrarNotaEm("NF-830", LocalDate.now(), entrada.getId());
+        validar(tokenNutricionista, notaId).andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/notas/{id}", notaId).header("Authorization", "Bearer " + tokenNutricionista))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.numero").value("NF-830"))
+                .andExpect(jsonPath("$.status").value("VALIDADA"))
+                .andExpect(jsonPath("$.entradas[0].movimentacaoId").value(entrada.getId().toString()))
+                .andExpect(jsonPath("$.decididoPor.email").value(nutricionista.getEmail()))
+                .andExpect(jsonPath("$.possuiDocumento").value(false));
+
+        mockMvc.perform(get("/api/notas/{id}", UUID.randomUUID())
+                        .header("Authorization", "Bearer " + tokenNutricionista))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRestringirAConsultaANutricionista() throws Exception {
+        UUID notaId = registrarNotaEm("NF-840", LocalDate.now(), novaEntrada());
+        String tokenCozinha = tokenPara(criarUsuario(Perfil.COZINHA));
+
+        listarNotas(tokenCozinha, "").andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/notas/{id}", notaId).header("Authorization", "Bearer " + tokenCozinha))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/notas")).andExpect(status().isUnauthorized());
     }
 }
