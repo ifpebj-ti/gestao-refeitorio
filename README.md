@@ -1,9 +1,34 @@
 # Gestão de Refeitório — IFPE Campus Belo Jardim
 
+[![CI / Security / Release](https://github.com/ifpebj-ti/gestao-refeitorio/actions/workflows/pipeline.yml/badge.svg?branch=main)](https://github.com/ifpebj-ti/gestao-refeitorio/actions/workflows/pipeline.yml)
+[![Release](https://img.shields.io/github/v/release/ifpebj-ti/gestao-refeitorio)](https://github.com/ifpebj-ti/gestao-refeitorio/releases)
+[![Licença](https://img.shields.io/github/license/ifpebj-ti/gestao-refeitorio)](LICENSE)
+[![Cobertura do backend](https://img.shields.io/badge/cobertura%20backend-95%25-brightgreen)](docs/TESTES.md)
+![Java 21](https://img.shields.io/badge/Java-21-orange)
+![Spring Boot 4](https://img.shields.io/badge/Spring%20Boot-4-6DB33F)
+![Next.js 16](https://img.shields.io/badge/Next.js-16-black)
+![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791)
+
 Plataforma web, responsiva para celular, de controle de estoque da cozinha do campus: produtos, entradas e saídas por local de armazenamento, produção interna, validade e alertas, cardápio com projeção de consumo, notas de recebimento e relatórios.
 
 **Aplicação em produção:** https://gestao-refeitorio-ifpe.duckdns.org
 O login é feito com uma conta Google previamente cadastrada ou com e-mail e senha definidos pelo ADMIN.
+
+**Links rápidos:** [Aplicação](https://gestao-refeitorio-ifpe.duckdns.org) · [Wiki](https://github.com/ifpebj-ti/gestao-refeitorio/wiki) · [Protótipo (Figma)](https://www.figma.com/design/4ndEJajgHfDGwRlFqvI7so/Gest%C3%A3o-Refeit%C3%B3rio---Esbo%C3%A7o-Baixa-Fidelidade?node-id=0-1&t=lGlpIrKxmdAmCb68-1) · [Board do projeto](https://github.com/orgs/ifpebj-ti/projects/44) · [Slides das sprints (Canva)](https://canva.link/ustmtgp8jaz1lkr) · [Documentação técnica](#documentação)
+
+## Sumário
+
+- [Para os professores: testes com usuário e senha](#para-os-professores-testes-com-usuário-e-senha)
+- [Funcionalidades](#funcionalidades)
+- [Perfis de acesso](#perfis-de-acesso)
+- [Arquitetura e stack](#arquitetura-e-stack)
+- [Como rodar localmente](#como-rodar-localmente)
+- [Variáveis de ambiente](#variáveis-de-ambiente)
+- [Segurança](#segurança)
+- [CI/CD](#cicd)
+- [Documentação](#documentação)
+- [Equipe](#equipe)
+- [Licença](#licença)
 
 ---
 
@@ -233,6 +258,9 @@ Os detalhes estão em [docs/CI_CD.md](docs/CI_CD.md). O histórico de versões e
 
 - [Wiki do repositório](https://github.com/ifpebj-ti/gestao-refeitorio/wiki): Documento de Visão, Arquitetura e Modelagem de Ameaças.
 - [Protótipo no Figma](https://www.figma.com/design/4ndEJajgHfDGwRlFqvI7so/Gest%C3%A3o-Refeit%C3%B3rio---Esbo%C3%A7o-Baixa-Fidelidade?node-id=0-1&t=lGlpIrKxmdAmCb68-1): esboço de baixa fidelidade das telas do sistema.
+- Acompanhamento do projeto:
+  - [Board no GitHub Projects](https://github.com/orgs/ifpebj-ti/projects/44): backlog, sprints e andamento das issues;
+  - [Slides das sprints (Canva)](https://canva.link/ustmtgp8jaz1lkr): apresentações de acompanhamento (Sprint Report).
 - [docs/adr/](docs/adr/README.md): registros de decisões arquiteturais (ADRs).
 - [GUIA_EXECUCAO.md](GUIA_EXECUCAO.md): execução, configuração, testes e solução de problemas.
 - [docs/CI_CD.md](docs/CI_CD.md): esteira, releases, deploy e rollback.
@@ -241,6 +269,14 @@ Os detalhes estão em [docs/CI_CD.md](docs/CI_CD.md). O histórico de versões e
 - [docs/BACKUP_POSTGRES.md](docs/BACKUP_POSTGRES.md): backup e restauração do banco.
 - [docs/OBSERVABILIDADE.md](docs/OBSERVABILIDADE.md): logs, traces e métricas com OpenTelemetry e LGTM.
 - [SECURITY.md](SECURITY.md): política de segurança.
+
+## Equipe
+
+| Nome | Papel | GitHub |
+|---|---|---|
+| Ismaylla | Backend | [@Ismaylla](https://github.com/Ismaylla) |
+| Raphaela Samille | Frontend | [@imsamille](https://github.com/imsamille) |
+| Kauanne Cavalcante | Infraestrutura e DevSecOps | [@KauanneC](https://github.com/KauanneC) |
 
 ## Licença
 
