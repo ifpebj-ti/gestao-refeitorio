@@ -32,19 +32,19 @@ DTOs, entidades, exceptions e controllers **continuam medidos**.
 
 ## Cobertura atual
 
-Medição de **16/11/2026** (430 testes, 0 falhas):
+Medição de **16/11/2026**, após a #290 (448 testes, 0 falhas):
 
 | Pacote | Linhas cobertas | Cobertura |
 |---|---|---|
-| controller | 82 / 87 | 94,3% |
-| service | 882 / 919 | 96,0% |
+| controller | 87 / 92 | 94,6% |
+| service | 926 / 965 | 96,0% |
 | security | 112 / 124 | 90,3% |
-| exception | 91 / 100 | 91,0% |
+| exception | 93 / 102 | 91,2% |
 | job | 31 / 35 | 88,6% |
-| dto | 40 / 41 | 97,6% |
+| dto | 41 / 42 | 97,6% |
 | repository | 21 / 21 | 100% |
 | model e model.enums | 25 / 25 | 100% |
-| **Total** | **1284 / 1352** | **95,0%** |
+| **Total** | **1336 / 1406** | **95,0%** |
 
 Evolução:
 
@@ -52,5 +52,8 @@ Evolução:
 |---|---|
 | Primeira medição, ao configurar o JaCoCo (#360) | 87,9% |
 | Após os testes do fluxo de alertas por e-mail e do histórico de movimentações (#361) | 95,0% |
+| Após o anexo de documento da nota (#290), com os testes do código novo | 95,0% |
 
 Na #361, o fluxo de alertas de estoque baixo e de validade (`AlertaEstoqueBaixoJob`, `AlertaValidadeJob` e `NotificacaoEmailServiceImpl`), que não tinha teste nenhum, passou a ter 100% de cobertura de linhas.
+
+Na #290, o anexo de documento da nota (`NotaDocumentoServiceImpl` e a detecção de PDF em `AssinaturaDocumento`) entrou já coberto por testes unitários e de integração, mantendo a cobertura total.
