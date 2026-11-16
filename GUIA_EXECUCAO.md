@@ -51,7 +51,7 @@ Depois, edite o `.env` e ajuste:
 | `MAIL_FROM` | Endereço de remetente dos e-mails do sistema | Só no servidor |
 | `APP_URL_LOGIN` | Link da tela de login enviado no e-mail de convite quando o ADMIN cadastra um usuário. É um endereço só, diferente de `APP_URL_FRONTEND`, que é uma lista de origens do CORS | Não, em dev local (padrão `http://localhost:3000/login`). **Sim, no servidor**: `https://gestao-refeitorio-ifpe.duckdns.org/login` |
 | `ALERTA_EMAIL_HABILITADO` | Liga o envio diário dos alertas de estoque baixo (06:05) e validade (06:00, horário de Brasília) para as nutricionistas ativas. Com `false`, os jobs só registram no log | Padrão `false`. Ligar no servidor só depois de o SMTP de produção estar configurado |
-| `ADMIN_INICIAL_EMAIL` / `ADMIN_INICIAL_NOME` | Primeiro ADMIN, criado ao subir **só se não existir nenhum ADMIN ativo** (ver "Primeiro ADMIN" abaixo). Depois disso, mudar o valor não tem efeito | **Sim**: em dev, o seu próprio e-mail Google; no servidor, `misb@discente.ifpe.edu.br`, definido **antes** do deploy que traz a #207 |
+| `ADMIN_INICIAL_EMAIL` / `ADMIN_INICIAL_NOME` | Primeiro ADMIN, criado ao subir **só se não existir nenhum ADMIN ativo** (ver "Primeiro ADMIN" abaixo). Depois disso, mudar o valor não tem efeito | **Sim**: em dev, o seu próprio e-mail Google; no servidor, o e-mail Google institucional do ADMIN responsável, definido **antes** do deploy que traz a #207 |
 
 O frontend tem seu próprio arquivo de exemplo separado:
 
