@@ -23,6 +23,7 @@ import br.ifpe.gestaorefeitorio.model.enums.Perfil;
 import br.ifpe.gestaorefeitorio.model.enums.StatusNota;
 import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
+import br.ifpe.gestaorefeitorio.repository.NotaDocumentoRepository;
 import br.ifpe.gestaorefeitorio.repository.NotaRepository;
 import br.ifpe.gestaorefeitorio.repository.RemetenteRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,6 +62,9 @@ class NotaServiceImplTest {
 
     @Mock
     private MovimentacaoRepository movimentacaoRepository;
+
+    @Mock
+    private NotaDocumentoRepository notaDocumentoRepository;
 
     @InjectMocks
     private NotaServiceImpl notaService;
@@ -129,6 +133,7 @@ class NotaServiceImplTest {
         assertThat(resposta.entradas()).hasSize(1);
         assertThat(resposta.entradas().get(0).lote()).isEqualTo("L-01");
         assertThat(resposta.entradas().get(0).unidadeMedida()).isEqualTo("kg");
+        assertThat(resposta.possuiDocumento()).isFalse();
 
         ArgumentCaptor<Nota> captor = ArgumentCaptor.forClass(Nota.class);
         verify(notaRepository).save(captor.capture());
@@ -284,6 +289,7 @@ class NotaServiceImplTest {
         when(movimentacaoRepository.findById(nova.getId())).thenReturn(Optional.of(nova));
         when(notaRepository.existsByMovimentacaoIdAndNotaIdNot(any(), eq(nota.getId()))).thenReturn(false);
         when(notaRepository.save(any(Nota.class))).thenAnswer(chamada -> chamada.getArgument(0));
+        when(notaDocumentoRepository.existsByNotaId(nota.getId())).thenReturn(true);
 
         NotaResponseDTO resposta = notaService.editar(nota.getId(),
                 new NotaRequestDTO(" NF-1 ", LocalDate.now(), remetente.getId(),
@@ -296,6 +302,7 @@ class NotaServiceImplTest {
                 .containsExactly(mantida.getId(), nova.getId());
         assertThat(resposta.registradoPor().email()).isEqualTo("nutri@ifpe.edu.br");
         assertThat(resposta.status()).isEqualTo(StatusNota.PENDENTE);
+        assertThat(resposta.possuiDocumento()).isTrue();
         // Na edição, a checagem de vínculo do registro (que não ignora a própria nota) não é usada.
         verify(notaRepository, never()).existsByMovimentacaoId(any());
         verify(notaRepository, never()).existsByRemetenteIdAndNumero(any(), any());
