@@ -1,5 +1,6 @@
 package br.ifpe.gestaorefeitorio.service;
 
+import br.ifpe.gestaorefeitorio.dto.NotaCancelamentoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaEntradaDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaResponseDTO;
@@ -30,6 +31,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
@@ -72,12 +74,7 @@ public class NotaServiceImpl implements NotaService {
         log.debug("Edição da nota {}: numero {}, data {}, remetente {}, movimentacoes {}",
                 id, request.numero(), request.data(), request.remetenteId(), request.movimentacaoIds());
 
-        Nota nota = notaRepository.findById(id)
-                .orElseThrow(() -> new NotaNaoEncontradaException(id));
-        if (nota.getStatus() != StatusNota.PENDENTE) {
-            log.info("Edição da nota {} negada: status {}", id, nota.getStatus());
-            throw new NotaNaoPendenteException(nota.getStatus());
-        }
+        Nota nota = buscarPendente(id, "Edição");
 
         validarEAplicar(nota, request);
         nota = notaRepository.save(nota);
@@ -85,6 +82,48 @@ public class NotaServiceImpl implements NotaService {
         log.info("Nota editada: {} (número {}), {} entrada(s), por {}",
                 nota.getId(), nota.getNumero(), nota.getMovimentacoes().size(), editadoPor.getEmail());
         return paraDTO(nota);
+    }
+
+    @Override
+    @Transactional
+    public NotaResponseDTO validar(UUID id, Usuario decidiuPor) {
+        Nota nota = buscarPendente(id, "Validação");
+        nota.setStatus(StatusNota.VALIDADA);
+        registrarDecisao(nota, decidiuPor);
+        nota = notaRepository.save(nota);
+
+        log.info("Nota validada: {} (número {}), por {}", nota.getId(), nota.getNumero(), decidiuPor.getEmail());
+        return paraDTO(nota);
+    }
+
+    @Override
+    @Transactional
+    public NotaResponseDTO cancelar(UUID id, NotaCancelamentoRequestDTO request, Usuario decidiuPor) {
+        Nota nota = buscarPendente(id, "Cancelamento");
+        nota.setStatus(StatusNota.CANCELADA);
+        nota.setJustificativaCancelamento(request.justificativa().trim());
+        registrarDecisao(nota, decidiuPor);
+        // Cancelar não estorna nem desvincula as entradas: elas continuam no estoque e ligadas à nota.
+        nota = notaRepository.save(nota);
+
+        // A justificativa não vai para o log: pode conter dados do fornecedor.
+        log.info("Nota cancelada: {} (número {}), por {}", nota.getId(), nota.getNumero(), decidiuPor.getEmail());
+        return paraDTO(nota);
+    }
+
+    private Nota buscarPendente(UUID id, String operacao) {
+        Nota nota = notaRepository.findById(id)
+                .orElseThrow(() -> new NotaNaoEncontradaException(id));
+        if (nota.getStatus() != StatusNota.PENDENTE) {
+            log.info("{} da nota {} negada: status {}", operacao, id, nota.getStatus());
+            throw new NotaNaoPendenteException(nota.getStatus());
+        }
+        return nota;
+    }
+
+    private void registrarDecisao(Nota nota, Usuario decidiuPor) {
+        nota.setValidadoPor(decidiuPor);
+        nota.setValidadoEm(Instant.now());
     }
 
     /**
@@ -187,6 +226,11 @@ public class NotaServiceImpl implements NotaService {
         return movimentacao;
     }
 
+    private static NotaResponseDTO.RegistradoPor resumo(Usuario usuario) {
+        return usuario == null ? null
+                : new NotaResponseDTO.RegistradoPor(usuario.getId(), usuario.getNome(), usuario.getEmail());
+    }
+
     private NotaResponseDTO paraDTO(Nota nota) {
         Remetente remetente = nota.getRemetente();
         Usuario registradoPor = nota.getRegistradoPor();
@@ -197,10 +241,12 @@ public class NotaServiceImpl implements NotaService {
                 nota.getStatus(),
                 new NotaResponseDTO.RemetenteResumo(remetente.getId(), remetente.getNome()),
                 nota.getMovimentacoes().stream().map(this::paraEntradaDTO).toList(),
-                new NotaResponseDTO.RegistradoPor(registradoPor.getId(), registradoPor.getNome(),
-                        registradoPor.getEmail()),
+                resumo(registradoPor),
                 nota.getObservacoes(),
                 nota.getId() != null && notaDocumentoRepository.existsByNotaId(nota.getId()),
+                resumo(nota.getValidadoPor()),
+                nota.getValidadoEm(),
+                nota.getJustificativaCancelamento(),
                 nota.getCriadoEm());
     }
 

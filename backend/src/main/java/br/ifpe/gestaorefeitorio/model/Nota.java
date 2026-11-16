@@ -53,18 +53,25 @@ public class Nota {
     @Column(length = 500)
     private String observacoes;
 
-    /** Preenchido quando o nutricionista valida ou recusa. */
-    private String justificativaRecusa;
+    /** Motivo informado ao cancelar a nota (US29/#291); nulo nas notas pendentes ou validadas. */
+    @Column(columnDefinition = "text")
+    private String justificativaCancelamento;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "registrado_por_id")
     private Usuario registradoPor;
 
+    /** Quem decidiu a nota: validou ou cancelou (US29/#291). */
     @ManyToOne
     @JoinColumn(name = "validado_por_id")
     private Usuario validadoPor;
 
+    /** Quando a nota foi validada ou cancelada. */
     private Instant validadoEm;
+
+    // Impede que duas decisões simultâneas sobre a mesma nota sejam aplicadas: a segunda falha ao salvar (409).
+    @Version
+    private Long versao;
 
     @Column(nullable = false, updatable = false)
     private Instant criadoEm = Instant.now();

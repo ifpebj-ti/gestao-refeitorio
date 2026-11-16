@@ -1,5 +1,6 @@
 package br.ifpe.gestaorefeitorio.service;
 
+import br.ifpe.gestaorefeitorio.dto.NotaCancelamentoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaEntradaDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaResponseDTO;
@@ -37,6 +38,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -407,5 +409,70 @@ class NotaServiceImplTest {
                 () -> notaService.registrar(request("NF-1", List.of(entrada.getId())), nutricionista));
 
         verify(notaRepository, never()).save(any());
+    }
+
+    // ---- Validar e cancelar (US29/#291) ----
+
+    @Test
+    void deveValidarNotaPendenteRegistrandoQuemDecidiuEQuando() {
+        Nota nota = notaExistente(StatusNota.PENDENTE, movimentacao(TipoMovimentacao.ENTRADA));
+        Usuario decidiu = outroUsuario();
+        when(notaRepository.findById(nota.getId())).thenReturn(Optional.of(nota));
+        when(notaRepository.save(nota)).thenReturn(nota);
+        Instant antes = Instant.now();
+
+        NotaResponseDTO resposta = notaService.validar(nota.getId(), decidiu);
+
+        assertThat(resposta.status()).isEqualTo(StatusNota.VALIDADA);
+        assertThat(resposta.decididoPor().email()).isEqualTo(decidiu.getEmail());
+        assertThat(resposta.decididoEm()).isAfterOrEqualTo(antes);
+        assertThat(resposta.justificativaCancelamento()).isNull();
+        assertThat(nota.getValidadoPor()).isSameAs(decidiu);
+    }
+
+    @Test
+    void deveCancelarNotaPendenteComJustificativaSemDesvincularAsEntradas() {
+        Movimentacao entrada = movimentacao(TipoMovimentacao.ENTRADA);
+        Nota nota = notaExistente(StatusNota.PENDENTE, entrada);
+        Usuario decidiu = outroUsuario();
+        when(notaRepository.findById(nota.getId())).thenReturn(Optional.of(nota));
+        when(notaRepository.save(nota)).thenReturn(nota);
+
+        NotaResponseDTO resposta = notaService.cancelar(nota.getId(),
+                new NotaCancelamentoRequestDTO("  Nota emitida com valor errado  "), decidiu);
+
+        assertThat(resposta.status()).isEqualTo(StatusNota.CANCELADA);
+        assertThat(resposta.justificativaCancelamento()).isEqualTo("Nota emitida com valor errado");
+        assertThat(resposta.decididoPor().email()).isEqualTo(decidiu.getEmail());
+        assertThat(resposta.decididoEm()).isNotNull();
+        assertThat(nota.getMovimentacoes()).containsExactly(entrada);
+        assertThat(resposta.entradas()).extracting(NotaEntradaDTO::movimentacaoId).containsExactly(entrada.getId());
+    }
+
+    @Test
+    void deveRecusarValidarOuCancelarNotaJaDecidida() {
+        Nota validada = notaExistente(StatusNota.VALIDADA);
+        Nota cancelada = notaExistente(StatusNota.CANCELADA);
+        when(notaRepository.findById(validada.getId())).thenReturn(Optional.of(validada));
+        when(notaRepository.findById(cancelada.getId())).thenReturn(Optional.of(cancelada));
+        NotaCancelamentoRequestDTO cancelamento = new NotaCancelamentoRequestDTO("motivo");
+
+        assertThrows(NotaNaoPendenteException.class, () -> notaService.validar(validada.getId(), nutricionista));
+        assertThrows(NotaNaoPendenteException.class,
+                () -> notaService.cancelar(validada.getId(), cancelamento, nutricionista));
+        assertThrows(NotaNaoPendenteException.class, () -> notaService.validar(cancelada.getId(), nutricionista));
+        assertThrows(NotaNaoPendenteException.class,
+                () -> notaService.cancelar(cancelada.getId(), cancelamento, nutricionista));
+        verify(notaRepository, never()).save(any());
+    }
+
+    @Test
+    void deveLancarNaoEncontradaAoValidarOuCancelarNotaInexistente() {
+        UUID id = UUID.randomUUID();
+        when(notaRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(NotaNaoEncontradaException.class, () -> notaService.validar(id, nutricionista));
+        assertThrows(NotaNaoEncontradaException.class,
+                () -> notaService.cancelar(id, new NotaCancelamentoRequestDTO("motivo"), nutricionista));
     }
 }

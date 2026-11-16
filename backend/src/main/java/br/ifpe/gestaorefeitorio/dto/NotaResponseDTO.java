@@ -18,6 +18,10 @@ public record NotaResponseDTO(
         String observacoes,
         // Só informa se há documento anexado (#290); o arquivo vem de GET /api/notas/{id}/documento.
         boolean possuiDocumento,
+        // Quem validou ou cancelou e quando (#291); nulos enquanto a nota está PENDENTE.
+        RegistradoPor decididoPor,
+        Instant decididoEm,
+        String justificativaCancelamento,
         Instant criadoEm
 ) {
     // Só o necessário para exibir a nota; o documento do remetente (CPF/CNPJ) fica fora.
