@@ -896,8 +896,13 @@ class NotaControllerIntegrationTest {
         return JsonPath.read(resposta, "$.numero");
     }
 
+    // Número fora do formato NL-AAAA-NNNN vira falha de teste com mensagem clara, e não um erro de conversão.
     private static int sequencial(String numero) {
-        return Integer.parseInt(numero.substring(numero.lastIndexOf('-') + 1));
+        try {
+            return Integer.parseInt(numero.substring(numero.lastIndexOf('-') + 1));
+        } catch (NumberFormatException e) {
+            throw new AssertionError("Número de nota local fora do formato NL-AAAA-NNNN: " + numero, e);
+        }
     }
 
     @Test
