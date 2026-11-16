@@ -2,6 +2,7 @@ package br.ifpe.gestaorefeitorio.service;
 
 import br.ifpe.gestaorefeitorio.dto.NotaCancelamentoRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaEntradaDTO;
+import br.ifpe.gestaorefeitorio.dto.NotaLocalRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaResponseDTO;
 import br.ifpe.gestaorefeitorio.dto.NotaResumoDTO;
@@ -17,13 +18,16 @@ import br.ifpe.gestaorefeitorio.exception.RemetenteInativoException;
 import br.ifpe.gestaorefeitorio.exception.RemetenteNaoEncontradoException;
 import br.ifpe.gestaorefeitorio.model.Movimentacao;
 import br.ifpe.gestaorefeitorio.model.Nota;
+import br.ifpe.gestaorefeitorio.model.NotaLocalSequencia;
 import br.ifpe.gestaorefeitorio.model.Remetente;
 import br.ifpe.gestaorefeitorio.model.Usuario;
 import br.ifpe.gestaorefeitorio.model.enums.StatusNota;
 import br.ifpe.gestaorefeitorio.model.enums.TipoMovimentacao;
+import br.ifpe.gestaorefeitorio.model.enums.TipoNota;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoSpecifications;
 import br.ifpe.gestaorefeitorio.repository.NotaDocumentoRepository;
+import br.ifpe.gestaorefeitorio.repository.NotaLocalSequenciaRepository;
 import br.ifpe.gestaorefeitorio.repository.NotaRepository;
 import br.ifpe.gestaorefeitorio.repository.RemetenteRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,8 +36,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
@@ -50,6 +56,43 @@ public class NotaServiceImpl implements NotaService {
     private final RemetenteRepository remetenteRepository;
     private final MovimentacaoRepository movimentacaoRepository;
     private final NotaDocumentoRepository notaDocumentoRepository;
+    private final NotaLocalSequenciaRepository notaLocalSequenciaRepository;
+    private final Clock clock;
+
+    // O ano do número da nota local é o da emissão no horário de Recife, o mesmo fuso dos jobs.
+    private static final ZoneId FUSO = ZoneId.of("America/Recife");
+
+    @Override
+    @Transactional
+    public NotaResponseDTO emitirLocal(NotaLocalRequestDTO request, Usuario emitidoPor) {
+        log.debug("Emissão de nota local: data {}, remetente {}, movimentacoes {}",
+                request.data(), request.remetenteId(), request.movimentacaoIds());
+
+        Nota nota = new Nota();
+        nota.setStatus(StatusNota.PENDENTE);
+        nota.setTipo(TipoNota.LOCAL);
+        nota.setRegistradoPor(emitidoPor);
+        nota.setResponsavelEntrega(request.responsavelEntrega().trim());
+        validarEAplicar(nota, gerarNumeroLocal(), request.data(), request.remetenteId(),
+                request.movimentacaoIds(), request.observacoes());
+        nota = notaRepository.save(nota);
+
+        log.info("Nota local emitida: {} (número {}), remetente {}, por {}",
+                nota.getId(), nota.getNumero(), nota.getRemetente().getId(), emitidoPor.getEmail());
+        return paraDTO(nota);
+    }
+
+    // O contador sobe na mesma transação da nota: se ela falhar, o número volta e não fica buraco.
+    // A linha do ano fica travada até o fim da transação, então emissões simultâneas saem em sequência.
+    private String gerarNumeroLocal() {
+        int ano = clock.instant().atZone(FUSO).getYear();
+        notaLocalSequenciaRepository.criarSeNaoExistir(ano);
+        NotaLocalSequencia sequencia = notaLocalSequenciaRepository.buscarParaAtualizar(ano)
+                .orElseThrow(() -> new IllegalStateException("Contador de notas locais ausente para " + ano));
+        sequencia.setUltimoNumero(sequencia.getUltimoNumero() + 1);
+        notaLocalSequenciaRepository.save(sequencia);
+        return "NL-%d-%04d".formatted(ano, sequencia.getUltimoNumero());
+    }
 
     @Override
     @Transactional
@@ -59,8 +102,10 @@ public class NotaServiceImpl implements NotaService {
 
         Nota nota = new Nota();
         nota.setStatus(StatusNota.PENDENTE);
+        nota.setTipo(TipoNota.EXTERNA);
         nota.setRegistradoPor(registradoPor);
-        validarEAplicar(nota, request);
+        validarEAplicar(nota, request.numero().trim(), request.data(), request.remetenteId(),
+                request.movimentacaoIds(), request.observacoes());
         nota = notaRepository.save(nota);
 
         log.info("Nota registrada: {} (número {}), remetente {} ({}), {} entrada(s), por {}",
@@ -77,7 +122,10 @@ public class NotaServiceImpl implements NotaService {
 
         Nota nota = buscarPendente(id, "Edição");
 
-        validarEAplicar(nota, request);
+        // O número de uma nota local é gerado pelo sistema e nunca muda: o do corpo é ignorado (#293).
+        String numero = nota.getTipo() == TipoNota.LOCAL ? nota.getNumero() : request.numero().trim();
+        validarEAplicar(nota, numero, request.data(), request.remetenteId(),
+                request.movimentacaoIds(), request.observacoes());
         nota = notaRepository.save(nota);
 
         log.info("Nota editada: {} (número {}), {} entrada(s), por {}",
@@ -114,11 +162,12 @@ public class NotaServiceImpl implements NotaService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<NotaResumoDTO> listar(StatusNota status, UUID remetenteId, LocalDate dataInicio, LocalDate dataFim) {
-        log.debug("Listagem de notas: status {}, remetente {}, dataInicio {}, dataFim {}",
-                status, remetenteId, dataInicio, dataFim);
+    public List<NotaResumoDTO> listar(StatusNota status, TipoNota tipo, UUID remetenteId,
+                                      LocalDate dataInicio, LocalDate dataFim) {
+        log.debug("Listagem de notas: status {}, tipo {}, remetente {}, dataInicio {}, dataFim {}",
+                status, tipo, remetenteId, dataInicio, dataFim);
         validarPeriodo(dataInicio, dataFim);
-        return notaRepository.listarResumos(status, remetenteId, dataInicio, dataFim);
+        return notaRepository.listarResumos(status, tipo, remetenteId, dataInicio, dataFim);
     }
 
     @Override
@@ -153,15 +202,15 @@ public class NotaServiceImpl implements NotaService {
      * duplicidade ignoram a própria nota. Tudo é validado antes de alterar a nota: as consultas abaixo
      * podem disparar flush, e uma nota alterada pela metade iria para o banco.
      */
-    private void validarEAplicar(Nota nota, NotaRequestDTO request) {
+    private void validarEAplicar(Nota nota, String numero, LocalDate data, UUID remetenteId,
+                                 List<UUID> movimentacaoIds, String observacoes) {
         UUID notaId = nota.getId();
-        String numero = request.numero().trim();
 
-        if (new HashSet<>(request.movimentacaoIds()).size() != request.movimentacaoIds().size()) {
+        if (new HashSet<>(movimentacaoIds).size() != movimentacaoIds.size()) {
             throw new MovimentacoesRepetidasException();
         }
 
-        Remetente remetente = buscarRemetente(request.remetenteId(), nota.getRemetente());
+        Remetente remetente = buscarRemetente(remetenteId, nota.getRemetente());
 
         // Remetentes diferentes podem repetir a numeração; o número só é único por remetente.
         boolean numeroEmUso = notaId == null
@@ -172,18 +221,16 @@ public class NotaServiceImpl implements NotaService {
             throw new NotaJaCadastradaException();
         }
 
-        List<Movimentacao> entradas = request.movimentacaoIds().stream()
+        List<Movimentacao> entradas = movimentacaoIds.stream()
                 .map(movimentacaoId -> buscarEntradaDisponivel(movimentacaoId, notaId))
                 .toList();
 
         nota.setNumero(numero);
-        nota.setData(request.data());
+        nota.setData(data);
         nota.setRemetente(remetente);
         // Substitui os vínculos: entrada retirada da lista volta a ficar disponível (#288).
         nota.substituirMovimentacoes(entradas);
-        nota.setObservacoes(request.observacoes() == null || request.observacoes().isBlank()
-                ? null
-                : request.observacoes().trim());
+        nota.setObservacoes(observacoes == null || observacoes.isBlank() ? null : observacoes.trim());
     }
 
     @Override
@@ -256,12 +303,14 @@ public class NotaServiceImpl implements NotaService {
         return new NotaResponseDTO(
                 nota.getId(),
                 nota.getNumero(),
+                nota.getTipo(),
                 nota.getData(),
                 nota.getStatus(),
                 new NotaResponseDTO.RemetenteResumo(remetente.getId(), remetente.getNome()),
                 nota.getMovimentacoes().stream().map(this::paraEntradaDTO).toList(),
                 resumo(registradoPor),
                 nota.getObservacoes(),
+                nota.getResponsavelEntrega(),
                 nota.getId() != null && notaDocumentoRepository.existsByNotaId(nota.getId()),
                 resumo(nota.getValidadoPor()),
                 nota.getValidadoEm(),

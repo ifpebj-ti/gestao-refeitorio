@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 import br.ifpe.gestaorefeitorio.model.enums.StatusNota;
+import br.ifpe.gestaorefeitorio.model.enums.TipoNota;
 
 @Entity
 @Table(name = "notas")
@@ -52,6 +53,14 @@ public class Nota {
 
     @Column(length = 500)
     private String observacoes;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private TipoNota tipo = TipoNota.EXTERNA;
+
+    /** Quem entregou, em texto livre; só nas notas locais (US33/#293). */
+    @Column(length = 150)
+    private String responsavelEntrega;
 
     /** Motivo informado ao cancelar a nota (US29/#291); nulo nas notas pendentes ou validadas. */
     @Column(columnDefinition = "text")
