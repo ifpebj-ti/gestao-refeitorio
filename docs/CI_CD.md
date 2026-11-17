@@ -101,10 +101,16 @@ achados HIGH/CRITICAL corrigíveis sem o arquivo de exceções.
 
 Em produção, a imagem `sha-<commit>` já analisada é promovida, sem rebuild, para as tags `X.Y.Z`,
 `vX.Y.Z` e `latest`. O job usa o GitHub Environment
-`production`, que pode exigir aprovação manual por meio de suas regras de proteção. Depois do `docker compose up`, o servidor testa
-o Actuator e a página inicial por até 600 segundos (`HEALTH_TIMEOUT_SECONDS`; a VM leva mais de
-180 s para subir uma versão com migrations novas). Falha de saúde restaura automaticamente a
-última tag bem-sucedida registrada no host, **exceto** quando a versão nova já migrou o banco.
+`production`, que pode exigir aprovação manual por meio de suas regras de proteção. Antes de trocar
+os containers, o script valida as assinaturas das imagens e executa o `docker compose pull`. Se uma
+dessas etapas falhar, o deploy termina com erro sem executar rollback ou recriar containers: a versão
+que já está em produção permanece inalterada.
+
+Imediatamente antes do primeiro `docker compose up`, o script registra que a troca dos containers
+começou. A partir desse ponto, o servidor testa o Actuator e a página inicial por até 600 segundos
+(`HEALTH_TIMEOUT_SECONDS`; a VM leva mais de 180 s para subir uma versão com migrations novas).
+Falha de saúde restaura automaticamente a última tag bem-sucedida registrada no host, **exceto**
+quando a versão nova já migrou o banco.
 
 Rollback e migrations (#322): o Flyway não desfaz migrations, e uma migration destrutiva (como o
 `DROP COLUMN` da V23) impede a imagem anterior de subir. Por isso o script lê a versão do Flyway

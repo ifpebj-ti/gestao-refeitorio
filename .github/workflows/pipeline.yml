@@ -126,6 +126,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
+      - name: Test deploy rollback safeguards
+        run: bash scripts/tests/deploy-remote-test.sh
+
       - name: Dependency review
         if: github.event_name == 'pull_request'
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294
