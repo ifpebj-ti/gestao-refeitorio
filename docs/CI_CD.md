@@ -83,6 +83,13 @@ O mesmo workflow também roda toda segunda-feira, capturando vulnerabilidades di
 do merge. O CodeQL permanece habilitado pelo Default Setup do GitHub, sem uma segunda configuração
 avançada conflitante. O Dependabot cobre npm, Maven, imagens Docker e GitHub Actions.
 
+Para imagens Docker, o Dependabot monitora somente os diretórios que possuem `Dockerfile`
+(`frontend/` e `backend/`). Não existe uma entrada Docker para a raiz porque ali há apenas arquivos
+Compose; manter `directory: /` fazia cada execução terminar com `Dependabot couldn't find a
+Dockerfile`. A imagem PostgreSQL usada no Compose permanece fixada por digest; suas atualizações
+devem ser revisadas manualmente, pois esse manifesto não é tratado pelo ecossistema Docker do
+Dependabot.
+
 O `frontend/package-lock.json` é versionado e o workflow usa `npm ci`, garantindo uma instalação
 reproduzível das dependências. O comando `npm run test:coverage` executa a suíte Vitest e publica
 o diretório `frontend/coverage/` como o artefato `frontend-coverage-report`, mesmo quando o gate
@@ -101,10 +108,14 @@ achados HIGH/CRITICAL corrigíveis sem o arquivo de exceções.
 
 Em produção, a imagem `sha-<commit>` já analisada é promovida, sem rebuild, para as tags `X.Y.Z`,
 `vX.Y.Z` e `latest`. O job usa o GitHub Environment
-`production`, que pode exigir aprovação manual por meio de suas regras de proteção. Antes de trocar
-os containers, o script valida as assinaturas das imagens e executa o `docker compose pull`. Se uma
-dessas etapas falhar, o deploy termina com erro sem executar rollback ou recriar containers: a versão
-que já está em produção permanece inalterada.
+`production`, que pode exigir aprovação manual por meio de suas regras de proteção. O deploy é
+executado somente quando o Release Please cria uma versão e o job `publish-release` promove e assina
+as imagens correspondentes. Um push comum na `main`, sem nova release, não inicia deploy e não
+acessa o environment de produção.
+
+Antes de trocar os containers, o script valida as assinaturas das imagens de release e executa o
+`docker compose pull`. Se uma dessas etapas falhar, o deploy termina com erro sem executar rollback
+ou recriar containers: a versão que já está em produção permanece inalterada.
 
 Imediatamente antes do primeiro `docker compose up`, o script registra que a troca dos containers
 começou. A partir desse ponto, o servidor testa o Actuator e a página inicial por até 600 segundos
