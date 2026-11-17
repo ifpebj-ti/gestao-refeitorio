@@ -55,6 +55,7 @@ jobs:
       - name: Test and coverage
         run: npm run test:coverage
 
+      # Evidência da cobertura do frontend (#341): o Vitest bloqueia o job abaixo dos limiares configurados.
       - name: Upload frontend coverage report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -102,7 +103,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      # Evidência da cobertura (#360): o mvn verify gera o relatório e o jacoco:check quebra o build abaixo de 70%.
+      # Evidência da cobertura (#340/#360): o mvn verify gera o relatório e o jacoco:check quebra o build abaixo de 70%.
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -125,6 +126,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Test deploy rollback safeguards
+        run: bash scripts/tests/deploy-remote-test.sh
+
+      - name: Test pipeline configuration safeguards
+        run: bash scripts/tests/pipeline-config-test.sh
 
       - name: Dependency review
         if: github.event_name == 'pull_request'
@@ -559,7 +566,8 @@ jobs:
       github.ref == 'refs/heads/main' &&
       needs.images.result == 'success' &&
       needs.release.result == 'success' &&
-      (needs.publish-release.result == 'success' || needs.publish-release.result == 'skipped')
+      needs.release.outputs.created == 'true' &&
+      needs.publish-release.result == 'success'
   
     runs-on: ubuntu-24.04
   
@@ -576,17 +584,15 @@ jobs:
       - name: Resolve deploy image tag
         id: deploy-tag
         env:
-          RELEASE_CREATED: ${{ needs.release.outputs.created }}
           RELEASE_VERSION: ${{ needs.release.outputs.version }}
-          SHORT_SHA: ${{ needs.images.outputs.short_sha }}
         run: |
-          if [[ "$RELEASE_CREATED" == "true" ]]; then
-            echo "tag=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
-            echo "Deploy usando release: $RELEASE_VERSION"
-          else
-            echo "tag=sha-$SHORT_SHA" >> "$GITHUB_OUTPUT"
-            echo "Deploy usando commit: sha-$SHORT_SHA"
+          if [[ -z "$RELEASE_VERSION" ]]; then
+            echo "A versão da release não foi informada pelo Release Please." >&2
+            exit 1
           fi
+
+          echo "tag=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Deploy usando release assinada: $RELEASE_VERSION"
   
       - name: Configure SSH
         env:

@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 readonly new_tag="${1:?informe a tag da imagem}"
 readonly overlay="${2:?informe o arquivo Compose do ambiente}"
-readonly app_dir="/opt/gestao-refeitorio"
+readonly app_dir="${APP_DIR:-/opt/gestao-refeitorio}"
 readonly state_file=".image-tag-${overlay%.yml}"
 readonly cosign_image="ghcr.io/sigstore/cosign/cosign:v3.1.4@sha256:0f06154836d2de34f887a5c273506d52ca43edaa1d9e53e6510fa78a48f69c2d"
 readonly certificate_identity="https://github.com/ifpebj-ti/gestao-refeitorio/.github/workflows/pipeline.yml@refs/heads/main"
@@ -21,6 +21,7 @@ if [[ -f "$state_file" ]]; then
   previous_tag="$(<"$state_file")"
 fi
 schema_before=""
+containers_switch_started=false
 
 compose_files=(-f docker-compose.yml -f "$overlay")
 # Overlay da observabilidade só com a rede do LGTM presente: sem ela, o compose falharia e o deploy faria rollback.
@@ -84,6 +85,12 @@ rollback() {
   local schema_after
   trap - ERR
 
+  if [[ "$containers_switch_started" != true ]]; then
+    echo "Deploy falhou antes da troca dos containers; rollback não será executado."
+    echo "Os containers em produção permanecem inalterados."
+    exit "$exit_code"
+  fi
+
   print_failure_diagnostics
 
   # Flyway não desfaz migrations: se a versão nova já migrou o banco, a imagem anterior pode não subir
@@ -116,6 +123,7 @@ verify_image_signature "ghcr.io/ifpebj-ti/gestao-refeitorio-backend:${IMAGE_TAG}
 compose pull backend frontend
 schema_before="$(flyway_version)"
 echo "Versão do Flyway antes do deploy: ${schema_before:-desconhecida}."
+containers_switch_started=true
 compose up -d --remove-orphans
 
 healthy=false
