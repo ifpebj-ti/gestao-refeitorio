@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.13.0...gestao-refeitorio-v0.14.0) (2026-11-17)
+
+
+### Features
+
+* adiciona consulta de notas por status, remetente e período [#292](https://github.com/ifpebj-ti/gestao-refeitorio/issues/292) ([03f47f6](https://github.com/ifpebj-ti/gestao-refeitorio/commit/03f47f6ee0e158fd572a8c92cabdb79f42c30e0e))
+* adiciona consulta de notas por status, remetente e período [#292](https://github.com/ifpebj-ti/gestao-refeitorio/issues/292) ([8fdac2c](https://github.com/ifpebj-ti/gestao-refeitorio/commit/8fdac2c247d4833f7a7165faf97c9dc22d74ae78))
+* emite nota local com numeração sequencial por ano [#293](https://github.com/ifpebj-ti/gestao-refeitorio/issues/293) ([0489960](https://github.com/ifpebj-ti/gestao-refeitorio/commit/0489960631a9043bde59ab0b969fc23080cfb56a))
+* emite nota local com numeração sequencial por ano [#293](https://github.com/ifpebj-ti/gestao-refeitorio/issues/293) ([873699d](https://github.com/ifpebj-ti/gestao-refeitorio/commit/873699d1a197fe6284d3e9692f899a0364cc1c31))
+* permite validar e cancelar nota com lock otimista [#291](https://github.com/ifpebj-ti/gestao-refeitorio/issues/291) ([9764592](https://github.com/ifpebj-ti/gestao-refeitorio/commit/976459273cc47937d6814e7481cc831f28b9a777))
+* permite validar e cancelar nota com lock otimista [#291](https://github.com/ifpebj-ti/gestao-refeitorio/issues/291) ([a2aff52](https://github.com/ifpebj-ti/gestao-refeitorio/commit/a2aff525dd72f495cf1a98ca3617aefa387e7a47))
+
 ## [0.13.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.12.1...gestao-refeitorio-v0.13.0) (2026-11-11)
 
 
