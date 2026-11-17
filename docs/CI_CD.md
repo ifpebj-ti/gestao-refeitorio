@@ -3,10 +3,15 @@
 ## Diagnóstico da base
 
 O repositório é um monorepo com frontend Next.js 16/TypeScript, API Spring Boot 4/Java 21,
-PostgreSQL 16 e migrações Flyway. O backend possui 120 testes JUnit distribuídos entre testes
-unitários, integração com Testcontainers e autorização por perfil. O frontend ainda não possui
-suíte automatizada; por isso o gate atual cobre lint, tipos e build, sem simular testes que não
-existem.
+PostgreSQL 16 e migrações Flyway. O backend possui testes JUnit unitários e de integração,
+incluindo Testcontainers, Flyway e autorização por perfil. O frontend possui testes automatizados
+com Vitest, React Testing Library e jsdom para autenticação, componentes, utilitários e fluxos de
+usuários.
+
+Os dois lados da aplicação possuem gate de cobertura de 70%. No frontend, o Vitest exige o mínimo
+para linhas, statements e funções; no backend, o JaCoCo exige 70% de linhas. Os relatórios HTML e
+LCOV do frontend e os relatórios JaCoCo/Surefire do backend são publicados como artefatos da
+execução por 14 dias.
 
 Antes desta revisão, as automações tinham cinco problemas bloqueantes:
 
@@ -62,25 +67,35 @@ A versão inicial registrada para releases é `0.1.0`.
 
 O workflow consolidado `CI / Security / Release` é obrigatório antes de merge/deploy:
 
-1. frontend: instalação reproduzível, ESLint, verificação de tipos, auditoria de dependências e build de produção;
-2. backend: `mvn clean verify`, incluindo unitários, integração, Flyway e RBAC;
-3. segurança: SAST com Semgrep e Dependency Review nas pull requests;
+1. frontend: instalação reproduzível, ESLint, verificação de tipos, testes Vitest com
+   cobertura mínima de 70%, auditoria de dependências e build de produção;
+2. backend: `mvn clean verify`, incluindo unitários, integração, Flyway, RBAC e gate JaCoCo de
+   70% de cobertura de linhas;
+3. segurança: SAST com Semgrep, CodeQL pelo Default Setup, `npm audit` e Dependency Review nas
+   pull requests, bloqueando novas dependências de severidade HIGH/CRITICAL;
 4. containers: build real das duas imagens;
 5. Trivy centralizado: um único estágio verifica o repositório e as duas imagens, bloqueando
-   achados HIGH/CRITICAL no código/configuração e CVEs CRITICAL corrigíveis nas imagens;
-6. registry: somente imagens que passaram por todos os gates são publicadas no GHCR.
+   secrets/misconfigurações e CVEs corrigíveis de severidade HIGH/CRITICAL;
+6. registry e supply chain: somente imagens aprovadas são publicadas no GHCR, fixadas por digest,
+   assinadas de forma keyless com Cosign/OIDC e acompanhadas de SBOM SPDX e attestation.
 
 O mesmo workflow também roda toda segunda-feira, capturando vulnerabilidades divulgadas depois
 do merge. O CodeQL permanece habilitado pelo Default Setup do GitHub, sem uma segunda configuração
 avançada conflitante. O Dependabot cobre npm, Maven, imagens Docker e GitHub Actions.
 
 O `frontend/package-lock.json` é versionado e o workflow usa `npm ci`, garantindo uma instalação
-reproduzível das dependências.
+reproduzível das dependências. O comando `npm run test:coverage` executa a suíte Vitest e publica
+o diretório `frontend/coverage/` como o artefato `frontend-coverage-report`, mesmo quando o gate
+falha, facilitando o diagnóstico.
 
 Os scans podem bloquear a primeira execução por vulnerabilidades já existentes nas dependências
 das aplicações. Esse comportamento é intencional: a esteira não altera nem cria exceções para o
 frontend/backend. A correção ou uma dispensa temporária documentada deve ser decidida pelas
-respectivas equipes antes da promoção da imagem.
+respectivas equipes antes da promoção da imagem. Exceções no `.trivyignore.yaml` devem ser
+temporárias, possuir justificativa, prazo (`expired_at`) e ser removidas assim que a imagem ou a
+dependência corrigida estiver disponível. Na revisão de 2026-11-16, as 16 exceções existentes
+foram removidas após as imagens da última execução bem-sucedida da `main` apresentarem zero
+achados HIGH/CRITICAL corrigíveis sem o arquivo de exceções.
 
 ## Deploy e rollback
 
@@ -142,9 +157,9 @@ Security. Desabilite push direto e exija ao menos uma revisão.
 
 ## Evolução recomendada
 
-1. versionar o lockfile e adicionar testes de componentes/E2E do frontend quando a equipe autorizar;
-2. publicar SBOM e assinar imagens com OIDC/Sigstore;
-3. mover o JWT do `localStorage` para cookie `HttpOnly`, aplicar CSP e parametrizar CORS;
+1. ampliar os testes do frontend para os demais fluxos críticos e adicionar E2E em navegador;
+2. acompanhar a evolução da cobertura em relatórios históricos e elevar os thresholds gradualmente;
+3. publicar proveniência verificável da build e evoluir os controles da cadeia para SLSA;
 4. monitorar a renovação do TLS (o backup/restore do PostgreSQL já está em [BACKUP_POSTGRES.md](BACKUP_POSTGRES.md));
 5. adotar migração expand/contract para permitir rollback de aplicação após mudanças de schema
    (remover coluna/tabela só numa release posterior àquela que deixou de usá-la).

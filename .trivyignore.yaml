@@ -1,81 +1,9 @@
-vulnerabilities:
-  - id: CVE-2026-111497
-    statement: >-
-      Google Brotli buffer overflow in base container image. The frontend serves static
-      Next.js assets and does not decompress untrusted external Brotli streams.
-    expired_at: 2026-11-30
-  - id: CVE-2026-109869
-    statement: >-
-      Transitive dependency bundled in node image (undici). Build-time launcher only;
-      does not handle external stream connections.
-    expired_at: 2026-11-30
-  - id: CVE-2026-102276
-    statement: >-
-      Transitive dependency bundled in node image (brace-expansion). Build-time tool only;
-      crafted brace patterns are not processed.
-    expired_at: 2026-11-30
-  - id: CVE-2026-102278
-    statement: >-
-      Transitive dependency bundled in node image (brace-expansion). Build-time tool only;
-      crafted brace patterns are not processed.
-    expired_at: 2026-11-30
-  - id: CVE-2026-13149
-    statement: >-
-      Transitive dependency bundled in node image (brace-expansion). Build-time tool only;
-      crafted brace patterns are not processed.
-    expired_at: 2026-11-30
-  - id: CVE-2026-14257
-    statement: >-
-      Transitive dependency bundled in node image (brace-expansion). Build-time tool only;
-      crafted brace patterns are not processed.
-    expired_at: 2026-11-30
-  - id: CVE-2026-69152
-    statement: >-
-      Transitive dependency bundled in node image (brace-expansion). Build-time tool only;
-      crafted brace patterns are not processed.
-    expired_at: 2026-11-30
-  - id: CVE-2026-33671
-    statement: >-
-      Transitive dependency bundled in node image (picomatch). Used only during build/packaging;
-      no untrusted extglob patterns are evaluated.
-    expired_at: 2026-11-30
-  - id: CVE-2026-48815
-    statement: >-
-      Transitive dependency bundled in node image (sigstore-js). Used solely for npm package
-      integrity during build, not in runtime application.
-    expired_at: 2026-11-30
-  - id: CVE-2026-69192
-    statement: >-
-      Transitive dependency bundled in node image (ip-address). The application does not parse
-      untrusted IP octets with leading zeros.
-    expired_at: 2026-11-30
-  - id: CVE-2026-9496
-    statement: >-
-      Transitive dependency bundled in node image (pacote). Package fetcher used only during
-      build time; no untrusted git spec strings are evaluated.
-    expired_at: 2026-11-30
-  - id: CVE-2026-19534
-    statement: >-
-      Transitive dependency bundled in node image (undici). npm is used only as process
-      launcher and does not handle WebSocket traffic.
-    expired_at: 2026-11-30
-  - id: CVE-2026-111755
-    statement: >-
-      Transitive dependency follow-redirects. The application does not follow untrusted cross-origin
-      redirects with regex-based sensitive headers.
-    expired_at: 2026-11-30
-  - id: CVE-2026-111756
-    statement: >-
-      Transitive dependency follow-redirects. The application does not send array-form sensitive headers
-      over cross-origin redirects.
-    expired_at: 2026-11-30
-  - id: CVE-2026-93749
-    statement: >-
-      Transitive dependency of postcss/next.js (source-map-js). Source maps are
-      used only during build/compilation and not exposed to untrusted external input.
-    expired_at: 2026-11-30
-  - id: CVE-2026-77214
-    statement: >-
-      Heap buffer over-read in libexpat bundled in base container image. The service
-      does not process untrusted XML input.
-    expired_at: 2026-11-30
+# Revisado em 2026-11-16 para a issue #384.
+#
+# As 16 exceções temporárias com vencimento em 2026-11-30 foram removidas após
+# nova varredura, sem este arquivo, das imagens da última execução bem-sucedida
+# da branch main. Nenhuma vulnerabilidade HIGH/CRITICAL corrigível foi encontrada.
+#
+# Novas exceções devem incluir id, statement e expired_at, com prazo curto e
+# risco residual documentado. A correção da dependência ou imagem tem prioridade.
+vulnerabilities: []
