@@ -93,7 +93,9 @@ Dependabot.
 O `frontend/package-lock.json` é versionado e o workflow usa `npm ci`, garantindo uma instalação
 reproduzível das dependências. O comando `npm run test:coverage` executa a suíte Vitest e publica
 o diretório `frontend/coverage/` como o artefato `frontend-coverage-report`, mesmo quando o gate
-falha, facilitando o diagnóstico.
+falha, facilitando o diagnóstico. O job usa Node 24, compatível com os requisitos do Vitest 5 e do
+jsdom 31. O Dependabot mantém `vitest`, `@vitest/coverage-v8` e `jsdom` no grupo
+`frontend-test-tooling`, evitando PRs isolados com versões principais incompatíveis.
 
 Os scans podem bloquear a primeira execução por vulnerabilidades já existentes nas dependências
 das aplicações. Esse comportamento é intencional: a esteira não altera nem cria exceções para o

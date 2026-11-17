@@ -43,9 +43,14 @@ assert_file_contains "$backend_pom" "<minimum>0.70</minimum>"
 assert_file_contains "$pipeline" "name: backend-coverage-report"
 
 assert_file_contains "$frontend_package" '"test:coverage": "vitest run --coverage"'
+assert_file_contains "$frontend_package" '"vitest": "^5.1.0"'
+assert_file_contains "$frontend_package" '"@vitest/coverage-v8": "^5.1.0"'
+assert_file_contains "$frontend_package" '"jsdom": "^31.0.0"'
 assert_file_contains "$frontend_vitest" "lines: 70"
 assert_file_contains "$frontend_vitest" "statements: 70"
 assert_file_contains "$frontend_vitest" "functions: 70"
 assert_file_contains "$pipeline" "name: frontend-coverage-report"
+assert_file_contains "$pipeline" "node-version: 24"
+assert_file_contains "$dependabot" "frontend-test-tooling:"
 
 echo "Configurações de deploy, Dependabot e cobertura validadas."
