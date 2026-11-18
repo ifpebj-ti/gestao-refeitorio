@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.3](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.14.2...gestao-refeitorio-v0.14.3) (2026-11-18)
+
+
+### Bug Fixes
+
+* **ci:** execute complete remote deploy script ([714307a](https://github.com/ifpebj-ti/gestao-refeitorio/commit/714307a55fac7efd424b5ac51faa9bb177d55caf))
+* **ci:** execute complete remote deploy script ([99e9ede](https://github.com/ifpebj-ti/gestao-refeitorio/commit/99e9edeea001f6639ca2500b8d72140fcafde51b))
+
 ## [0.14.2](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.14.1...gestao-refeitorio-v0.14.2) (2026-11-18)
 
 
