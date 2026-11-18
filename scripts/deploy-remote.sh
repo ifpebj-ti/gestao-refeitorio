@@ -80,6 +80,27 @@ verify_image_signature() {
     "$image_ref" >/dev/null
 }
 
+verify_running_image() {
+  local service="$1"
+  local expected_image="$2"
+  local container_id
+  local running_image
+
+  container_id="$(compose ps -q "$service")"
+  if [[ -z "$container_id" ]]; then
+    echo "O container do serviço ${service} não está em execução." >&2
+    return 1
+  fi
+
+  running_image="$(docker inspect --format '{{.Config.Image}}' "$container_id")"
+  if [[ "$running_image" != "$expected_image" ]]; then
+    echo "Imagem incorreta no serviço ${service}: esperada ${expected_image}, encontrada ${running_image:-vazia}." >&2
+    return 1
+  fi
+
+  echo "Serviço ${service} confirmado com a imagem ${running_image}."
+}
+
 rollback() {
   local exit_code=$?
   local schema_after
@@ -146,6 +167,13 @@ if [[ "$healthy" != true ]]; then
   false
 fi
 echo "Aplicação saudável após ${elapsed} segundos."
+
+verify_running_image \
+  frontend \
+  "ghcr.io/ifpebj-ti/gestao-refeitorio-frontend:${new_tag}"
+verify_running_image \
+  backend \
+  "ghcr.io/ifpebj-ti/gestao-refeitorio-backend:${new_tag}"
 
 printf '%s\n' "$new_tag" > "$state_file"
 docker image prune -f --filter "until=168h"

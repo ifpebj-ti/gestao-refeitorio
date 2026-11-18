@@ -621,6 +621,7 @@ jobs:
             docker-compose.prod.yml \
             docker-compose.observabilidade.yml \
             scripts/backup-postgres.sh \
+            scripts/deploy-remote.sh \
             "$USER@$HOST:/opt/gestao-refeitorio/"
   
       - name: Deploy with health check and rollback
@@ -630,8 +631,7 @@ jobs:
           IMAGE_TAG: ${{ steps.deploy-tag.outputs.tag }}
         run: |
           ssh -i ~/.ssh/deploy_key "$USER@$HOST" \
-            "bash -s -- '$IMAGE_TAG' docker-compose.prod.yml" \
-            < scripts/deploy-remote.sh
+            "bash /opt/gestao-refeitorio/deploy-remote.sh '$IMAGE_TAG' docker-compose.prod.yml"
 
   # =========================================================
   # DAST / OWASP ZAP

@@ -54,6 +54,18 @@ if [[ "${1:-}" == "image" && "${2:-}" == "prune" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "inspect" ]]; then
+  case "${*: -1}" in
+    frontend-id)
+      printf 'ghcr.io/ifpebj-ti/gestao-refeitorio-frontend:%s\n' "${IMAGE_TAG}"
+      ;;
+    backend-id)
+      printf 'ghcr.io/ifpebj-ti/gestao-refeitorio-backend:%s\n' "${IMAGE_TAG}"
+      ;;
+  esac
+  exit 0
+fi
+
 if [[ "${1:-}" != "compose" ]]; then
   exit 0
 fi
@@ -84,6 +96,9 @@ case "${1:-}" in
     printf 'up|%s\n' "${IMAGE_TAG:-}" >> "${MOCK_DOCKER_LOG}"
     ;;
   ps)
+    if [[ "${2:-}" == "-q" && -n "${3:-}" ]]; then
+      printf '%s-id\n' "$3"
+    fi
     ;;
   logs)
     ;;
@@ -92,9 +107,44 @@ MOCK
 
   cat > "${bin_dir}/curl" <<'MOCK'
 #!/usr/bin/env bash
+if [[ "${TEST_SCENARIO}" == "success" ]]; then
+  exit 0
+fi
 exit 1
 MOCK
   chmod +x "${bin_dir}/docker" "${bin_dir}/curl"
+}
+
+run_success_scenario() {
+  local scenario="success"
+  local scenario_dir="${test_root}/${scenario}"
+  local app_dir="${scenario_dir}/app"
+  local bin_dir="${scenario_dir}/bin"
+  local output="${scenario_dir}/output.log"
+  local docker_log="${scenario_dir}/docker.log"
+  local schema_counter="${scenario_dir}/schema-counter"
+
+  mkdir -p "$app_dir"
+  touch "${app_dir}/docker-compose.yml" "${app_dir}/docker-compose.prod.yml"
+  printf '0.12.0\n' > "${app_dir}/.image-tag-docker-compose.prod"
+  create_mocks "$bin_dir"
+
+  PATH="${bin_dir}:${PATH}" \
+    APP_DIR="$app_dir" \
+    HEALTH_TIMEOUT_SECONDS=5 \
+    TEST_SCENARIO="$scenario" \
+    MOCK_DOCKER_LOG="$docker_log" \
+    MOCK_SCHEMA_COUNTER="$schema_counter" \
+    bash "$deploy_script" 0.14.2 docker-compose.prod.yml >"$output" 2>&1
+
+  [[ "$(<"${app_dir}/.image-tag-docker-compose.prod")" == "0.14.2" ]] \
+    || fail "deploy bem-sucedido não atualizou o arquivo de estado"
+  assert_up_count "$docker_log" 1
+  assert_contains "$output" "Serviço frontend confirmado com a imagem ghcr.io/ifpebj-ti/gestao-refeitorio-frontend:0.14.2."
+  assert_contains "$output" "Serviço backend confirmado com a imagem ghcr.io/ifpebj-ti/gestao-refeitorio-backend:0.14.2."
+  assert_contains "$output" "Deploy concluído com a tag 0.14.2."
+
+  echo "OK: ${scenario}"
 }
 
 run_scenario() {
@@ -153,5 +203,6 @@ run_scenario signature-failure
 run_scenario pull-failure
 run_scenario health-without-migration
 run_scenario health-with-migration
+run_success_scenario
 
 echo "Todos os cenários de rollback do deploy passaram."
