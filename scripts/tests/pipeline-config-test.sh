@@ -31,6 +31,11 @@ grep -Fq "needs.publish-release.result == 'success'" <<<"$deploy_block" \
 if grep -Fq 'tag=sha-' <<<"$deploy_block"; then
   fail "deploy de produção ainda possui fallback para imagem sha-*"
 fi
+assert_file_contains "$pipeline" "scripts/deploy-remote.sh"
+assert_file_contains "$pipeline" 'bash /opt/gestao-refeitorio/deploy-remote.sh'
+if grep -Fq '< scripts/deploy-remote.sh' <<<"$deploy_block"; then
+  fail "script de deploy ainda é transmitido por stdin e pode ser consumido pelo Docker Compose"
+fi
 
 if awk '
   /package-ecosystem:/ { ecosystem=$3 }
