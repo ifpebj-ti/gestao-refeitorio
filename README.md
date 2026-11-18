@@ -262,6 +262,8 @@ Os detalhes estão em [docs/CI_CD.md](docs/CI_CD.md). O histórico de versões e
   - [Board no GitHub Projects](https://github.com/orgs/ifpebj-ti/projects/44): backlog, sprints e andamento das issues;
   - [Slides das sprints (Canva)](https://canva.link/ustmtgp8jaz1lkr): apresentações de acompanhamento (Sprint Report).
 - [docs/adr/](docs/adr/README.md): registros de decisões arquiteturais (ADRs).
+- [docs/Analise-de-Concorrencia.md](docs/Analise-de-Concorrencia.md): análise comparativa de soluções de mercado e diferenciais do sistema.
+- [docs/Guia-de-Testes-de-Usuario.md](docs/Guia-de-Testes-de-Usuario.md): roteiro e cenários de validação funcional com usuários.
 - [GUIA_EXECUCAO.md](GUIA_EXECUCAO.md): execução, configuração, testes e solução de problemas.
 - [docs/CI_CD.md](docs/CI_CD.md): esteira, releases, deploy e rollback.
 - [docs/TESTES.md](docs/TESTES.md): testes automatizados, relatório de cobertura (JaCoCo) e gate de 70%.
