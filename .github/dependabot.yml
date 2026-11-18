@@ -8,6 +8,12 @@ updates:
     cooldown:
       default-days: 7
     groups:
+      frontend-test-tooling:
+        patterns:
+          - vitest
+          - "@vitest/coverage-v8"
+          - jsdom
+        update-types: [major, minor, patch]
       frontend-minor-patch:
         update-types: [minor, patch]
     ignore:

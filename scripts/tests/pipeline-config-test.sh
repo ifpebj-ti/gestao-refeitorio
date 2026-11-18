@@ -7,6 +7,10 @@ readonly dependabot="${project_dir}/.github/dependabot.yml"
 readonly backend_pom="${project_dir}/backend/pom.xml"
 readonly frontend_package="${project_dir}/frontend/package.json"
 readonly frontend_vitest="${project_dir}/frontend/vitest.config.ts"
+readonly zap_rules="${project_dir}/.zap/rules.tsv"
+readonly codeowners="${project_dir}/.github/CODEOWNERS"
+readonly contributing="${project_dir}/CONTRIBUTING.md"
+readonly trivy_ignore="${project_dir}/.trivyignore.yaml"
 
 fail() {
   echo "FALHA: $*" >&2
@@ -43,9 +47,34 @@ assert_file_contains "$backend_pom" "<minimum>0.70</minimum>"
 assert_file_contains "$pipeline" "name: backend-coverage-report"
 
 assert_file_contains "$frontend_package" '"test:coverage": "vitest run --coverage"'
+assert_file_contains "$frontend_package" '"vitest": "^5.1.0"'
+assert_file_contains "$frontend_package" '"@vitest/coverage-v8": "^5.1.0"'
+assert_file_contains "$frontend_package" '"jsdom": "^31.0.0"'
 assert_file_contains "$frontend_vitest" "lines: 70"
 assert_file_contains "$frontend_vitest" "statements: 70"
 assert_file_contains "$frontend_vitest" "functions: 70"
 assert_file_contains "$pipeline" "name: frontend-coverage-report"
+assert_file_contains "$pipeline" "node-version: 24"
+assert_file_contains "$dependabot" "frontend-test-tooling:"
 
-echo "Configurações de deploy, Dependabot e cobertura validadas."
+assert_file_contains "$pipeline" "name: Security / OWASP ZAP baseline"
+assert_file_contains "$pipeline" "needs.deploy-production.result == 'success'"
+assert_file_contains "$pipeline" "fail_action: true"
+assert_file_contains "$pipeline" "allow_issue_writing: false"
+assert_file_contains "$pipeline" "artifact_name: zap-baseline-report"
+assert_file_contains "$pipeline" "zaproxy/action-baseline@6c5a007541891231cd9e0ddec25d4f25c59c9874"
+assert_file_contains "$pipeline" "ghcr.io/zaproxy/zaproxy:stable@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af"
+assert_file_contains "$zap_rules" $'10038\tFAIL'
+
+if compgen -G "${project_dir}/.github/workflows/*codeql*.yml" >/dev/null; then
+  fail "workflow CodeQL avançado concorreria com o Default Setup habilitado"
+fi
+
+assert_file_contains "$trivy_ignore" "vulnerabilities: []"
+assert_file_contains "$codeowners" "/.github/ @KauanneC"
+assert_file_contains "$codeowners" "/backend/ @Ismaylla @KauanneC"
+assert_file_contains "$codeowners" "/frontend/ @imsamille @KauanneC"
+assert_file_contains "$contributing" "Prefira **Squash and merge**"
+assert_file_contains "$contributing" 'Push direto, force-push e exclusão da `main` são proibidos'
+
+echo "Configurações de CI/CD, segurança e governança validadas."

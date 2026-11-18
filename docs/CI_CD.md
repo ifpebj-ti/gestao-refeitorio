@@ -78,10 +78,18 @@ O workflow consolidado `CI / Security / Release` é obrigatório antes de merge/
    secrets/misconfigurações e CVEs corrigíveis de severidade HIGH/CRITICAL;
 6. registry e supply chain: somente imagens aprovadas são publicadas no GHCR, fixadas por digest,
    assinadas de forma keyless com Cosign/OIDC e acompanhadas de SBOM SPDX e attestation.
+7. DAST: depois de um deploy bem-sucedido, o OWASP ZAP Baseline verifica a URL HTTPS de produção,
+   armazena os relatórios no artefato `zap-baseline-report` e bloqueia o job para as regras marcadas
+   como `FAIL` em `.zap/rules.tsv`. Alertas não bloqueantes permanecem visíveis no relatório.
 
 O mesmo workflow também roda toda segunda-feira, capturando vulnerabilidades divulgadas depois
 do merge. O CodeQL permanece habilitado pelo Default Setup do GitHub, sem uma segunda configuração
 avançada conflitante. O Dependabot cobre npm, Maven, imagens Docker e GitHub Actions.
+
+O `startup_failure` do CodeQL foi encerrado mantendo uma única configuração: o Default Setup para
+Actions, Java/Kotlin e JavaScript/TypeScript. Em 17/11/2026, os checks dos PRs #400 e #401
+concluíram com sucesso e disponibilizaram os resultados na área de Code Scanning. Não deve ser
+adicionado um workflow avançado paralelo enquanto o Default Setup estiver ativo.
 
 Para imagens Docker, o Dependabot monitora somente os diretórios que possuem `Dockerfile`
 (`frontend/` e `backend/`). Não existe uma entrada Docker para a raiz porque ali há apenas arquivos
@@ -93,7 +101,9 @@ Dependabot.
 O `frontend/package-lock.json` é versionado e o workflow usa `npm ci`, garantindo uma instalação
 reproduzível das dependências. O comando `npm run test:coverage` executa a suíte Vitest e publica
 o diretório `frontend/coverage/` como o artefato `frontend-coverage-report`, mesmo quando o gate
-falha, facilitando o diagnóstico.
+falha, facilitando o diagnóstico. O job usa Node 24, compatível com os requisitos do Vitest 5 e do
+jsdom 31. O Dependabot mantém `vitest`, `@vitest/coverage-v8` e `jsdom` no grupo
+`frontend-test-tooling`, evitando PRs isolados com versões principais incompatíveis.
 
 Os scans podem bloquear a primeira execução por vulnerabilidades já existentes nas dependências
 das aplicações. Esse comportamento é intencional: a esteira não altera nem cria exceções para o
@@ -102,7 +112,25 @@ respectivas equipes antes da promoção da imagem. Exceções no `.trivyignore.y
 temporárias, possuir justificativa, prazo (`expired_at`) e ser removidas assim que a imagem ou a
 dependência corrigida estiver disponível. Na revisão de 2026-11-16, as 16 exceções existentes
 foram removidas após as imagens da última execução bem-sucedida da `main` apresentarem zero
-achados HIGH/CRITICAL corrigíveis sem o arquivo de exceções.
+achados HIGH/CRITICAL corrigíveis sem o arquivo de exceções. A revisão da issue #344, em 17/11/2026,
+confirmou que o arquivo continua com `vulnerabilities: []`: não existe exceção ativa, justificativa
+sem validade ou data de expiração pendente.
+
+## DAST com OWASP ZAP
+
+O job `Security / OWASP ZAP baseline` roda depois de um deploy de produção concluído com sucesso.
+Também pode ser iniciado manualmente em **Actions → CI / Security / Release → Run workflow**, com
+`run_dast` habilitado, para analisar a versão que já está implantada. O job usa o environment
+protegido `production` e lê a URL exclusivamente da variável `PRODUCTION_URL`.
+
+O scan é passivo e autenticado apenas quando variáveis próprias do ZAP forem configuradas no futuro;
+nenhuma credencial da aplicação é enviada por padrão. As regras de headers, cookies e conteúdo misto
+definidas em `.zap/rules.tsv` bloqueiam a esteira. Os demais alertas são registrados como evidência,
+sem falhar o job, devido à opção `-I`. A action e a imagem do scanner estão fixadas por SHA/digest.
+
+Cada execução publica os relatórios HTML, Markdown e JSON no artefato `zap-baseline-report`. Uma
+falha deve ser tratada corrigindo a aplicação ou o proxy. Exceções só podem ser adicionadas ao arquivo
+de regras com justificativa documentada e revisão de segurança.
 
 ## Deploy e rollback
 
@@ -171,6 +199,12 @@ contents e pull requests.
 Proteja `main` exigindo os jobs de frontend, backend, segurança e imagens do workflow
 `CI / Security / Release`; exija também o CodeQL padrão se o plano do GitHub oferecer Advanced
 Security. Desabilite push direto e exija ao menos uma revisão.
+
+O ruleset ativo `Proteção da main` foi revisado em 17/11/2026. Ele bloqueia exclusão e force-push,
+exige PR com uma aprovação, invalida aprovações após novos pushes, exige resolução das conversas e
+requer branch atualizada com os checks `Frontend / lint and build`, `Backend / tests and build`,
+`Security / SAST and dependencies`, `Images / build, analyze and publish` e `CodeQL`. A ownership
+versionada está em `.github/CODEOWNERS` e as convenções estão em `CONTRIBUTING.md`.
 
 ## Evolução recomendada
 

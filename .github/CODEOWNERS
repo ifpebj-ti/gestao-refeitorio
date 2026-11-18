@@ -1,0 +1,17 @@
+# Ownership padrão: qualquer mudança deve ser revisada por uma pessoa da equipe.
+* @KauanneC @Ismaylla @imsamille
+
+# Aplicação.
+/backend/ @Ismaylla @KauanneC
+/frontend/ @imsamille @KauanneC
+
+# CI/CD, segurança e operação.
+/.github/ @KauanneC
+/.zap/ @KauanneC
+/scripts/ @KauanneC
+/docker-compose*.yml @KauanneC
+/.trivyignore.yaml @KauanneC
+
+# Documentação compartilhada.
+/docs/ @KauanneC @Ismaylla @imsamille
+/*.md @KauanneC @Ismaylla @imsamille

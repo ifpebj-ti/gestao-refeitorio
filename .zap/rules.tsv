@@ -1,0 +1,10 @@
+# Alertas não listados continuam no relatório como WARN e não bloqueiam o job (-I).
+# As regras abaixo protegem headers, cookies e transporte da aplicação publicada.
+10010	FAIL	(Cookie sem flag HttpOnly)
+10011	FAIL	(Cookie sem flag Secure)
+10020	FAIL	(Header anti-clickjacking ausente)
+10021	FAIL	(Header X-Content-Type-Options ausente)
+10035	FAIL	(Header Strict-Transport-Security ausente)
+10038	FAIL	(Content-Security-Policy ausente)
+10040	FAIL	(Conteúdo misto em página HTTPS)
+10054	FAIL	(Cookie sem atributo SameSite)
