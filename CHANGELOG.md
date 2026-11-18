@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.1](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.14.0...gestao-refeitorio-v0.14.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **ci:** stabilize releases and dependency updates ([a8a3b11](https://github.com/ifpebj-ti/gestao-refeitorio/commit/a8a3b11ff395c8bb4c65d1e61eee2b9a0150d4e7))
+* **deploy:** skip rollback before container switch ([bcdcc8e](https://github.com/ifpebj-ti/gestao-refeitorio/commit/bcdcc8e8fae579813f9893a324e4c84fef0038af))
+
 ## [0.14.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.13.0...gestao-refeitorio-v0.14.0) (2026-11-17)
 
 
