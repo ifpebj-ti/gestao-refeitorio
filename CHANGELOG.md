@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.2](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.14.1...gestao-refeitorio-v0.14.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **ci:** restore coordinated frontend test stack ([bbb3721](https://github.com/ifpebj-ti/gestao-refeitorio/commit/bbb3721a95293bd4bfc3c9cd1cf4562d52c2f8b6))
+
 ## [0.14.1](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.14.0...gestao-refeitorio-v0.14.1) (2026-11-17)
 
 
