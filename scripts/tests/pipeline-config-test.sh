@@ -62,6 +62,11 @@ assert_file_contains "$pipeline" "name: frontend-coverage-report"
 assert_file_contains "$pipeline" "node-version: 24"
 assert_file_contains "$dependabot" "frontend-test-tooling:"
 
+security_builds="$(sed -n '/name: Build frontend image for security scan/,/name: Trivy \/ repository and images/p' "$pipeline")"
+no_cache_count="$(grep -Fc 'no-cache: true' <<<"$security_builds")"
+[[ "$no_cache_count" -eq 2 ]] \
+  || fail "os builds de segurança do frontend e backend devem ignorar caches de camadas vulneráveis"
+
 assert_file_contains "$pipeline" "name: Security / OWASP ZAP baseline"
 assert_file_contains "$pipeline" "needs.deploy-production.result == 'success'"
 assert_file_contains "$pipeline" "fail_action: true"
