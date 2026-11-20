@@ -71,6 +71,7 @@ describe("Componente Sidebar e controle de acesso por perfil (RBAC)", () => {
 
     expect(screen.getByText("Consumo Diário")).toBeInTheDocument();
     expect(screen.getByText("Entradas & Estoque")).toBeInTheDocument();
+    expect(screen.getByText("Notas & Remetentes")).toBeInTheDocument();
     expect(screen.getByText("Cardápio Semanal")).toBeInTheDocument();
     expect(screen.getByText("Transmissão TV")).toBeInTheDocument();
     expect(screen.getByText("Relatórios & Indicadores")).toBeInTheDocument();
