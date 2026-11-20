@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.15.0...gestao-refeitorio-v0.16.0) (2026-11-20)
+
+
+### Features
+
+* **front:** implementa módulo de Gestão de Notas e Remetentes ([#415](https://github.com/ifpebj-ti/gestao-refeitorio/issues/415), [#416](https://github.com/ifpebj-ti/gestao-refeitorio/issues/416), [#417](https://github.com/ifpebj-ti/gestao-refeitorio/issues/417), [#418](https://github.com/ifpebj-ti/gestao-refeitorio/issues/418), [#419](https://github.com/ifpebj-ti/gestao-refeitorio/issues/419), [#420](https://github.com/ifpebj-ti/gestao-refeitorio/issues/420)) ([123ffd9](https://github.com/ifpebj-ti/gestao-refeitorio/commit/123ffd994cb4b5743fbfb46f8e8a260fca938ed4))
+
 ## [0.15.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.14.4...gestao-refeitorio-v0.15.0) (2026-11-20)
 
 
