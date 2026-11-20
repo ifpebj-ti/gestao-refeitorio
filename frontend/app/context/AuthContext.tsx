@@ -101,16 +101,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [autenticado]);
 
-  // Carrega dados locais na inicialização validando se o token ainda não expirou
+  // Carrega dados de sessão na inicialização (suportando cookie HttpOnly e estado de usuário)
   useEffect(() => {
     try {
       const tokenSalvo = getToken();
       const userSalvo = localStorage.getItem(STORAGE_USER_KEY);
       const perfilSalvo = localStorage.getItem(STORAGE_PERFIL_KEY) as PerfilUsuario | null;
 
-      if (tokenSalvo && userSalvo) {
-        if (isTokenExpirado(tokenSalvo)) {
-          // Token expirado: invalida e limpa sessão
+      if (userSalvo) {
+        if (tokenSalvo && isTokenExpirado(tokenSalvo)) {
           limparSessaoLocal();
           setToken(null);
           setUsuario(null);
@@ -248,6 +247,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "include",
       body: JSON.stringify({ email: email.trim(), senha }),
     });
 

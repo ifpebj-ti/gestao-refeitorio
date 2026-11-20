@@ -21,9 +21,7 @@ export type PerfilUsuario = "ADMIN" | "NUTRICIONISTA" | "COZINHA";
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
 import {
-  getToken as getAuthToken,
-  limparSessaoLocal,
-  notificarSessaoExpirada,
+  garantirSessaoAtiva,
   tratarSessaoExpiradaSe401,
 } from "./authSession";
 
@@ -32,24 +30,18 @@ export interface UsuarioEdicaoDTO {
   perfil: PerfilUsuario;
 }
 
-function getToken(): string {
-  const token = getAuthToken();
-  if (!token) {
-    limparSessaoLocal();
-    notificarSessaoExpirada();
-    throw new Error(
-      "Sessão expirada. Faça login novamente como Administrador."
-    );
-  }
-  return token;
+function obterHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return garantirSessaoAtiva(
+    "Sessão expirada. Faça login novamente como Administrador."
+  ) && {
+    ...garantirSessaoAtiva("Sessão expirada. Faça login novamente como Administrador."),
+    ...extra,
+  };
 }
 
 export async function listarUsuarios(): Promise<UsuarioDTO[]> {
-  const token = getToken();
   const res = await fetch(`${BASE_URL}/usuarios`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: obterHeaders(),
     credentials: "include",
     cache: "no-store",
   });
@@ -70,13 +62,9 @@ export async function listarUsuarios(): Promise<UsuarioDTO[]> {
 export async function cadastrarUsuario(
   dados: UsuarioRequestDTO
 ): Promise<UsuarioDTO> {
-  const token = getToken();
   const res = await fetch(`${BASE_URL}/usuarios`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: obterHeaders({ "Content-Type": "application/json" }),
     credentials: "include",
     body: JSON.stringify(dados),
   });
@@ -98,13 +86,9 @@ export async function editarUsuario(
   id: string,
   dados: UsuarioEdicaoDTO
 ): Promise<UsuarioDTO> {
-  const token = getToken();
   const res = await fetch(`${BASE_URL}/usuarios/${id}`, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: obterHeaders({ "Content-Type": "application/json" }),
     credentials: "include",
     body: JSON.stringify(dados),
   });
@@ -123,12 +107,9 @@ export async function editarUsuario(
 }
 
 export async function desativarUsuario(id: string): Promise<UsuarioDTO> {
-  const token = getToken();
   const res = await fetch(`${BASE_URL}/usuarios/${id}/desativar`, {
     method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: obterHeaders(),
     credentials: "include",
   });
 
@@ -149,13 +130,9 @@ export async function definirSenhaUsuario(
   id: string,
   senha: string
 ): Promise<void> {
-  const token = getToken();
   const res = await fetch(`${BASE_URL}/usuarios/${id}/senha`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: obterHeaders({ "Content-Type": "application/json" }),
     credentials: "include",
     body: JSON.stringify({ senha }),
   });
@@ -172,12 +149,9 @@ export async function definirSenhaUsuario(
 }
 
 export async function removerSenhaUsuario(id: string): Promise<void> {
-  const token = getToken();
   const res = await fetch(`${BASE_URL}/usuarios/${id}/senha`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: obterHeaders(),
     credentials: "include",
   });
 

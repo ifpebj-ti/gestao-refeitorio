@@ -1,7 +1,5 @@
 import {
-  getToken as getAuthToken,
-  limparSessaoLocal,
-  notificarSessaoExpirada,
+  garantirSessaoAtiva,
   tratarSessaoExpiradaSe401,
 } from "./authSession";
 
@@ -26,16 +24,10 @@ export interface ConsumoDiarioDTO {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getToken(): string {
-  const token = getAuthToken();
-  if (!token) {
-    limparSessaoLocal();
-    notificarSessaoExpirada();
-    throw new Error(
-      "Sessão expirada. Faça login na Área do Nutricionista."
-    );
-  }
-  return token;
+function obterHeaders(): Record<string, string> {
+  return garantirSessaoAtiva(
+    "Sessão expirada. Faça login na Área do Nutricionista."
+  );
 }
 
 // ─── Relatório mensal consolidado (US19 / #160) ───────────────────────────────
@@ -44,11 +36,10 @@ export async function buscarRelatorioMensal(
   dataInicio: string,
   dataFim: string
 ): Promise<RelatorioMensalItemDTO[]> {
-  const token = getToken();
   const res = await fetch(
     `${BASE_URL}/relatorios/mensal?dataInicio=${dataInicio}&dataFim=${dataFim}`,
     {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: obterHeaders(),
       credentials: "include",
       cache: "no-store",
     }
@@ -67,11 +58,10 @@ export async function exportarRelatorioPdf(
   dataInicio: string,
   dataFim: string
 ): Promise<void> {
-  const token = getToken();
   const res = await fetch(
     `${BASE_URL}/relatorios/mensal/pdf?dataInicio=${dataInicio}&dataFim=${dataFim}`,
     {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: obterHeaders(),
       credentials: "include",
     }
   );
@@ -94,11 +84,10 @@ export async function exportarRelatorioExcel(
   dataInicio: string,
   dataFim: string
 ): Promise<void> {
-  const token = getToken();
   const res = await fetch(
     `${BASE_URL}/relatorios/mensal/excel?dataInicio=${dataInicio}&dataFim=${dataFim}`,
     {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: obterHeaders(),
       credentials: "include",
     }
   );
@@ -122,11 +111,10 @@ export async function buscarGraficoConsumo(
   dataFim: string,
   produtoId?: string
 ): Promise<ConsumoDiarioDTO[]> {
-  const token = getToken();
   const params = new URLSearchParams({ dataInicio, dataFim });
   if (produtoId) params.append("produtoId", produtoId);
   const res = await fetch(`${BASE_URL}/relatorios/consumo?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: obterHeaders(),
     credentials: "include",
     cache: "no-store",
   });

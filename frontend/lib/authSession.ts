@@ -1,9 +1,10 @@
 let inMemoryToken: string | null = null;
 
-export const SESSION_TOKEN_KEY = "@gestao_refeitorio:token_session";
-export const STORAGE_TOKEN_KEY = "@gestao_refeitorio:token"; // Mantido para limpeza automática de legados
+export const SESSION_TOKEN_KEY = "@gestao_refeitorio:token_session"; // Mantido apenas para purga de legados
+export const STORAGE_TOKEN_KEY = "@gestao_refeitorio:token"; // Mantido apenas para purga de legados
 export const STORAGE_USER_KEY = "@gestao_refeitorio:user";
 export const STORAGE_PERFIL_KEY = "@gestao_refeitorio:perfil_ativo";
+export const AUTH_SESSION_COOKIE = "auth_session";
 export const EVENTO_SESSAO_EXPIRADA = "gestao_refeitorio:sessao_expirada";
 
 export interface JwtPayload {
@@ -59,16 +60,39 @@ export function isTokenExpirado(token: string | null): boolean {
     return true;
   }
 
-  // payload.exp é em segundos UNIX; Date.now() é em milissegundos
-  // Adiciona 5 segundos de tolerância contra pequenas variações de relógio
   return payload.exp * 1000 <= Date.now() + 5000;
 }
 
+function purgarTokensEmWebStorage(): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (localStorage.getItem(STORAGE_TOKEN_KEY)) {
+      localStorage.removeItem(STORAGE_TOKEN_KEY);
+    }
+    if (sessionStorage.getItem(SESSION_TOKEN_KEY)) {
+      sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    }
+  } catch {}
+}
+
+function atualizarCookieIndicadorSessao(ativo: boolean): void {
+  if (typeof document === "undefined") return;
+  try {
+    if (ativo) {
+      document.cookie = `${AUTH_SESSION_COOKIE}=1; Path=/; SameSite=Lax`;
+    } else {
+      document.cookie = `${AUTH_SESSION_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+    }
+  } catch {}
+}
+
 /**
- * Obtém o token JWT ativo em memória ou sessão volátil da aba (sessionStorage).
- * Garante que o token NUNCA seja lido de ou mantido no localStorage em texto puro.
+ * Obtém o token JWT mantido exclusivamente em memória volátil de execução.
+ * O token NUNCA é lido nem espelhado em localStorage ou sessionStorage (#422).
  */
 export function getToken(): string | null {
+  purgarTokensEmWebStorage();
+
   if (inMemoryToken) {
     if (isTokenExpirado(inMemoryToken)) {
       limparSessaoLocal();
@@ -78,55 +102,99 @@ export function getToken(): string | null {
     return inMemoryToken;
   }
 
-  if (typeof window !== "undefined") {
-    try {
-      // Remove resíduo legado do localStorage caso ainda exista
-      if (localStorage.getItem(STORAGE_TOKEN_KEY)) {
-        localStorage.removeItem(STORAGE_TOKEN_KEY);
-      }
-
-      const sessaoToken = sessionStorage.getItem(SESSION_TOKEN_KEY);
-      if (sessaoToken) {
-        if (isTokenExpirado(sessaoToken)) {
-          limparSessaoLocal();
-          notificarSessaoExpirada();
-          return null;
-        }
-        inMemoryToken = sessaoToken;
-        return inMemoryToken;
-      }
-    } catch {
-      return null;
-    }
-  }
-
   return null;
 }
 
 /**
- * Salva o token JWT de forma protegida contra XSS no armazenamento em memória e sessão volátil da aba.
- * Purga ativamente o token do localStorage permanente.
+ * Mantém o token apenas em memória e purga qualquer resíduo de localStorage e sessionStorage (#422).
+ * O transporte primário da sessão ocorre via cookie HttpOnly gerenciado pelo navegador.
  */
 export function salvarSessaoToken(token: string | null): void {
   inMemoryToken = token;
   if (typeof window === "undefined") return;
 
   try {
-    // Purga qualquer token do localStorage
-    localStorage.removeItem(STORAGE_TOKEN_KEY);
-
-    if (token) {
-      sessionStorage.setItem(SESSION_TOKEN_KEY, token);
-    } else {
-      sessionStorage.removeItem(SESSION_TOKEN_KEY);
-    }
+    purgarTokensEmWebStorage();
+    atualizarCookieIndicadorSessao(Boolean(token));
   } catch (e) {
-    console.error("Erro ao salvar token de sessão:", e);
+    console.error("Erro ao atualizar estado de sessão:", e);
   }
 }
 
 /**
- * Limpa todos os dados da sessão local (memória, sessionStorage e dados públicos do localStorage).
+ * Extrai o token CSRF do cookie XSRF-TOKEN emitido pelo backend Spring Security.
+ */
+export function obterCsrfToken(): string | null {
+  if (typeof document === "undefined" || !document.cookie) return null;
+  const match = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("XSRF-TOKEN="));
+  if (!match) return null;
+  const valor = match.split("=")[1];
+  return valor ? decodeURIComponent(valor) : null;
+}
+
+/**
+ * Verifica se há sessão autenticada ativa (via token em memória, metadados de usuário ou cookie de sessão).
+ */
+export function possuiSessaoAtiva(): boolean {
+  const token = getToken();
+  if (token) return true;
+
+  if (typeof window !== "undefined") {
+    try {
+      if (localStorage.getItem(STORAGE_USER_KEY)) {
+        return true;
+      }
+      if (
+        typeof document !== "undefined" &&
+        document.cookie.includes(`${AUTH_SESSION_COOKIE}=1`)
+      ) {
+        return true;
+      }
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+/**
+ * Monta os cabeçalhos para chamadas autenticadas à API:
+ * - Inclui X-XSRF-TOKEN quando o cookie XSRF-TOKEN estiver presente (proteção CSRF para cookie HttpOnly).
+ * - Inclui Authorization: Bearer apenas se houver token em memória.
+ */
+export function obterHeadersAutenticados(
+  extraHeaders: Record<string, string> = {}
+): Record<string, string> {
+  const headers: Record<string, string> = { ...extraHeaders };
+  const token = getToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const csrf = obterCsrfToken();
+  if (csrf) {
+    headers["X-XSRF-TOKEN"] = csrf;
+  }
+  return headers;
+}
+
+/**
+ * Garante que existe uma sessão ativa antes de disparar chamadas protegidas e devolve os cabeçalhos.
+ */
+export function garantirSessaoAtiva(
+  mensagemErro = "Sessão expirada. Faça login novamente."
+): Record<string, string> {
+  if (!possuiSessaoAtiva()) {
+    limparSessaoLocal();
+    notificarSessaoExpirada();
+    throw new Error(mensagemErro);
+  }
+  return obterHeadersAutenticados();
+}
+
+/**
+ * Limpa todos os dados da sessão local (memória, indicador de sessão e resíduos em storage).
  */
 export function limparSessaoLocal(): void {
   inMemoryToken = null;
@@ -137,14 +205,14 @@ export function limparSessaoLocal(): void {
     localStorage.removeItem(STORAGE_USER_KEY);
     localStorage.removeItem(STORAGE_PERFIL_KEY);
     sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    atualizarCookieIndicadorSessao(false);
   } catch (e) {
     console.error("Erro ao limpar sessão local:", e);
   }
 }
 
 /**
- * Dispara evento global notificando a expiração da sessão para que o contexto de autenticação
- * e a interface atualizem seu estado e redirecionem o usuário para o login.
+ * Dispara evento global notificando a expiração da sessão.
  */
 export function notificarSessaoExpirada(): void {
   if (typeof window === "undefined") return;
