@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.4](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.14.3...gestao-refeitorio-v0.14.4) (2026-11-20)
+
+
+### Bug Fixes
+
+* **frontend:** use standalone production image ([c587570](https://github.com/ifpebj-ti/gestao-refeitorio/commit/c58757017340758d158b8720d6b8b594d859c319))
+* **frontend:** use standalone production image ([5393876](https://github.com/ifpebj-ti/gestao-refeitorio/commit/539387642a6d9a147e8bbfbe1f5fb315f446513c))
+
 ## [0.14.3](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.14.2...gestao-refeitorio-v0.14.3) (2026-11-18)
 
 
