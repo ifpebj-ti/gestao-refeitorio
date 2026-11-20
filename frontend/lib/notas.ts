@@ -422,8 +422,6 @@ const TIPOS_DOCUMENTO_PERMITIDOS = [
   "image/png",
 ];
 
-const cacheArquivosLocais = new Map<string, File>();
-
 export async function anexarDocumentoNota(
   id: string,
   arquivo: File
@@ -446,18 +444,6 @@ export async function anexarDocumentoNota(
     credentials: "include",
     body: formData,
   });
-
-  if ((res.status === 405 || res.status === 404) && cacheDetalheNotas.has(id)) {
-    cacheArquivosLocais.set(id, arquivo);
-    const existente = cacheDetalheNotas.get(id)!;
-    salvarNoCacheLocal(existente, { possuiDocumento: true });
-    return {
-      notaId: id,
-      contentType: arquivo.type,
-      tamanhoBytes: arquivo.size,
-      criadoEm: new Date().toISOString(),
-    };
-  }
 
   if (!res.ok) {
     tratarSessaoExpiradaSe401(res.status);
@@ -484,11 +470,6 @@ export async function baixarDocumentoNota(
     headers: obterHeaders(),
     credentials: "include",
   });
-
-  if ((res.status === 405 || res.status === 404) && cacheArquivosLocais.has(id)) {
-    const arq = cacheArquivosLocais.get(id)!;
-    return { blob: arq, contentType: arq.type || "application/pdf" };
-  }
 
   if (!res.ok) {
     tratarSessaoExpiradaSe401(res.status);
