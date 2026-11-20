@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.15.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.14.4...gestao-refeitorio-v0.15.0) (2026-11-20)
+
+
+### Features
+
+* **auth:** remove espelhamento do JWT no sessionStorage e prioriza cookie HttpOnly ([#422](https://github.com/ifpebj-ti/gestao-refeitorio/issues/422)) ([5eb015c](https://github.com/ifpebj-ti/gestao-refeitorio/commit/5eb015cee34dafed50eda3d51af6bd72c210f5ce))
+* **front:** hardening de sessão HttpOnly, middleware SSR, CSP de produção e cache das TVs ([#422](https://github.com/ifpebj-ti/gestao-refeitorio/issues/422), [#423](https://github.com/ifpebj-ti/gestao-refeitorio/issues/423), [#427](https://github.com/ifpebj-ti/gestao-refeitorio/issues/427), [#428](https://github.com/ifpebj-ti/gestao-refeitorio/issues/428), [#429](https://github.com/ifpebj-ti/gestao-refeitorio/issues/429)) ([5f78fa2](https://github.com/ifpebj-ti/gestao-refeitorio/commit/5f78fa202c139f7c62665f2bad062a333d684b85))
+* **security:** protege rotas autenticadas no servidor com middleware do Next.js ([#423](https://github.com/ifpebj-ti/gestao-refeitorio/issues/423)) ([afaf21c](https://github.com/ifpebj-ti/gestao-refeitorio/commit/afaf21c22a30d3f1eb6a2299b01c8201039ae779))
+* **security:** restringe CSP em prod, corrige cache das TVs e reduz fingerprinting ([#427](https://github.com/ifpebj-ti/gestao-refeitorio/issues/427), [#428](https://github.com/ifpebj-ti/gestao-refeitorio/issues/428), [#429](https://github.com/ifpebj-ti/gestao-refeitorio/issues/429)) ([4f57d3f](https://github.com/ifpebj-ti/gestao-refeitorio/commit/4f57d3f4827728a4c7f345081a6f84fe2bb1ba28))
+
+
+### Bug Fixes
+
+* **ci:** rebuild security images without stale cache ([2b4f567](https://github.com/ifpebj-ti/gestao-refeitorio/commit/2b4f5679a1dedbfe6a1eb462890ca063a560ea57))
+* **security:** documenta excecao temporaria para CVE-2026-109908 do libfontenc no trivyignore ([#428](https://github.com/ifpebj-ti/gestao-refeitorio/issues/428)) ([767ee0c](https://github.com/ifpebj-ti/gestao-refeitorio/commit/767ee0c35796a618d0055c4c66f7fa2db858b673))
+* **security:** preserva marcacao esperada pelo teste de pipeline no trivyignore ([#428](https://github.com/ifpebj-ti/gestao-refeitorio/issues/428)) ([37855c1](https://github.com/ifpebj-ti/gestao-refeitorio/commit/37855c12dcca91280a1c282ecaf1dcc1fdef95e7))
+
 ## [0.14.4](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.14.3...gestao-refeitorio-v0.14.4) (2026-11-20)
 
 
