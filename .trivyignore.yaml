@@ -2,10 +2,11 @@
 #
 # Novas exceções devem incluir id, statement e expired_at, com prazo curto e
 # risco residual documentado. A correção da dependência ou imagem tem prioridade.
+# Quando não houver exceções ativas, manter: vulnerabilities: []
 vulnerabilities:
   - id: CVE-2026-109908
     statement: >-
       Heap buffer overflow in X.Org libfontenc (.enc font encoding parser) bundled in the
-      Alpine base container image. The container runs headless as a non-root user without
-      an X server and never processes untrusted .enc font encoding files.
+      cached Alpine base container image layer. The container runs headless as a non-root
+      user without an X server and never processes untrusted .enc font encoding files.
     expired_at: 2026-12-05
