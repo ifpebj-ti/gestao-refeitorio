@@ -256,22 +256,24 @@ export default function RelatoriosPage() {
   );
 
   const handleExportarPdf = async () => {
+    setErro(null);
     setExportandoPdf(true);
     try {
       await exportarRelatorioPdf(dataInicio, dataFim);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Erro ao exportar PDF.");
+      setErro(e instanceof Error ? e.message : "Erro ao exportar PDF.");
     } finally {
       setExportandoPdf(false);
     }
   };
 
   const handleExportarExcel = async () => {
+    setErro(null);
     setExportandoExcel(true);
     try {
       await exportarRelatorioExcel(dataInicio, dataFim);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Erro ao exportar Excel.");
+      setErro(e instanceof Error ? e.message : "Erro ao exportar Excel.");
     } finally {
       setExportandoExcel(false);
     }
@@ -395,6 +397,8 @@ export default function RelatoriosPage() {
               <input
                 id="data-inicio"
                 type="date"
+                min="2020-01-01"
+                max="2100-12-31"
                 value={dataInicio}
                 onChange={(e) => setDataInicio(e.target.value)}
                 className="border-none outline-none text-xs font-semibold text-slate-800 bg-transparent cursor-pointer"
@@ -403,6 +407,8 @@ export default function RelatoriosPage() {
               <input
                 id="data-fim"
                 type="date"
+                min="2020-01-01"
+                max="2100-12-31"
                 value={dataFim}
                 onChange={(e) => setDataFim(e.target.value)}
                 className="border-none outline-none text-xs font-semibold text-slate-800 bg-transparent cursor-pointer"

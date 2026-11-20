@@ -24,6 +24,33 @@ export interface ConsumoDiarioDTO {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+export const MAX_DIAS_RELATORIO = 366;
+
+export function validarPeriodoRelatorio(
+  dataInicio: string,
+  dataFim: string
+): void {
+  if (!dataInicio || !dataFim) {
+    throw new Error("Informe a data inicial e a data final do período.");
+  }
+  const inicio = new Date(`${dataInicio}T00:00:00Z`);
+  const fim = new Date(`${dataFim}T00:00:00Z`);
+  if (isNaN(inicio.getTime()) || isNaN(fim.getTime())) {
+    throw new Error("Período inválido. Verifique as datas informadas.");
+  }
+  if (inicio.getTime() > fim.getTime()) {
+    throw new Error("A data inicial não pode ser posterior à data final.");
+  }
+  const diffDias = Math.round(
+    (fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  if (diffDias > MAX_DIAS_RELATORIO) {
+    throw new Error(
+      "O período máximo permitido para consulta e exportação de relatórios é de 12 meses (366 dias)."
+    );
+  }
+}
+
 function obterHeaders(): Record<string, string> {
   return garantirSessaoAtiva(
     "Sessão expirada. Faça login na Área do Nutricionista."
@@ -36,6 +63,7 @@ export async function buscarRelatorioMensal(
   dataInicio: string,
   dataFim: string
 ): Promise<RelatorioMensalItemDTO[]> {
+  validarPeriodoRelatorio(dataInicio, dataFim);
   const res = await fetch(
     `${BASE_URL}/relatorios/mensal?dataInicio=${dataInicio}&dataFim=${dataFim}`,
     {
@@ -58,6 +86,7 @@ export async function exportarRelatorioPdf(
   dataInicio: string,
   dataFim: string
 ): Promise<void> {
+  validarPeriodoRelatorio(dataInicio, dataFim);
   const res = await fetch(
     `${BASE_URL}/relatorios/mensal/pdf?dataInicio=${dataInicio}&dataFim=${dataFim}`,
     {
@@ -84,6 +113,7 @@ export async function exportarRelatorioExcel(
   dataInicio: string,
   dataFim: string
 ): Promise<void> {
+  validarPeriodoRelatorio(dataInicio, dataFim);
   const res = await fetch(
     `${BASE_URL}/relatorios/mensal/excel?dataInicio=${dataInicio}&dataFim=${dataFim}`,
     {
@@ -111,6 +141,7 @@ export async function buscarGraficoConsumo(
   dataFim: string,
   produtoId?: string
 ): Promise<ConsumoDiarioDTO[]> {
+  validarPeriodoRelatorio(dataInicio, dataFim);
   const params = new URLSearchParams({ dataInicio, dataFim });
   if (produtoId) params.append("produtoId", produtoId);
   const res = await fetch(`${BASE_URL}/relatorios/consumo?${params}`, {

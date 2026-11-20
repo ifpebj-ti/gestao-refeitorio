@@ -218,12 +218,24 @@ export default function EstoqueGeralPage() {
     setSalvandoNovoInsumo(true);
     setErroNovoInsumo(null);
     try {
-      const novoProduto = await produtoService.cadastrar({
-        nome: novoInsumoNome.trim(),
-        categoria: novoInsumoCategoria,
-        unidadeMedida: unidadeFinal,
-        valorReferencia: valorNumerico,
-      });
+      if (novoInsumoDarEntradaInicial && novoInsumoQtdInicial.trim()) {
+        const qtdValidacao = parseFloat(novoInsumoQtdInicial.replace(",", "."));
+        if (isNaN(qtdValidacao) || qtdValidacao <= 0 || qtdValidacao > 999999.99) {
+          setErroNovoInsumo("A quantidade inicial deve estar entre 0,001 e 999.999,99.");
+          setSalvandoNovoInsumo(false);
+          return;
+        }
+      }
+
+      const novoProduto = await produtoService.cadastrar(
+        {
+          nome: novoInsumoNome.trim(),
+          categoria: novoInsumoCategoria,
+          unidadeMedida: unidadeFinal,
+          valorReferencia: valorNumerico,
+        },
+        listaEstoque
+      );
 
       // Se optou por lançar entrada inicial no estoque:
       if (novoInsumoDarEntradaInicial && novoInsumoQtdInicial.trim()) {
@@ -651,8 +663,8 @@ export default function EstoqueGeralPage() {
     }
 
     const qtdNum = parseFloat(quantidadeEntrada.replace(",", "."));
-    if (isNaN(qtdNum) || qtdNum <= 0) {
-      alert("Informe uma quantidade válida maior que zero!");
+    if (isNaN(qtdNum) || qtdNum <= 0 || qtdNum > 999999.99) {
+      alert("Informe uma quantidade válida entre 0,001 e 999.999,99!");
       return;
     }
 
@@ -1166,6 +1178,7 @@ export default function EstoqueGeralPage() {
                 </label>
                 <input
                   type="text"
+                  maxLength={150}
                   value={fornecedorEntrada}
                   onChange={(e) => setFornecedorEntrada(e.target.value)}
                   placeholder="Digite quem forneceu ou o setor (ex: Fazenda IFPE, Distribuidora, Cooperativa...)"
@@ -1184,6 +1197,7 @@ export default function EstoqueGeralPage() {
                       type="number"
                       step="0.01"
                       min="0.001"
+                      max="999999.99"
                       value={quantidadeEntrada}
                       onChange={(e) => setQuantidadeEntrada(e.target.value)}
                       placeholder="Ex.: 30"
@@ -1253,6 +1267,7 @@ export default function EstoqueGeralPage() {
                   </label>
                   <input
                     type="text"
+                    maxLength={50}
                     value={loteEntrada}
                     onChange={(e) => setLoteEntrada(e.target.value)}
                     placeholder="Ex: LT-2026-04"
@@ -1696,6 +1711,7 @@ export default function EstoqueGeralPage() {
                 <input
                   type="text"
                   required
+                  maxLength={100}
                   value={novoInsumoNome}
                   onChange={(e) => setNovoInsumoNome(e.target.value)}
                   placeholder="Ex: Carne de Porco, Arroz Parboilizado..."
@@ -1766,6 +1782,7 @@ export default function EstoqueGeralPage() {
                     type="number"
                     step="0.01"
                     min="0.01"
+                    max="999999.99"
                     disabled={novoInsumoSemPreco}
                     value={novoInsumoValor}
                     onChange={(e) => setNovoInsumoValor(e.target.value)}
@@ -1782,6 +1799,7 @@ export default function EstoqueGeralPage() {
                 </label>
                 <input
                   type="text"
+                  maxLength={150}
                   value={novoInsumoFornecedor}
                   onChange={(e) => setNovoInsumoFornecedor(e.target.value)}
                   placeholder="Digite quem forneceu ou setor (ex: Fazenda IFPE, Distribuidora, Cooperativa...)"
@@ -1818,6 +1836,7 @@ export default function EstoqueGeralPage() {
                           type="number"
                           step="0.01"
                           min="0.001"
+                          max="999999.99"
                           value={novoInsumoQtdInicial}
                           onChange={(e) => setNovoInsumoQtdInicial(e.target.value)}
                           placeholder="Ex: 50"
@@ -1963,6 +1982,7 @@ export default function EstoqueGeralPage() {
                   <input
                     type="text"
                     required
+                    maxLength={20}
                     value={edicaoUnidadeCustomizada}
                     onChange={(e) => setEdicaoUnidadeCustomizada(e.target.value)}
                     placeholder="Ex: Garrafa, Barra, Pote, Balde..."
@@ -1995,6 +2015,7 @@ export default function EstoqueGeralPage() {
                     type="number"
                     step="0.01"
                     min="0.01"
+                    max="999999.99"
                     disabled={edicaoSemPreco}
                     value={edicaoValorReferencia}
                     onChange={(e) => setEdicaoValorReferencia(e.target.value)}
@@ -2015,6 +2036,7 @@ export default function EstoqueGeralPage() {
                   type="number"
                   step="0.1"
                   min="0"
+                  max="999999.99"
                   value={edicaoQtdMinima}
                   onChange={(e) => setEdicaoQtdMinima(e.target.value)}
                   placeholder="Ex: 10"

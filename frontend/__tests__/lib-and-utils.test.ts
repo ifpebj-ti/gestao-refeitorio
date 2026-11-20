@@ -47,8 +47,10 @@ import {
   exportarRelatorioPdf,
   exportarRelatorioExcel,
   buscarGraficoConsumo,
+  validarPeriodoRelatorio,
 } from "@/lib/relatorios";
-import { produtoService } from "@/lib/produtos";
+import { produtoService, validarDadosProduto } from "@/lib/produtos";
+import { validarCardapioSemanal } from "@/app/cardapio/page";
 import { api } from "@/lib/api";
 import nextConfig from "../next.config.js";
 
@@ -483,5 +485,98 @@ describe("Serviços de API (usuarios, movimentacoes, relatorios, produtos, api)"
     const reqPublica = new NextRequest("https://gestao-refeitorio-ifpe.duckdns.org/tv/refeitorio");
     const resPublica = middleware(reqPublica);
     expect(resPublica.status).toBe(200);
+  });
+
+  it("valida intervalo máximo de 12 meses (366 dias) e ordem de datas nos Relatórios (#451 / B-07)", async () => {
+    expect(() => validarPeriodoRelatorio("", "2026-11-30")).toThrow(
+      "Informe a data inicial e a data final do período."
+    );
+    expect(() => validarPeriodoRelatorio("data-invalida", "2026-11-30")).toThrow(
+      "Período inválido"
+    );
+    expect(() => validarPeriodoRelatorio("2026-12-01", "2026-11-01")).toThrow(
+      "A data inicial não pode ser posterior à data final."
+    );
+    expect(() => validarPeriodoRelatorio("2020-01-01", "2026-11-30")).toThrow(
+      "O período máximo permitido para consulta e exportação de relatórios é de 12 meses (366 dias)."
+    );
+
+    await expect(buscarRelatorioMensal("1000-01-01", "9999-12-31")).rejects.toThrow(
+      "12 meses (366 dias)"
+    );
+    await expect(exportarRelatorioPdf("1000-01-01", "9999-12-31")).rejects.toThrow(
+      "12 meses (366 dias)"
+    );
+    await expect(exportarRelatorioExcel("1000-01-01", "9999-12-31")).rejects.toThrow(
+      "12 meses (366 dias)"
+    );
+    await expect(buscarGraficoConsumo("2026-12-10", "2026-11-10")).rejects.toThrow(
+      "A data inicial não pode ser posterior à data final."
+    );
+
+    expect(() => validarPeriodoRelatorio("2026-01-01", "2026-12-31")).not.toThrow();
+  });
+
+  it("valida limites de grandeza, tamanho de campos e unicidade no Catálogo de Produtos e no Cardápio Semanal (#450 / A-01, A-02, M-10, B-06)", async () => {
+    const catalogo = [{ id: "p1", nome: "Arroz Parboilizado" }];
+
+    // 1. Unicidade de nome de produto case-insensitive (A-01)
+    expect(() =>
+      validarDadosProduto({ nome: "  arroz parboilizado  ", unidadeMedida: "Kg" }, catalogo)
+    ).toThrow("Já existe um insumo cadastrado com este nome no catálogo.");
+
+    await expect(
+      produtoService.cadastrar(
+        { nome: "ARROZ PARBOILIZADO", categoria: "Grãos", unidadeMedida: "Kg" },
+        catalogo
+      )
+    ).rejects.toThrow("Já existe um insumo cadastrado com este nome no catálogo.");
+
+    // 2. Tamanho de VARCHAR e magnitude de NUMERIC em produtos (B-06 / M-10)
+    expect(() =>
+      validarDadosProduto({ nome: "A".repeat(101), unidadeMedida: "Kg" })
+    ).toThrow("no máximo 100 caracteres");
+    expect(() =>
+      validarDadosProduto({ nome: "Arroz", unidadeMedida: "U".repeat(25) })
+    ).toThrow("no máximo 20 caracteres");
+    expect(() =>
+      validarDadosProduto({ valorReferencia: 2_000_000 })
+    ).toThrow("entre R$ 0,01 e R$ 999.999,99");
+    expect(() =>
+      validarDadosProduto({ quantidadeMinima: 5_000_000 })
+    ).toThrow("entre 0 e 999.999,99");
+
+    // 3. Cardápio Semanal: item duplicado na mesma refeição (A-02) e grandeza de pessoasEstimadas / quantidade (M-10)
+    const refeicaoVazia = { texto: "", quantidadePessoas: "", observacoes: "", itens: [], itensSalada: [] };
+    const criarGradeBase = () => ({
+      Segunda: { cafe: { ...refeicaoVazia }, almoco: { ...refeicaoVazia }, jantar: { ...refeicaoVazia } },
+      Terça: { cafe: { ...refeicaoVazia }, almoco: { ...refeicaoVazia }, jantar: { ...refeicaoVazia } },
+      Quarta: { cafe: { ...refeicaoVazia }, almoco: { ...refeicaoVazia }, jantar: { ...refeicaoVazia } },
+      Quinta: { cafe: { ...refeicaoVazia }, almoco: { ...refeicaoVazia }, jantar: { ...refeicaoVazia } },
+      Sexta: { cafe: { ...refeicaoVazia }, almoco: { ...refeicaoVazia }, jantar: { ...refeicaoVazia } },
+    });
+
+    const gradeDuplicada = criarGradeBase();
+    gradeDuplicada.Segunda.almoco.texto = "- Arroz (10 kg)\n- Feijão (5 kg)\n- ARROZ (8 kg)";
+    const resDuplicado = validarCardapioSemanal(gradeDuplicada);
+    expect(resDuplicado.valido).toBe(false);
+    expect(resDuplicado.erro).toContain("Item duplicado em Segunda (Almoço)");
+
+    const gradePessoasExcesso = criarGradeBase();
+    gradePessoasExcesso.Terça.cafe.quantidadePessoas = "2000000000";
+    const resPessoas = validarCardapioSemanal(gradePessoasExcesso);
+    expect(resPessoas.valido).toBe(false);
+    expect(resPessoas.erro).toContain("entre 1 e 10.000");
+
+    const gradeQtdExcesso = criarGradeBase();
+    gradeQtdExcesso.Quarta.jantar.texto = "- Carne Bovina (999999999 kg)";
+    const resQtd = validarCardapioSemanal(gradeQtdExcesso);
+    expect(resQtd.valido).toBe(false);
+    expect(resQtd.erro).toContain("entre 0,001 e 100.000");
+
+    const gradeValida = criarGradeBase();
+    gradeValida.Segunda.almoco.quantidadePessoas = "350";
+    gradeValida.Segunda.almoco.texto = "Salada: Alface + Tomate\n- Arroz (25 kg)\n- Feijão (15 kg)";
+    expect(validarCardapioSemanal(gradeValida)).toEqual({ valido: true });
   });
 });

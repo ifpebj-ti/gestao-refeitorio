@@ -14,6 +14,7 @@ import {
   Users,
   Utensils,
   RotateCcw,
+  AlertCircle,
 } from "lucide-react";
 
 type DiaSemana = "Segunda" | "Terça" | "Quarta" | "Quinta" | "Sexta";
@@ -293,6 +294,104 @@ export function parseTextoParaItens(texto: string): {
   return { itens, itensSalada };
 }
 
+export const MAX_PESSOAS_REFEICAO = 10000;
+export const MAX_QUANTIDADE_ITEM_CARDAPIO = 100000;
+export const MAX_TAMANHO_TEXTO_REFEICAO = 2000;
+export const MAX_TAMANHO_HORARIO_REFEICAO = 50;
+export const MAX_TAMANHO_NOME_ITEM_CARDAPIO = 150;
+
+export function validarCardapioSemanal(
+  grade: Record<DiaSemana, DiaCardapio>
+): { valido: boolean; erro?: string } {
+  const nomesRefeicao: Record<TipoRefeicaoChave, string> = {
+    cafe: "Café da Manhã",
+    almoco: "Almoço",
+    jantar: "Jantar",
+  };
+
+  for (const dia of DIAS_SEMANA) {
+    const dadosDia = grade[dia];
+    if (!dadosDia) continue;
+
+    for (const chave of ["cafe", "almoco", "jantar"] as const) {
+      const ref = dadosDia[chave];
+      if (!ref) continue;
+      const rotulo = `${dia} (${nomesRefeicao[chave]})`;
+
+      if (ref.horario && ref.horario.trim().length > MAX_TAMANHO_HORARIO_REFEICAO) {
+        return {
+          valido: false,
+          erro: `O horário informado em ${rotulo} excede o limite de ${MAX_TAMANHO_HORARIO_REFEICAO} caracteres.`,
+        };
+      }
+
+      if (ref.quantidadePessoas && ref.quantidadePessoas.trim() !== "") {
+        const valorLimpo = ref.quantidadePessoas.trim();
+        const numPessoas = Number(valorLimpo);
+        if (
+          !/^\d+$/.test(valorLimpo) ||
+          !Number.isInteger(numPessoas) ||
+          numPessoas < 1 ||
+          numPessoas > MAX_PESSOAS_REFEICAO
+        ) {
+          return {
+            valido: false,
+            erro: `A previsão de pessoas em ${rotulo} deve ser um número inteiro entre 1 e ${MAX_PESSOAS_REFEICAO.toLocaleString("pt-BR")}.`,
+          };
+        }
+      }
+
+      const textoRef = extrairTextoRefeicao(ref);
+      if (textoRef.length > MAX_TAMANHO_TEXTO_REFEICAO) {
+        return {
+          valido: false,
+          erro: `O texto do cardápio em ${rotulo} excede o limite de ${MAX_TAMANHO_TEXTO_REFEICAO} caracteres.`,
+        };
+      }
+
+      const { itens, itensSalada } = parseTextoParaItens(textoRef);
+      const todosItens = [...itensSalada, ...itens];
+      const vistos = new Set<string>();
+
+      for (const item of todosItens) {
+        const nomeLimpo = (item.nome || "").trim();
+        if (!nomeLimpo) continue;
+
+        if (nomeLimpo.length > MAX_TAMANHO_NOME_ITEM_CARDAPIO) {
+          return {
+            valido: false,
+            erro: `O item "${nomeLimpo.slice(0, 30)}..." em ${rotulo} excede ${MAX_TAMANHO_NOME_ITEM_CARDAPIO} caracteres.`,
+          };
+        }
+
+        const chaveUnica = nomeLimpo.toLowerCase();
+        if (vistos.has(chaveUnica)) {
+          return {
+            valido: false,
+            erro: `Item duplicado em ${rotulo}: "${nomeLimpo}" foi informado mais de uma vez na mesma refeição.`,
+          };
+        }
+        vistos.add(chaveUnica);
+
+        if (item.quantidade && item.quantidade.trim()) {
+          const matchNum = item.quantidade.replace(",", ".").match(/\d+(?:\.\d+)?/);
+          if (matchNum) {
+            const qtdNum = parseFloat(matchNum[0]);
+            if (isNaN(qtdNum) || qtdNum <= 0 || qtdNum > MAX_QUANTIDADE_ITEM_CARDAPIO) {
+              return {
+                valido: false,
+                erro: `A quantidade do item "${nomeLimpo}" em ${rotulo} deve estar entre 0,001 e ${MAX_QUANTIDADE_ITEM_CARDAPIO.toLocaleString("pt-BR")}.`,
+              };
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { valido: true };
+}
+
 const criarRefeicaoVazia = (): RefeicaoCardapio => ({
   texto: "",
   quantidadePessoas: "",
@@ -355,6 +454,7 @@ export default function CardapioSemanalPage() {
   const [modoEdicao, setModoEdicao] = useState(false);
   const [cardapio, setCardapio] = useState<Record<DiaSemana, DiaCardapio>>(CARDAPIO_INICIAL);
   const [feedbackSalvo, setFeedbackSalvo] = useState(false);
+  const [erroValidacaoCardapio, setErroValidacaoCardapio] = useState<string | null>(null);
 
   useEffect(() => {
     const agora = new Date();
@@ -539,6 +639,15 @@ export default function CardapioSemanalPage() {
   };
 
   const handleSalvarCardapio = async () => {
+    setErroValidacaoCardapio(null);
+    const resultadoValidacao = validarCardapioSemanal(cardapio);
+    if (!resultadoValidacao.valido) {
+      setErroValidacaoCardapio(
+        resultadoValidacao.erro || "Corrija os dados inválidos do cardápio antes de salvar."
+      );
+      return;
+    }
+
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cardapio));
       if (usuario?.nome) {
@@ -546,17 +655,6 @@ export default function CardapioSemanalPage() {
           "@gestao_refeitorio:cardapio_nutricionista",
           `Nutricionista ${usuario.nome}`
         );
-      }
-
-      // Sincroniza com o servidor central para as TVs da Cozinha e outros navegadores/perfis
-      try {
-        await fetch("/api/cardapio-semanal", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(cardapio),
-        });
-      } catch (err) {
-        console.warn("Aviso ao sincronizar cardápio com o servidor:", err);
       }
 
       // Salva snapshot datado para os dias da semana de referência como evidência histórica perene
@@ -661,6 +759,17 @@ export default function CardapioSemanalPage() {
         )}
       </div>
 
+      {/* FEEDBACK DE ERRO DE VALIDAÇÃO */}
+      {erroValidacaoCardapio && (
+        <div
+          role="alert"
+          className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl flex items-center gap-3 shadow-xs"
+        >
+          <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
+          <span className="text-xs sm:text-sm font-bold">{erroValidacaoCardapio}</span>
+        </div>
+      )}
+
       {/* FEEDBACK DE SUCESSO */}
       {feedbackSalvo && (
         <div className="p-4 bg-emerald-600 text-white rounded-2xl flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
@@ -701,6 +810,8 @@ export default function CardapioSemanalPage() {
               <span className="text-xs font-bold text-slate-700">Data de Referência:</span>
               <input
                 type="date"
+                min="2020-01-01"
+                max="2100-12-31"
                 value={toLocalDateInputString(dataReferencia)}
                 onChange={handleMudarData}
                 className="px-2.5 py-1 text-xs font-bold bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer"
@@ -844,6 +955,7 @@ export default function CardapioSemanalPage() {
                     <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                     <input
                       type="text"
+                      maxLength={MAX_TAMANHO_HORARIO_REFEICAO}
                       value={dadosRefeicao.horario ?? horarioRefeicao}
                       onChange={(e) => onAtualizarCampo("horario", e.target.value)}
                       placeholder={horarioRefeicao}
@@ -871,12 +983,15 @@ export default function CardapioSemanalPage() {
               <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span className="text-[11px] font-bold text-slate-600">Pessoas:</span>
               <input
-                type="text"
+                type="number"
+                min={1}
+                max={MAX_PESSOAS_REFEICAO}
+                step={1}
                 value={dadosRefeicao.quantidadePessoas || ""}
                 onChange={(e) => onAtualizarCampo("quantidadePessoas", e.target.value)}
                 placeholder=""
-                className="w-16 font-extrabold text-xs text-slate-800 bg-white border border-slate-300 rounded px-1.5 py-0.5 text-center focus:outline-none focus:border-emerald-600"
-                title="Previsão de pessoas para esta refeição"
+                className="w-20 font-extrabold text-xs text-slate-800 bg-white border border-slate-300 rounded px-1.5 py-0.5 text-center focus:outline-none focus:border-emerald-600"
+                title="Previsão de pessoas para esta refeição (1 a 10.000)"
               />
             </div>
           ) : (
@@ -907,6 +1022,7 @@ export default function CardapioSemanalPage() {
 
           <textarea
             rows={tipoChave === "almoco" ? 11 : 8}
+            maxLength={MAX_TAMANHO_TEXTO_REFEICAO}
             value={textoAtual}
             onChange={(e) => onAtualizarTexto(e.target.value)}
             placeholder="Digite os itens do cardápio desta refeição..."
