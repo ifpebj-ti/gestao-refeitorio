@@ -27,6 +27,7 @@ export default defineConfig({
         "app/context/**/*.tsx",
         "app/page.tsx",
         "app/**/usuarios/page.tsx",
+        "app/**/notas/page.tsx",
       ],
       exclude: [
         "**/*.d.ts",

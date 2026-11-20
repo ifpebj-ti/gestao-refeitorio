@@ -11,6 +11,7 @@ import {
   CalendarDays,
   Tv,
   BarChart3,
+  FileText,
   Users,
   LogOut,
   X,
@@ -41,6 +42,7 @@ export default function Sidebar() {
   const linksNutri = [
     { href: "/consumo", label: "Consumo Diário", icon: Utensils },
     { href: "/estoque", label: "Entradas & Estoque", icon: Boxes },
+    { href: "/notas", label: "Notas Fiscais", icon: FileText },
     { href: "/cardapio", label: "Cardápio Semanal", icon: CalendarDays },
     { href: "/cardapio-tv", label: "Transmissão TV", icon: Tv },
     { href: "/relatorios", label: "Relatórios & Indicadores", icon: BarChart3 },

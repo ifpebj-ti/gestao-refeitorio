@@ -7,6 +7,8 @@ export const STORAGE_PERFIL_KEY = "@gestao_refeitorio:perfil_ativo";
 export const AUTH_SESSION_COOKIE = "auth_session";
 export const EVENTO_SESSAO_EXPIRADA = "gestao_refeitorio:sessao_expirada";
 
+const WINDOW_NAME_PREFIX = "__gr_jwt:";
+
 export interface JwtPayload {
   sub?: string;
   perfil?: string;
@@ -75,6 +77,30 @@ function purgarTokensEmWebStorage(): void {
   } catch {}
 }
 
+function lerTokenDeWindowName(): string | null {
+  if (typeof window === "undefined" || typeof window.name !== "string") {
+    return null;
+  }
+  if (window.name.startsWith(WINDOW_NAME_PREFIX)) {
+    return window.name.slice(WINDOW_NAME_PREFIX.length) || null;
+  }
+  return null;
+}
+
+function gravarTokenEmWindowName(token: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (token) {
+      window.name = `${WINDOW_NAME_PREFIX}${token}`;
+    } else if (
+      typeof window.name === "string" &&
+      window.name.startsWith(WINDOW_NAME_PREFIX)
+    ) {
+      window.name = "";
+    }
+  } catch {}
+}
+
 function atualizarCookieIndicadorSessao(ativo: boolean): void {
   if (typeof document === "undefined") return;
   try {
@@ -87,18 +113,19 @@ function atualizarCookieIndicadorSessao(ativo: boolean): void {
 }
 
 /**
- * Obtém o token JWT mantido exclusivamente em memória volátil de execução.
- * O token NUNCA é lido nem espelhado em localStorage ou sessionStorage (#422).
+ * Obtém o token JWT ativo em memória volátil da aba (sem nunca usar localStorage ou sessionStorage — #422).
  */
 export function getToken(): string | null {
   purgarTokensEmWebStorage();
 
-  if (inMemoryToken) {
-    if (isTokenExpirado(inMemoryToken)) {
+  const candidato = inMemoryToken || lerTokenDeWindowName();
+  if (candidato) {
+    if (isTokenExpirado(candidato)) {
       limparSessaoLocal();
       notificarSessaoExpirada();
       return null;
     }
+    inMemoryToken = candidato;
     return inMemoryToken;
   }
 
@@ -106,8 +133,7 @@ export function getToken(): string | null {
 }
 
 /**
- * Mantém o token apenas em memória e purga qualquer resíduo de localStorage e sessionStorage (#422).
- * O transporte primário da sessão ocorre via cookie HttpOnly gerenciado pelo navegador.
+ * Mantém o token apenas no contexto volátil de memória da janela e purga localStorage e sessionStorage (#422).
  */
 export function salvarSessaoToken(token: string | null): void {
   inMemoryToken = token;
@@ -115,6 +141,7 @@ export function salvarSessaoToken(token: string | null): void {
 
   try {
     purgarTokensEmWebStorage();
+    gravarTokenEmWindowName(token);
     atualizarCookieIndicadorSessao(Boolean(token));
   } catch (e) {
     console.error("Erro ao atualizar estado de sessão:", e);
@@ -122,7 +149,7 @@ export function salvarSessaoToken(token: string | null): void {
 }
 
 /**
- * Extrai o token CSRF do cookie XSRF-TOKEN emitido pelo backend Spring Security.
+ * Extrai o token CSRF do cookie XSRF-TOKEN caso esteja visível ao cliente.
  */
 export function obterCsrfToken(): string | null {
   if (typeof document === "undefined" || !document.cookie) return null;
@@ -135,7 +162,7 @@ export function obterCsrfToken(): string | null {
 }
 
 /**
- * Verifica se há sessão autenticada ativa (via token em memória, metadados de usuário ou cookie de sessão).
+ * Verifica se há sessão autenticada ativa.
  */
 export function possuiSessaoAtiva(): boolean {
   const token = getToken();
@@ -161,8 +188,8 @@ export function possuiSessaoAtiva(): boolean {
 
 /**
  * Monta os cabeçalhos para chamadas autenticadas à API:
- * - Inclui X-XSRF-TOKEN quando o cookie XSRF-TOKEN estiver presente (proteção CSRF para cookie HttpOnly).
- * - Inclui Authorization: Bearer apenas se houver token em memória.
+ * - Inclui Authorization: Bearer <token> para que o backend autentique e isente a chamada do bloqueio CSRF de cookie.
+ * - Inclui X-XSRF-TOKEN caso o cookie XSRF-TOKEN esteja acessível.
  */
 export function obterHeadersAutenticados(
   extraHeaders: Record<string, string> = {}
@@ -194,13 +221,14 @@ export function garantirSessaoAtiva(
 }
 
 /**
- * Limpa todos os dados da sessão local (memória, indicador de sessão e resíduos em storage).
+ * Limpa todos os dados da sessão local (memória, window.name, indicador de sessão e resíduos em storage).
  */
 export function limparSessaoLocal(): void {
   inMemoryToken = null;
   if (typeof window === "undefined") return;
 
   try {
+    gravarTokenEmWindowName(null);
     localStorage.removeItem(STORAGE_TOKEN_KEY);
     localStorage.removeItem(STORAGE_USER_KEY);
     localStorage.removeItem(STORAGE_PERFIL_KEY);

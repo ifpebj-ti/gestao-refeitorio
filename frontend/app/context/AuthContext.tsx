@@ -101,15 +101,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [autenticado]);
 
-  // Carrega dados de sessão na inicialização (suportando cookie HttpOnly e estado de usuário)
+  // Carrega dados de sessão na inicialização garantindo que o token Bearer esteja presente em memória/janela
   useEffect(() => {
     try {
       const tokenSalvo = getToken();
       const userSalvo = localStorage.getItem(STORAGE_USER_KEY);
       const perfilSalvo = localStorage.getItem(STORAGE_PERFIL_KEY) as PerfilUsuario | null;
 
-      if (userSalvo) {
-        if (tokenSalvo && isTokenExpirado(tokenSalvo)) {
+      if (tokenSalvo && userSalvo) {
+        if (isTokenExpirado(tokenSalvo)) {
           limparSessaoLocal();
           setToken(null);
           setUsuario(null);
@@ -122,6 +122,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setAutenticado(true);
         }
       } else {
+        if (userSalvo && !tokenSalvo) {
+          limparSessaoLocal();
+        }
         setToken(null);
         setUsuario(null);
         setAutenticado(false);
