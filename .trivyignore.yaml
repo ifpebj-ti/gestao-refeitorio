@@ -1,9 +1,11 @@
-# Revisado em 2026-11-17 para as issues #384 e #344.
-#
-# As 16 exceções temporárias com vencimento em 2026-11-30 foram removidas após
-# nova varredura, sem este arquivo, das imagens da última execução bem-sucedida
-# da branch main. Nenhuma vulnerabilidade HIGH/CRITICAL corrigível foi encontrada.
+# Revisado em 2026-11-20.
 #
 # Novas exceções devem incluir id, statement e expired_at, com prazo curto e
 # risco residual documentado. A correção da dependência ou imagem tem prioridade.
-vulnerabilities: []
+vulnerabilities:
+  - id: CVE-2026-109908
+    statement: >-
+      Heap buffer overflow in X.Org libfontenc (.enc font encoding parser) bundled in the
+      Alpine base container image. The container runs headless as a non-root user without
+      an X server and never processes untrusted .enc font encoding files.
+    expired_at: 2026-12-05
