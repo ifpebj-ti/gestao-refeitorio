@@ -297,6 +297,15 @@ describe("Serviços HTTP de Remetentes e Notas (lib/remetentes.ts e lib/notas.ts
     const download = await notasApi.baixarDocumentoNota("nota-1");
     expect(download.contentType).toContain("application/pdf");
 
+    // Testa compatibilidade 405 (container local sem GET /api/notas) retornando cache sem erro
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 405 }));
+    const listaFallback = await notasApi.listarNotas({ status: "PENDENTE" });
+    expect(Array.isArray(listaFallback)).toBe(true);
+
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 405 }));
+    const detalheFallback = await notasApi.buscarNotaPorId("nota-1");
+    expect(detalheFallback.id).toBe("nota-1");
+
     // Testa tratamento de erros HTTP (!res.ok) nos serviços de remetentes e notas
     fetchMock.mockImplementation(() =>
       Promise.resolve(
@@ -422,7 +431,7 @@ describe("Página de Gestão de Notas e Remetentes (NUTRICIONISTA — #415 a #42
     });
 
     // Abrir detalhe da nota externa
-    const botoesDetalhes = screen.getAllByText("Ver detalhes");
+    const botoesDetalhes = screen.getAllByRole("button", { name: "Ver" });
     fireEvent.click(botoesDetalhes[0]);
 
     await waitFor(() => {
@@ -455,7 +464,7 @@ describe("Página de Gestão de Notas e Remetentes (NUTRICIONISTA — #415 a #42
     });
 
     // 1. Registrar Nota Externa
-    fireEvent.click(screen.getByText("Registrar Nota Externa"));
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
     await waitFor(() => {
       expect(screen.getByText("Leite Pasteurizado")).toBeInTheDocument();
     });
@@ -477,7 +486,7 @@ describe("Página de Gestão de Notas e Remetentes (NUTRICIONISTA — #415 a #42
     });
 
     // 2. Emitir Nota Local
-    fireEvent.click(screen.getByText("Emitir Nota Local"));
+    fireEvent.click(screen.getByRole("button", { name: "Emitir" }));
     await waitFor(() => {
       expect(
         screen.getByText("Emitir Nota Local de Recebimento")
@@ -503,7 +512,7 @@ describe("Página de Gestão de Notas e Remetentes (NUTRICIONISTA — #415 a #42
     // 3. Visualizar comprovante de nota local para assinatura (#420)
     vi.spyOn(notasApi, "buscarNotaPorId").mockResolvedValueOnce(notaDetalheLocalMock);
     window.print = vi.fn();
-    fireEvent.click(screen.getAllByText("Ver detalhes")[1]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Ver" })[1]);
 
     await waitFor(() => {
       expect(screen.getByText("Imprimir para Assinatura")).toBeInTheDocument();
@@ -518,10 +527,10 @@ describe("Página de Gestão de Notas e Remetentes (NUTRICIONISTA — #415 a #42
     render(<GestaoNotasPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Remetentes/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Remetentes/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText(/Remetentes/i));
+    fireEvent.click(screen.getByRole("button", { name: /Remetentes/i }));
 
     expect(screen.getByText("Agroindústria Campus BJ")).toBeInTheDocument();
     expect(screen.getByText("Fornecedor Antigo Inativo")).toBeInTheDocument();
@@ -597,7 +606,7 @@ describe("Página de Gestão de Notas e Remetentes (NUTRICIONISTA — #415 a #42
       expect(screen.getByText("NF-1020")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getAllByText("Ver detalhes")[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Ver" })[0]);
 
     await waitFor(() => {
       expect(screen.getByText("Baixar Documento")).toBeInTheDocument();

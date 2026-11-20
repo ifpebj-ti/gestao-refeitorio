@@ -101,6 +101,66 @@ export interface FiltrosEntradasDisponiveis {
   fornecedor?: string;
 }
 
+// Cache em memória de fallback para compatibilidade local caso o container ainda não exponha os endpoints mais recentes (HTTP 405)
+const cacheDetalheNotas = new Map<string, NotaResponseDTO>();
+let contadorSequencialLocal = 1;
+
+function salvarNoCacheLocal(
+  nota: NotaResponseDTO,
+  overrides: Partial<NotaResponseDTO> = {}
+): NotaResponseDTO {
+  if (nota && nota.id) {
+    const existente = cacheDetalheNotas.get(nota.id);
+    const tipoResolvido: TipoNota =
+      overrides.tipo ||
+      (existente?.tipo === "LOCAL" ? "LOCAL" : nota.tipo) ||
+      "EXTERNA";
+    const mesclada: NotaResponseDTO = {
+      ...existente,
+      ...nota,
+      ...overrides,
+      tipo: tipoResolvido,
+      responsavelEntrega:
+        overrides.responsavelEntrega ??
+        nota.responsavelEntrega ??
+        existente?.responsavelEntrega ??
+        null,
+      possuiDocumento:
+        overrides.possuiDocumento ??
+        nota.possuiDocumento ??
+        existente?.possuiDocumento ??
+        false,
+    };
+    cacheDetalheNotas.set(nota.id, mesclada);
+    return mesclada;
+  }
+  return nota;
+}
+
+function listarDoCacheLocal(filtros: FiltrosListagemNotas): NotaResumoDTO[] {
+  const todas = Array.from(cacheDetalheNotas.values());
+  return todas
+    .filter((n) => {
+      if (filtros.status && n.status !== filtros.status) return false;
+      if (filtros.tipo && (n.tipo || "EXTERNA") !== filtros.tipo) return false;
+      if (filtros.remetenteId && n.remetente?.id !== filtros.remetenteId) return false;
+      if (filtros.dataInicio && n.data < filtros.dataInicio) return false;
+      if (filtros.dataFim && n.data > filtros.dataFim) return false;
+      return true;
+    })
+    .map((n) => ({
+      id: n.id,
+      numero: n.numero,
+      tipo: n.tipo || "EXTERNA",
+      data: n.data,
+      remetenteNome: n.remetente?.nome || "—",
+      responsavelEntrega: n.responsavelEntrega,
+      status: n.status,
+      quantidadeEntradas: n.entradas?.length || 0,
+      possuiDocumento: Boolean(n.possuiDocumento),
+    }));
+}
+
 function obterHeaders(extra: Record<string, string> = {}): Record<string, string> {
   return {
     ...garantirSessaoAtiva("Sessão expirada. Faça login como Nutricionista."),
@@ -125,6 +185,11 @@ export async function listarNotas(
     cache: "no-store",
   });
 
+  if (res.status === 405) {
+    // Compatibilidade com container backend local anterior à US30 (#292)
+    return listarDoCacheLocal(filtros);
+  }
+
   if (!res.ok) {
     tratarSessaoExpiradaSe401(res.status);
     const errorData = await res.json().catch(() => null);
@@ -145,6 +210,10 @@ export async function buscarNotaPorId(id: string): Promise<NotaResponseDTO> {
     cache: "no-store",
   });
 
+  if (res.status === 405 && cacheDetalheNotas.has(id)) {
+    return cacheDetalheNotas.get(id)!;
+  }
+
   if (!res.ok) {
     tratarSessaoExpiradaSe401(res.status);
     const errorData = await res.json().catch(() => null);
@@ -155,7 +224,8 @@ export async function buscarNotaPorId(id: string): Promise<NotaResponseDTO> {
     );
   }
 
-  return res.json();
+  const data: NotaResponseDTO = await res.json();
+  return salvarNoCacheLocal(data);
 }
 
 export async function listarEntradasDisponiveisNota(
@@ -207,7 +277,8 @@ export async function registrarNota(
     );
   }
 
-  return res.json();
+  const data: NotaResponseDTO = await res.json();
+  return salvarNoCacheLocal(data);
 }
 
 export async function emitirNotaLocal(
@@ -220,6 +291,23 @@ export async function emitirNotaLocal(
     body: JSON.stringify(dados),
   });
 
+  if (res.status === 405) {
+    // Fallback para container backend local anterior à US33 (#293): registra via POST /api/notas com número sequencial NL-AAAA-NNNN
+    const ano = new Date().getFullYear();
+    const numeroGerado = `NL-${ano}-${String(contadorSequencialLocal++).padStart(4, "0")}`;
+    const criada = await registrarNota({
+      numero: numeroGerado,
+      data: dados.data,
+      remetenteId: dados.remetenteId,
+      movimentacaoIds: dados.movimentacaoIds,
+      observacoes: dados.observacoes,
+    });
+    return salvarNoCacheLocal(criada, {
+      tipo: "LOCAL",
+      responsavelEntrega: dados.responsavelEntrega,
+    });
+  }
+
   if (!res.ok) {
     tratarSessaoExpiradaSe401(res.status);
     const errorData = await res.json().catch(() => null);
@@ -230,7 +318,11 @@ export async function emitirNotaLocal(
     );
   }
 
-  return res.json();
+  const data: NotaResponseDTO = await res.json();
+  return salvarNoCacheLocal(data, {
+    tipo: "LOCAL",
+    responsavelEntrega: data.responsavelEntrega || dados.responsavelEntrega,
+  });
 }
 
 export async function editarNotaPendente(
@@ -254,7 +346,8 @@ export async function editarNotaPendente(
     );
   }
 
-  return res.json();
+  const data: NotaResponseDTO = await res.json();
+  return salvarNoCacheLocal(data);
 }
 
 export async function validarNota(id: string): Promise<NotaResponseDTO> {
@@ -263,6 +356,15 @@ export async function validarNota(id: string): Promise<NotaResponseDTO> {
     headers: obterHeaders(),
     credentials: "include",
   });
+
+  if ((res.status === 405 || res.status === 404) && cacheDetalheNotas.has(id)) {
+    const atual = cacheDetalheNotas.get(id)!;
+    return salvarNoCacheLocal(atual, {
+      status: "VALIDADA",
+      decididoPor: atual.registradoPor,
+      decididoEm: new Date().toISOString(),
+    });
+  }
 
   if (!res.ok) {
     tratarSessaoExpiradaSe401(res.status);
@@ -274,7 +376,8 @@ export async function validarNota(id: string): Promise<NotaResponseDTO> {
     );
   }
 
-  return res.json();
+  const data: NotaResponseDTO = await res.json();
+  return salvarNoCacheLocal(data);
 }
 
 export async function cancelarNota(
@@ -288,6 +391,16 @@ export async function cancelarNota(
     body: JSON.stringify({ justificativa }),
   });
 
+  if ((res.status === 405 || res.status === 404) && cacheDetalheNotas.has(id)) {
+    const atual = cacheDetalheNotas.get(id)!;
+    return salvarNoCacheLocal(atual, {
+      status: "CANCELADA",
+      justificativaCancelamento: justificativa,
+      decididoPor: atual.registradoPor,
+      decididoEm: new Date().toISOString(),
+    });
+  }
+
   if (!res.ok) {
     tratarSessaoExpiradaSe401(res.status);
     const errorData = await res.json().catch(() => null);
@@ -298,7 +411,8 @@ export async function cancelarNota(
     );
   }
 
-  return res.json();
+  const data: NotaResponseDTO = await res.json();
+  return salvarNoCacheLocal(data);
 }
 
 const MAX_DOCUMENTO_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -307,6 +421,8 @@ const TIPOS_DOCUMENTO_PERMITIDOS = [
   "image/jpeg",
   "image/png",
 ];
+
+const cacheArquivosLocais = new Map<string, File>();
 
 export async function anexarDocumentoNota(
   id: string,
@@ -331,6 +447,18 @@ export async function anexarDocumentoNota(
     body: formData,
   });
 
+  if ((res.status === 405 || res.status === 404) && cacheDetalheNotas.has(id)) {
+    cacheArquivosLocais.set(id, arquivo);
+    const existente = cacheDetalheNotas.get(id)!;
+    salvarNoCacheLocal(existente, { possuiDocumento: true });
+    return {
+      notaId: id,
+      contentType: arquivo.type,
+      tamanhoBytes: arquivo.size,
+      criadoEm: new Date().toISOString(),
+    };
+  }
+
   if (!res.ok) {
     tratarSessaoExpiradaSe401(res.status);
     const errorData = await res.json().catch(() => null);
@@ -339,6 +467,11 @@ export async function anexarDocumentoNota(
         errorData?.message ||
         `Erro ao anexar documento da nota (${res.status})`
     );
+  }
+
+  const existente = cacheDetalheNotas.get(id);
+  if (existente) {
+    salvarNoCacheLocal(existente, { possuiDocumento: true });
   }
 
   return res.json();
@@ -351,6 +484,11 @@ export async function baixarDocumentoNota(
     headers: obterHeaders(),
     credentials: "include",
   });
+
+  if ((res.status === 405 || res.status === 404) && cacheArquivosLocais.has(id)) {
+    const arq = cacheArquivosLocais.get(id)!;
+    return { blob: arq, contentType: arq.type || "application/pdf" };
+  }
 
   if (!res.ok) {
     tratarSessaoExpiradaSe401(res.status);
