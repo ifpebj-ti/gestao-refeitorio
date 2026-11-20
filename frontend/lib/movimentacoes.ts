@@ -1,20 +1,15 @@
 import {
-  getToken as getAuthToken,
-  limparSessaoLocal,
-  notificarSessaoExpirada,
+  garantirSessaoAtiva,
   tratarSessaoExpiradaSe401,
 } from "./authSession";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
-function getToken(): string {
-  const token = getAuthToken();
-  if (!token) {
-    limparSessaoLocal();
-    notificarSessaoExpirada();
-    throw new Error("Sessão expirada. Faça login novamente.");
-  }
-  return token;
+function obterHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    ...garantirSessaoAtiva("Sessão expirada. Faça login novamente."),
+    ...extra,
+  };
 }
 
 export interface MovimentacaoEntradaRequest {
@@ -62,15 +57,15 @@ export const registrarEntradaApi = async (
   dados: MovimentacaoEntradaRequest,
   arquivoFoto?: File | null
 ): Promise<MovimentacaoResponse> => {
-  const token = getToken();
+  const headersBase = obterHeaders();
 
   const url = `${BASE_URL}/movimentacoes/entrada`;
 
   const res = await fetch(url, {
     method: "POST",
     headers: {
+      ...headersBase,
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     credentials: "include",
     body: JSON.stringify(dados),
@@ -96,9 +91,7 @@ export const registrarEntradaApi = async (
     formData.append("arquivo", arquivoFoto);
     const resFoto = await fetch(`${BASE_URL}/movimentacoes/${movimentacaoCriada.id}/foto`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: headersBase,
       credentials: "include",
       body: formData,
     });
@@ -113,16 +106,11 @@ export const registrarEntradaApi = async (
 export const registrarSaidaApi = async (
   dados: MovimentacaoSaidaRequest
 ): Promise<MovimentacaoResponse> => {
-  const token = getToken();
-
   const url = `${BASE_URL}/movimentacoes/saida`;
 
   const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: obterHeaders({ "Content-Type": "application/json" }),
     credentials: "include",
     body: JSON.stringify(dados),
   });
@@ -138,15 +126,11 @@ export const registrarSaidaApi = async (
 };
 
 export const listarHistoricoApi = async (): Promise<MovimentacaoResponse[]> => {
-  const token = getToken();
-
   const url = `${BASE_URL}/movimentacoes`;
 
   const res = await fetch(url, {
     method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: obterHeaders(),
     credentials: "include",
     cache: "no-store",
   });

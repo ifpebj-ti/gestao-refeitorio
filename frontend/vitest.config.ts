@@ -20,6 +20,7 @@ export default defineConfig({
       reporter: ["text", "lcov", "html"],
       reportsDirectory: "./coverage",
       include: [
+        "middleware.ts",
         "lib/**/*.ts",
         "app/utils/**/*.ts",
         "app/components/**/*.tsx",

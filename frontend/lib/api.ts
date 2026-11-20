@@ -1,9 +1,7 @@
 import axios from "axios";
 import {
   getToken,
-  isTokenExpirado,
-  limparSessaoLocal,
-  notificarSessaoExpirada,
+  obterCsrfToken,
   tratarSessaoExpiradaSe401,
 } from "./authSession";
 
@@ -20,12 +18,11 @@ api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const token = getToken();
     if (token) {
-      if (isTokenExpirado(token)) {
-        limparSessaoLocal();
-        notificarSessaoExpirada();
-        return Promise.reject(new axios.Cancel("Sessão expirada. Faça login novamente."));
-      }
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    const csrf = obterCsrfToken();
+    if (csrf) {
+      config.headers["X-XSRF-TOKEN"] = csrf;
     }
   }
   return config;

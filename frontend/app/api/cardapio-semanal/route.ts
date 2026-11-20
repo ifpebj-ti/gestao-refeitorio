@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
@@ -7,8 +7,7 @@ export const dynamic = "force-dynamic";
 const DATA_DIR = path.join(process.cwd(), ".cardapio-data");
 const DATA_FILE = path.join(DATA_DIR, "cardapio-semanal.json");
 
-// Cache em memória compartilhado entre todas as requisições do servidor
-let cacheCardapio: any = null;
+let cacheCardapio: unknown = null;
 
 function carregarDoDisco() {
   try {
@@ -16,19 +15,19 @@ function carregarDoDisco() {
       const conteudo = fs.readFileSync(DATA_FILE, "utf-8");
       cacheCardapio = JSON.parse(conteudo);
     }
-  } catch (e) {
-    console.error("Erro ao ler cardápio do disco:", e);
+  } catch {
+    // Falha silenciosa sem expor detalhes internos do sistema de arquivos
   }
 }
 
-function salvarNoDisco(dados: any) {
+function salvarNoDisco(dados: unknown) {
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(dados, null, 2), "utf-8");
-  } catch (e) {
-    console.error("Erro ao salvar cardápio no disco:", e);
+  } catch {
+    // Falha silenciosa sem expor detalhes internos
   }
 }
 
@@ -38,22 +37,40 @@ export async function GET() {
   }
   return NextResponse.json(cacheCardapio || null, {
     headers: {
-      "Cache-Control": "no-store, max-age=0",
+      "Cache-Control": "no-store, max-age=0, s-maxage=0",
     },
   });
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const possuiAuthHeader = Boolean(request.headers.get("authorization"));
+  const possuiCookieSessao =
+    Boolean(request.cookies.get("token")?.value) ||
+    Boolean(request.cookies.get("auth_session")?.value);
+
+  if (!possuiAuthHeader && !possuiCookieSessao) {
+    return NextResponse.json(
+      { mensagem: "Autenticação necessária" },
+      { status: 401, headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
+  }
+
   try {
     const body = await request.json();
     cacheCardapio = body;
     salvarNoDisco(body);
-    return NextResponse.json({ sucesso: true }, {
-      headers: {
-        "Cache-Control": "no-store, max-age=0",
-      },
-    });
-  } catch (e: any) {
-    return NextResponse.json({ erro: e?.message || "Erro ao salvar" }, { status: 400 });
+    return NextResponse.json(
+      { sucesso: true },
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0, s-maxage=0",
+        },
+      }
+    );
+  } catch {
+    return NextResponse.json(
+      { mensagem: "Requisição inválida" },
+      { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
   }
 }

@@ -17,12 +17,17 @@ import {
   limparSessaoLocal,
   notificarSessaoExpirada,
   tratarSessaoExpiradaSe401,
+  obterCsrfToken,
+  obterHeadersAutenticados,
+  possuiSessaoAtiva,
   STORAGE_TOKEN_KEY,
   SESSION_TOKEN_KEY,
   STORAGE_USER_KEY,
   STORAGE_PERFIL_KEY,
   EVENTO_SESSAO_EXPIRADA,
 } from "@/lib/authSession";
+import { middleware, isRotaProtegida } from "@/middleware";
+import { NextRequest } from "next/server";
 import { calcularTotalAlertas } from "@/lib/alertasCount";
 import {
   listarUsuarios,
@@ -153,25 +158,35 @@ describe("Sessão e JWT (authSession)", () => {
     expect(isTokenExpirado(criarJwtValido(3600))).toBe(false);
   });
 
-  it("salva token no sessionStorage, remove legado do localStorage e recupera via getToken", () => {
+  it("mantém o token apenas em memória, nunca espelha no sessionStorage/localStorage e purga resíduos (#422)", () => {
     localStorage.setItem(STORAGE_TOKEN_KEY, "token-antigo-inseguro");
+    sessionStorage.setItem(SESSION_TOKEN_KEY, "token-sessao-legado");
+
     const tokenValido = criarJwtValido(3600);
     salvarSessaoToken(tokenValido);
 
     expect(localStorage.getItem(STORAGE_TOKEN_KEY)).toBeNull();
-    expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBe(tokenValido);
+    expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBeNull();
     expect(getToken()).toBe(tokenValido);
+    expect(possuiSessaoAtiva()).toBe(true);
+
+    document.cookie = "XSRF-TOKEN=csrf-123; Path=/";
+    expect(obterCsrfToken()).toBe("csrf-123");
+    const headers = obterHeadersAutenticados({ "Content-Type": "application/json" });
+    expect(headers["X-XSRF-TOKEN"]).toBe("csrf-123");
+    expect(headers.Authorization).toBe(`Bearer ${tokenValido}`);
 
     salvarSessaoToken(null);
+    expect(getToken()).toBeNull();
     expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBeNull();
   });
 
-  it("limpa sessão e dispara evento quando token em sessão expira ou ocorre 401", () => {
+  it("limpa sessão e dispara evento quando token em memória expira ou ocorre 401", () => {
     const listener = vi.fn();
     window.addEventListener(EVENTO_SESSAO_EXPIRADA, listener);
 
     const tokenExpirado = criarJwtValido(-120);
-    sessionStorage.setItem(SESSION_TOKEN_KEY, tokenExpirado);
+    salvarSessaoToken(tokenExpirado);
     localStorage.setItem(STORAGE_USER_KEY, JSON.stringify({ nome: "Teste" }));
     localStorage.setItem(STORAGE_PERFIL_KEY, "ADMIN");
 
@@ -397,18 +412,34 @@ describe("Serviços de API (usuarios, movimentacoes, relatorios, produtos, api)"
     await produtoService.excluir("p2");
   });
 
-  it("configura os Security Headers obrigatórios no next.config.js (AppSec #359, #381)", async () => {
+  it("configura os Security Headers, CSP restrita sem localhost/unsafe-inline em prod, cache de TV e anti-fingerprinting no next.config.js (#359, #381, #427, #428, #429)", async () => {
     expect(nextConfig.poweredByHeader).toBe(false);
+    expect(nextConfig.productionBrowserSourceMaps).toBe(false);
+    expect(nextConfig.images?.unoptimized).toBe(true);
 
     vi.stubEnv("NODE_ENV", "production");
     const prodRules = await nextConfig.headers!();
-    expect(prodRules).toHaveLength(1);
+    expect(prodRules).toHaveLength(3);
+
+    const tvRule = prodRules.find((r: { source: string }) => r.source === "/tv");
+    const tvWildcardRule = prodRules.find((r: { source: string }) => r.source === "/tv/:path*");
+    const globalRule = prodRules.find((r: { source: string }) => r.source === "/(.*)");
+
+    expect(tvRule?.headers[0].key).toBe("Cache-Control");
+    expect(tvRule?.headers[0].value).toContain("no-store");
+    expect(tvRule?.headers[0].value).toContain("s-maxage=0");
+    expect(tvWildcardRule?.headers[0].value).toContain("s-maxage=0");
+
     const prodHeadersMap = Object.fromEntries(
-      prodRules[0].headers.map((h: { key: string; value: string }) => [h.key, h.value])
+      globalRule!.headers.map((h: { key: string; value: string }) => [h.key, h.value])
     );
 
-    expect(prodHeadersMap["Content-Security-Policy"]).toContain("default-src 'self'");
-    expect(prodHeadersMap["Content-Security-Policy"]).not.toContain("'unsafe-eval'");
+    const prodCsp = prodHeadersMap["Content-Security-Policy"];
+    expect(prodCsp).toContain("default-src 'self'");
+    expect(prodCsp).not.toContain("'unsafe-eval'");
+    expect(prodCsp).toContain("script-src 'self' https://accounts.google.com https://apis.google.com;");
+    expect(prodCsp).not.toContain("http://localhost:8080");
+    expect(prodCsp).not.toMatch(/connect-src[^;]*\shttps:(?:;|$)/);
     expect(prodHeadersMap["Strict-Transport-Security"]).toBe("max-age=31536000; includeSubDomains");
     expect(prodHeadersMap["X-Frame-Options"]).toBe("SAMEORIGIN");
     expect(prodHeadersMap["X-Content-Type-Options"]).toBe("nosniff");
@@ -417,10 +448,40 @@ describe("Serviços de API (usuarios, movimentacoes, relatorios, produtos, api)"
 
     vi.stubEnv("NODE_ENV", "development");
     const devRules = await nextConfig.headers!();
+    const devGlobalRule = devRules.find((r: { source: string }) => r.source === "/(.*)");
     const devHeadersMap = Object.fromEntries(
-      devRules[0].headers.map((h: { key: string; value: string }) => [h.key, h.value])
+      devGlobalRule!.headers.map((h: { key: string; value: string }) => [h.key, h.value])
     );
     expect(devHeadersMap["Content-Security-Policy"]).toContain("'unsafe-eval'");
+    expect(devHeadersMap["Content-Security-Policy"]).toContain("http://localhost:8080");
     vi.unstubAllEnvs();
+  });
+
+  it("protege rotas autenticadas no servidor com middleware.ts e libera rotas públicas (#423)", () => {
+    expect(isRotaProtegida("/")).toBe(false);
+    expect(isRotaProtegida("/tv")).toBe(false);
+    expect(isRotaProtegida("/tv/refeitorio")).toBe(false);
+    expect(isRotaProtegida("/usuarios")).toBe(true);
+    expect(isRotaProtegida("/admin/usuarios")).toBe(true);
+    expect(isRotaProtegida("/estoque")).toBe(true);
+    expect(isRotaProtegida("/consumo")).toBe(true);
+
+    // 1. Acesso anônimo a rota protegida (/admin/usuarios) -> redireciona (307) para /
+    const reqAnonima = new NextRequest("https://gestao-refeitorio-ifpe.duckdns.org/admin/usuarios");
+    const resAnonima = middleware(reqAnonima);
+    expect(resAnonima.status).toBe(307);
+    expect(resAnonima.headers.get("location")).toBe("https://gestao-refeitorio-ifpe.duckdns.org/");
+
+    // 2. Acesso com cookie HttpOnly token -> permite prosseguir (200)
+    const reqComCookie = new NextRequest("https://gestao-refeitorio-ifpe.duckdns.org/usuarios", {
+      headers: { cookie: "token=jwt-cookie-http-only" },
+    });
+    const resComCookie = middleware(reqComCookie);
+    expect(resComCookie.status).toBe(200);
+
+    // 3. Acesso anônimo a rota pública (/tv/refeitorio) -> permite prosseguir (200)
+    const reqPublica = new NextRequest("https://gestao-refeitorio-ifpe.duckdns.org/tv/refeitorio");
+    const resPublica = middleware(reqPublica);
+    expect(resPublica.status).toBe(200);
   });
 });
