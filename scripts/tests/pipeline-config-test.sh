@@ -7,7 +7,9 @@ readonly dependabot="${project_dir}/.github/dependabot.yml"
 readonly compose_prod="${project_dir}/docker-compose.prod.yml"
 readonly compose_dev="${project_dir}/docker-compose.dev.yml"
 readonly backend_pom="${project_dir}/backend/pom.xml"
+readonly backend_dockerfile="${project_dir}/backend/Dockerfile"
 readonly frontend_package="${project_dir}/frontend/package.json"
+readonly frontend_dockerfile="${project_dir}/frontend/Dockerfile"
 readonly frontend_vitest="${project_dir}/frontend/vitest.config.ts"
 readonly zap_rules="${project_dir}/.zap/rules.tsv"
 readonly codeowners="${project_dir}/.github/CODEOWNERS"
@@ -70,12 +72,23 @@ assert_file_contains "$pipeline" "node-version: 24"
 assert_file_contains "$dependabot" "frontend-test-tooling:"
 
 security_builds="$(sed -n '/name: Build frontend image for security scan/,/name: Trivy \/ repository and images/p' "$pipeline")"
-no_cache_count="$(grep -Fc 'no-cache: true' <<<"$security_builds")"
-[[ "$no_cache_count" -eq 2 ]] \
-  || fail "os builds de segurança do frontend e backend devem ignorar caches de camadas vulneráveis"
+if grep -Fq 'no-cache: true' <<<"$security_builds"; then
+  fail "builds de segurança não devem invalidar os caches de dependências por completo"
+fi
+security_refresh_count="$(grep -Fc 'SECURITY_REFRESH=${{ github.run_id }}' "$pipeline")"
+[[ "$security_refresh_count" -eq 4 ]] \
+  || fail "scan e publicação devem usar o mesmo identificador de atualização dos pacotes Alpine"
+assert_file_contains "$frontend_dockerfile" "ARG SECURITY_REFRESH=local"
+assert_file_contains "$backend_dockerfile" "ARG SECURITY_REFRESH=local"
+assert_file_contains "$backend_dockerfile" "mvn -B -U dependency:go-offline"
 
 assert_file_contains "$pipeline" "name: Security / OWASP ZAP baseline"
 assert_file_contains "$pipeline" "needs.deploy-production.result == 'success'"
+assert_file_contains "$pipeline" 'ZAP_TARGET: ${{ vars.PRODUCTION_URL }}'
+dast_block="$(sed -n '/^  dast:/,$p' "$pipeline")"
+if grep -Eq '^    environment:' <<<"$dast_block"; then
+  fail "job DAST não deve acessar o environment production nem exigir uma segunda aprovação"
+fi
 assert_file_contains "$pipeline" "fail_action: true"
 assert_file_contains "$pipeline" "allow_issue_writing: false"
 assert_file_contains "$pipeline" "artifact_name: zap-baseline-report"
