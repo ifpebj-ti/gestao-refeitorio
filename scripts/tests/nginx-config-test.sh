@@ -48,10 +48,23 @@ trap 'rm -rf "$tmp_dir"' EXIT
 
 cert_dir="$tmp_dir/letsencrypt/live/gestao-refeitorio-ifpe.duckdns.org"
 mkdir -p "$cert_dir"
+
+cat > "$tmp_dir/openssl.cnf" <<'EOF'
+[req]
+distinguished_name = subject
+prompt = no
+
+[subject]
+CN = gestao-refeitorio-ifpe.duckdns.org
+EOF
+
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
-  -subj '/CN=gestao-refeitorio-ifpe.duckdns.org' \
+  -config "$tmp_dir/openssl.cnf" \
   -keyout "$cert_dir/privkey.pem" \
   -out "$cert_dir/fullchain.pem" >/dev/null 2>&1
+
+# Arquivo vazio portável; evita depender de /dev/null como bind mount no host.
+: > "$tmp_dir/default.conf.template"
 
 docker run --rm \
   -e MODSEC_RULE_ENGINE=On \
@@ -64,7 +77,7 @@ docker run --rm \
   -v "$nginx_config:/etc/nginx/conf.d/gestao.conf:ro" \
   -v "$modsec_exclusions:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:ro" \
   -v "$tmp_dir/letsencrypt:/etc/letsencrypt:ro" \
-  -v /dev/null:/etc/nginx/templates/conf.d/default.conf.template:ro \
+  -v "$tmp_dir/default.conf.template:/etc/nginx/templates/conf.d/default.conf.template:ro" \
   "$image" nginx -t
 
 echo "Configuração versionada do Nginx/ModSecurity validada com sucesso."
