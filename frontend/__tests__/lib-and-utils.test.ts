@@ -414,12 +414,11 @@ describe("Serviços de API (usuarios, movimentacoes, relatorios, produtos, api)"
     await produtoService.excluir("p2");
   });
 
-  it("configura os Security Headers, CSP restrita sem localhost/unsafe-inline em prod, cache de TV e anti-fingerprinting no next.config.js (#359, #381, #427, #428, #429)", async () => {
+  it("mantém a CSP exclusivamente na borda e configura os demais headers, cache de TV e anti-fingerprinting (#359, #381, #427, #428, #429)", async () => {
     expect(nextConfig.poweredByHeader).toBe(false);
     expect(nextConfig.productionBrowserSourceMaps).toBe(false);
     expect(nextConfig.images?.unoptimized).toBe(true);
 
-    vi.stubEnv("NODE_ENV", "production");
     const prodRules = await nextConfig.headers!();
     expect(prodRules).toHaveLength(3);
 
@@ -436,27 +435,19 @@ describe("Serviços de API (usuarios, movimentacoes, relatorios, produtos, api)"
       globalRule!.headers.map((h: { key: string; value: string }) => [h.key, h.value])
     );
 
-    const prodCsp = prodHeadersMap["Content-Security-Policy"];
-    expect(prodCsp).toContain("default-src 'self'");
-    expect(prodCsp).not.toContain("'unsafe-eval'");
-    expect(prodCsp).toContain("script-src 'self' https://accounts.google.com https://apis.google.com;");
-    expect(prodCsp).not.toContain("http://localhost:8080");
-    expect(prodCsp).not.toMatch(/connect-src[^;]*\shttps:(?:;|$)/);
+    expect(prodHeadersMap).not.toHaveProperty("Content-Security-Policy");
     expect(prodHeadersMap["Strict-Transport-Security"]).toBe("max-age=31536000; includeSubDomains");
     expect(prodHeadersMap["X-Frame-Options"]).toBe("SAMEORIGIN");
     expect(prodHeadersMap["X-Content-Type-Options"]).toBe("nosniff");
     expect(prodHeadersMap["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
     expect(prodHeadersMap["Permissions-Policy"]).toContain("camera=()");
 
-    vi.stubEnv("NODE_ENV", "development");
     const devRules = await nextConfig.headers!();
     const devGlobalRule = devRules.find((r: { source: string }) => r.source === "/(.*)");
     const devHeadersMap = Object.fromEntries(
       devGlobalRule!.headers.map((h: { key: string; value: string }) => [h.key, h.value])
     );
-    expect(devHeadersMap["Content-Security-Policy"]).toContain("'unsafe-eval'");
-    expect(devHeadersMap["Content-Security-Policy"]).toContain("http://localhost:8080");
-    vi.unstubAllEnvs();
+    expect(devHeadersMap).not.toHaveProperty("Content-Security-Policy");
   });
 
   it("protege rotas autenticadas no servidor com middleware.ts e libera rotas públicas (#423)", () => {

@@ -1,7 +1,11 @@
 FROM maven:3.9-eclipse-temurin-26-alpine@sha256:4c85d516dd8c7e50d49a403d604e565e0dbb09a790186fe3245725d313ae7cb9 AS build
 WORKDIR /app
 COPY pom.xml .
-RUN mvn -B dependency:go-offline
+RUN for attempt in 1 2 3; do \
+        if mvn -B -U dependency:go-offline; then exit 0; fi; \
+        if [ "$attempt" -eq 3 ]; then exit 1; fi; \
+        sleep $((attempt * 10)); \
+    done
 COPY src ./src
 RUN mvn -B package -DskipTests
 
@@ -14,7 +18,9 @@ RUN wget -q -O /opentelemetry-javaagent.jar \
     && echo "${OTEL_AGENT_SHA256}  /opentelemetry-javaagent.jar" | sha256sum -c -
 
 FROM eclipse-temurin:25-jre-alpine@sha256:56f273059de6b13a6b49fe0ded691ed2d0399bbee76156a8f2d385f7524a3d43
-RUN apk update && apk upgrade --no-cache \
+ARG SECURITY_REFRESH=local
+RUN echo "security-refresh=${SECURITY_REFRESH}" > /dev/null \
+    && apk update && apk upgrade --no-cache \
     && addgroup -S app \
     && adduser -S -G app app
 WORKDIR /app

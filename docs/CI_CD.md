@@ -82,6 +82,11 @@ O workflow consolidado `CI / Security / Release` é obrigatório antes de merge/
    armazena os relatórios no artefato `zap-baseline-report` e bloqueia o job para as regras marcadas
    como `FAIL` em `.zap/rules.tsv`. Alertas não bloqueantes permanecem visíveis no relatório.
 
+Os builds usados pelo Trivy e pela publicação compartilham o mesmo `SECURITY_REFRESH`, derivado do
+identificador da execução. Esse valor invalida somente a camada que executa `apk upgrade` nas imagens
+finais, mantendo em cache as dependências npm/Maven. O download inicial das dependências Maven possui
+três tentativas com atualização forçada para tolerar indisponibilidades transitórias do Maven Central.
+
 O mesmo workflow também roda toda segunda-feira, capturando vulnerabilidades divulgadas depois
 do merge. O CodeQL permanece habilitado pelo Default Setup do GitHub, sem uma segunda configuração
 avançada conflitante. O Dependabot cobre npm, Maven, imagens Docker e GitHub Actions.
@@ -120,8 +125,10 @@ sem validade ou data de expiração pendente.
 
 O job `Security / OWASP ZAP baseline` roda depois de um deploy de produção concluído com sucesso.
 Também pode ser iniciado manualmente em **Actions → CI / Security / Release → Run workflow**, com
-`run_dast` habilitado, para analisar a versão que já está implantada. O job usa o environment
-protegido `production` e lê a URL exclusivamente da variável `PRODUCTION_URL`.
+`run_dast` habilitado, para analisar a versão que já está implantada. O job não acessa o environment
+protegido `production`, pois analisa somente uma URL pública e não utiliza secrets de deploy. A URL é
+lida exclusivamente da repository variable `PRODUCTION_URL`; assim, a aprovação humana ocorre apenas
+antes do deploy e o DAST começa automaticamente depois de um deploy bem-sucedido.
 
 O scan é passivo e autenticado apenas quando variáveis próprias do ZAP forem configuradas no futuro;
 nenhuma credencial da aplicação é enviada por padrão. As regras de headers, cookies e conteúdo misto
@@ -183,7 +190,7 @@ deploy à branch protegida `main`. Cadastre:
 | Environment | Secret/variable | Uso |
 |---|---|---|
 | production | `PRODUCTION_HOST`, `PRODUCTION_USER`, `PRODUCTION_SSH_KEY`, `PRODUCTION_SSH_KNOWN_HOSTS` | acesso SSH |
-| production | `PRODUCTION_URL` (variable) | URL exibida no deployment |
+| repository | `PRODUCTION_URL` (variable) | URL HTTPS pública exibida no deployment e analisada pelo OWASP ZAP |
 | repository | `RELEASE_PLEASE_TOKEN` | token de GitHub App/PAT para o PR de release disparar o CI |
 
 `*_SSH_KNOWN_HOSTS` deve conter a chave do host previamente conferida; não use descoberta por
