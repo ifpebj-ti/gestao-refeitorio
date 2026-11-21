@@ -82,6 +82,11 @@ O workflow consolidado `CI / Security / Release` é obrigatório antes de merge/
    armazena os relatórios no artefato `zap-baseline-report` e bloqueia o job para as regras marcadas
    como `FAIL` em `.zap/rules.tsv`. Alertas não bloqueantes permanecem visíveis no relatório.
 
+Os builds usados pelo Trivy e pela publicação compartilham o mesmo `SECURITY_REFRESH`, derivado do
+identificador da execução. Esse valor invalida somente a camada que executa `apk upgrade` nas imagens
+finais, mantendo em cache as dependências npm/Maven. O download inicial das dependências Maven possui
+três tentativas com atualização forçada para tolerar indisponibilidades transitórias do Maven Central.
+
 O mesmo workflow também roda toda segunda-feira, capturando vulnerabilidades divulgadas depois
 do merge. O CodeQL permanece habilitado pelo Default Setup do GitHub, sem uma segunda configuração
 avançada conflitante. O Dependabot cobre npm, Maven, imagens Docker e GitHub Actions.
