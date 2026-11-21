@@ -651,10 +651,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
-    environment:
-      name: production
-      url: ${{ vars.PRODUCTION_URL }}
-
     permissions:
       contents: read
 

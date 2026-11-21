@@ -69,6 +69,11 @@ no_cache_count="$(grep -Fc 'no-cache: true' <<<"$security_builds")"
 
 assert_file_contains "$pipeline" "name: Security / OWASP ZAP baseline"
 assert_file_contains "$pipeline" "needs.deploy-production.result == 'success'"
+assert_file_contains "$pipeline" 'ZAP_TARGET: ${{ vars.PRODUCTION_URL }}'
+dast_block="$(sed -n '/^  dast:/,$p' "$pipeline")"
+if grep -Eq '^    environment:' <<<"$dast_block"; then
+  fail "job DAST não deve acessar o environment production nem exigir uma segunda aprovação"
+fi
 assert_file_contains "$pipeline" "fail_action: true"
 assert_file_contains "$pipeline" "allow_issue_writing: false"
 assert_file_contains "$pipeline" "artifact_name: zap-baseline-report"
