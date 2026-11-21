@@ -1,13 +1,18 @@
 FROM maven:3.9-eclipse-temurin-26-alpine@sha256:4c85d516dd8c7e50d49a403d604e565e0dbb09a790186fe3245725d313ae7cb9 AS build
 WORKDIR /app
 COPY pom.xml .
-RUN for attempt in 1 2 3; do \
-        if mvn -B -U dependency:go-offline; then exit 0; fi; \
-        if [ "$attempt" -eq 3 ]; then exit 1; fi; \
-        sleep $((attempt * 10)); \
-    done
+RUN --mount=type=cache,target=/root/.m2,sharing=locked \
+    for delay in 0 30 60 120 240; do \
+        if [ "$delay" -gt 0 ]; then \
+            echo "Maven Central indisponível; nova tentativa em ${delay}s."; \
+            sleep "$delay"; \
+        fi; \
+        if mvn -B -ntp dependency:go-offline; then exit 0; fi; \
+    done; \
+    exit 1
 COPY src ./src
-RUN mvn -B package -DskipTests
+RUN --mount=type=cache,target=/root/.m2,sharing=locked \
+    mvn -B -ntp package -DskipTests
 
 # Agente OpenTelemetry (#314): versão e checksum fixos; só é carregado se JAVA_TOOL_OPTIONS o ativar.
 FROM maven:3.9-eclipse-temurin-26-alpine@sha256:4c85d516dd8c7e50d49a403d604e565e0dbb09a790186fe3245725d313ae7cb9 AS otel-agent

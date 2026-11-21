@@ -24,7 +24,7 @@ fail() {
 assert_file_contains() {
   local file="$1"
   local expected="$2"
-  grep -Fq "$expected" "$file" || fail "${file} não contém: ${expected}"
+  grep -Fq -- "$expected" "$file" || fail "${file} não contém: ${expected}"
 }
 
 deploy_block="$(sed -n '/^  deploy-production:/,$p' "$pipeline")"
@@ -80,7 +80,12 @@ security_refresh_count="$(grep -Fc 'SECURITY_REFRESH=${{ github.run_id }}' "$pip
   || fail "scan e publicação devem usar o mesmo identificador de atualização dos pacotes Alpine"
 assert_file_contains "$frontend_dockerfile" "ARG SECURITY_REFRESH=local"
 assert_file_contains "$backend_dockerfile" "ARG SECURITY_REFRESH=local"
-assert_file_contains "$backend_dockerfile" "mvn -B -U dependency:go-offline"
+assert_file_contains "$backend_dockerfile" "--mount=type=cache,target=/root/.m2,sharing=locked"
+assert_file_contains "$backend_dockerfile" "for delay in 0 30 60 120 240"
+assert_file_contains "$backend_dockerfile" "mvn -B -ntp dependency:go-offline"
+if grep -Fq 'mvn -B -U' "$backend_dockerfile"; then
+  fail "build da imagem backend não deve forçar atualização remota com Maven -U"
+fi
 
 assert_file_contains "$pipeline" "name: Security / OWASP ZAP baseline"
 assert_file_contains "$pipeline" "needs.deploy-production.result == 'success'"
