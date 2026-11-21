@@ -151,6 +151,11 @@ começou. A partir desse ponto, o servidor testa o Actuator e a página inicial 
 Falha de saúde restaura automaticamente a última tag bem-sucedida registrada no host, **exceto**
 quando a versão nova já migrou o banco.
 
+O overlay `docker-compose.prod.yml` repassa `IMAGE_TAG` ao backend como `APP_VERSION`. Assim, o
+endpoint de versão e o menu lateral exibem exatamente a tag implantada. O mesmo ocorre no rollback,
+porque `deploy-remote.sh` redefine e exporta `IMAGE_TAG` antes de recriar os containers. Nenhuma
+variável adicional precisa ser cadastrada no `.env` da VM.
+
 Rollback e migrations (#322): o Flyway não desfaz migrations, e uma migration destrutiva (como o
 `DROP COLUMN` da V23) impede a imagem anterior de subir. Por isso o script lê a versão do Flyway
 antes e depois do deploy: se ela avançou, o rollback de imagem é cancelado, a versão nova continua

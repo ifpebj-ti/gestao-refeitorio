@@ -33,6 +33,7 @@ services:
       - "127.0.0.1:8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      APP_VERSION: ${IMAGE_TAG}
     deploy:
       resources:
         limits:

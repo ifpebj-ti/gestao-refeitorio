@@ -4,6 +4,8 @@ set -Eeuo pipefail
 readonly project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly pipeline="${project_dir}/.github/workflows/pipeline.yml"
 readonly dependabot="${project_dir}/.github/dependabot.yml"
+readonly compose_prod="${project_dir}/docker-compose.prod.yml"
+readonly compose_dev="${project_dir}/docker-compose.dev.yml"
 readonly backend_pom="${project_dir}/backend/pom.xml"
 readonly frontend_package="${project_dir}/frontend/package.json"
 readonly frontend_vitest="${project_dir}/frontend/vitest.config.ts"
@@ -46,6 +48,9 @@ if awk '
 fi
 assert_file_contains "$dependabot" "directory: /frontend"
 assert_file_contains "$dependabot" "directory: /backend"
+
+assert_file_contains "$compose_prod" 'APP_VERSION: ${IMAGE_TAG}'
+assert_file_contains "$compose_dev" 'APP_VERSION: ${IMAGE_TAG:-dev}'
 
 assert_file_contains "$backend_pom" "<artifactId>jacoco-maven-plugin</artifactId>"
 assert_file_contains "$backend_pom" "<minimum>0.70</minimum>"
