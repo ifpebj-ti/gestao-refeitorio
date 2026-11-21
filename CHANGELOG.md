@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.16.0...gestao-refeitorio-v0.17.0) (2026-11-21)
+
+
+### Features
+
+* **front:** valida limites, unicidade e período máximo em cardápio, produtos e relatórios ([#450](https://github.com/ifpebj-ti/gestao-refeitorio/issues/450), [#451](https://github.com/ifpebj-ti/gestao-refeitorio/issues/451)) ([f81c9fc](https://github.com/ifpebj-ti/gestao-refeitorio/commit/f81c9fc9c7cbbc71bc24edf079016f820c026500))
+
 ## [0.16.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.15.0...gestao-refeitorio-v0.16.0) (2026-11-20)
 
 
