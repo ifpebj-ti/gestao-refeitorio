@@ -34,7 +34,7 @@ aos arquivos existentes na VM.
 
 ## WAF e headers
 
-A imagem `owasp/modsecurity-crs:nginx-alpine` executa o ModSecurity com OWASP CRS, `PARANOIA=1` e
+A imagem oficial `ghcr.io/coreruleset/modsecurity-crs:nginx-alpine` executa o ModSecurity com OWASP CRS, `PARANOIA=1` e
 limite de corpo coerente com o Nginx. `modsec-exclusions.conf` remove somente campos específicos de
 credenciais da inspeção do CRS; ele não desativa o WAF para rotas completas.
 

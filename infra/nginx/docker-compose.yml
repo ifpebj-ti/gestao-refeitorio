@@ -2,7 +2,7 @@ name: gestao-refeitorio-proxy
 
 services:
   proxy:
-    image: owasp/modsecurity-crs:nginx-alpine@sha256:f7b4ec036553aa65e65fe792394099f597d6130465e63ff58d84f087617f5412
+    image: ghcr.io/coreruleset/modsecurity-crs:nginx-alpine@sha256:f7b4ec036553aa65e65fe792394099f597d6130465e63ff58d84f087617f5412
     restart: unless-stopped
     user: "0"
     ports:
