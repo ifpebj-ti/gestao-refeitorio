@@ -178,7 +178,11 @@ observabilidade (agente OpenTelemetry, desligado por padrão) está descrita em
 
 A aplicação é disponibilizada por Nginx em `https://gestao-refeitorio-ifpe.duckdns.org`, com `/`
 encaminhado ao frontend e `/api/` ao backend. O TLS é fornecido pelo Let's Encrypt e sua renovação
-foi validada com `certbot renew --dry-run`.
+foi validada com `certbot renew --dry-run`. O Compose, o vhost, os limites, timeouts, rate limiting e
+as exclusões pontuais do ModSecurity estão versionados em `infra/nginx`. A pipeline executa
+`nginx -t` com a mesma imagem fixada por digest; certificados e chaves permanecem exclusivamente na
+VM. O procedimento de comparação, instalação, reload e rollback está em
+[NGINX_PROXY.md](NGINX_PROXY.md).
 
 ## Configuração necessária no GitHub
 
