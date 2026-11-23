@@ -1,0 +1,31 @@
+name: gestao-refeitorio-proxy
+
+services:
+  proxy:
+    image: ghcr.io/coreruleset/modsecurity-crs:nginx-alpine@sha256:f7b4ec036553aa65e65fe792394099f597d6130465e63ff58d84f087617f5412
+    restart: unless-stopped
+    user: "0"
+    ports:
+      - "80:8080"
+      - "443:8443"
+    environment:
+      MODSEC_RULE_ENGINE: On
+      PARANOIA: "1"
+      ALLOWED_METHODS: "GET HEAD POST OPTIONS PUT PATCH DELETE"
+      MODSEC_REQ_BODY_LIMIT: "6291456"
+      MODSEC_AUDIT_LOG_FORMAT: JSON
+      MODSEC_AUDIT_LOG_PARTS: "ABHZ"
+      RESOLVER_CONFIG: "valid=10s ipv6=off"
+    volumes:
+      - ./nginx.waf.conf:/etc/nginx/conf.d/gestao.conf:ro
+      - /dev/null:/etc/nginx/templates/conf.d/default.conf.template:ro
+      - ./modsec-exclusions.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    networks:
+      - app
+
+networks:
+  app:
+    name: gestao-refeitorio_default
+    external: true

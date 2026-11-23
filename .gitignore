@@ -17,6 +17,14 @@ frontend/.cardapio-data/
 .env.prod
 !.env.example
 
+# Material TLS nunca deve ser versionado. Em produção, certificados e chaves
+# ficam exclusivamente em /etc/letsencrypt na VM.
+infra/nginx/certs/
+infra/nginx/private/
+infra/nginx/**/*.pem
+infra/nginx/**/*.key
+infra/nginx/**/*.p12
+
 # Claude
 CLAUDE.md
 

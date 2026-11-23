@@ -140,6 +140,9 @@ jobs:
       - name: Test pipeline configuration safeguards
         run: bash scripts/tests/pipeline-config-test.sh
 
+      - name: Validate Nginx and ModSecurity configuration
+        run: bash scripts/tests/nginx-config-test.sh
+
       - name: Dependency review
         if: github.event_name == 'pull_request'
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294
@@ -632,6 +635,12 @@ jobs:
             docker-compose.observabilidade.yml \
             scripts/backup-postgres.sh \
             scripts/deploy-remote.sh \
+            "$USER@$HOST:/opt/gestao-refeitorio/"
+
+          # Disponibiliza a configuração revisada para aplicação manual e auditável.
+          # O deploy da aplicação não recria o proxy automaticamente.
+          scp -r -i ~/.ssh/deploy_key \
+            infra/nginx \
             "$USER@$HOST:/opt/gestao-refeitorio/"
   
       - name: Deploy with health check and rollback

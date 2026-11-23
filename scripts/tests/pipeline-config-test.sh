@@ -4,6 +4,8 @@ set -Eeuo pipefail
 readonly project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly pipeline="${project_dir}/.github/workflows/pipeline.yml"
 readonly dependabot="${project_dir}/.github/dependabot.yml"
+readonly compose_prod="${project_dir}/docker-compose.prod.yml"
+readonly compose_dev="${project_dir}/docker-compose.dev.yml"
 readonly backend_pom="${project_dir}/backend/pom.xml"
 readonly backend_dockerfile="${project_dir}/backend/Dockerfile"
 readonly frontend_package="${project_dir}/frontend/package.json"
@@ -22,7 +24,7 @@ fail() {
 assert_file_contains() {
   local file="$1"
   local expected="$2"
-  grep -Fq "$expected" "$file" || fail "${file} não contém: ${expected}"
+  grep -Fq -- "$expected" "$file" || fail "${file} não contém: ${expected}"
 }
 
 deploy_block="$(sed -n '/^  deploy-production:/,$p' "$pipeline")"
@@ -34,6 +36,8 @@ if grep -Fq 'tag=sha-' <<<"$deploy_block"; then
   fail "deploy de produção ainda possui fallback para imagem sha-*"
 fi
 assert_file_contains "$pipeline" "scripts/deploy-remote.sh"
+assert_file_contains "$pipeline" "scripts/tests/nginx-config-test.sh"
+assert_file_contains "$pipeline" "infra/nginx"
 assert_file_contains "$pipeline" 'bash /opt/gestao-refeitorio/deploy-remote.sh'
 if grep -Fq '< scripts/deploy-remote.sh' <<<"$deploy_block"; then
   fail "script de deploy ainda é transmitido por stdin e pode ser consumido pelo Docker Compose"
@@ -48,6 +52,9 @@ if awk '
 fi
 assert_file_contains "$dependabot" "directory: /frontend"
 assert_file_contains "$dependabot" "directory: /backend"
+
+assert_file_contains "$compose_prod" 'APP_VERSION: ${IMAGE_TAG}'
+assert_file_contains "$compose_dev" 'APP_VERSION: ${IMAGE_TAG:-dev}'
 
 assert_file_contains "$backend_pom" "<artifactId>jacoco-maven-plugin</artifactId>"
 assert_file_contains "$backend_pom" "<minimum>0.70</minimum>"
@@ -73,7 +80,12 @@ security_refresh_count="$(grep -Fc 'SECURITY_REFRESH=${{ github.run_id }}' "$pip
   || fail "scan e publicação devem usar o mesmo identificador de atualização dos pacotes Alpine"
 assert_file_contains "$frontend_dockerfile" "ARG SECURITY_REFRESH=local"
 assert_file_contains "$backend_dockerfile" "ARG SECURITY_REFRESH=local"
-assert_file_contains "$backend_dockerfile" "mvn -B -U dependency:go-offline"
+assert_file_contains "$backend_dockerfile" "--mount=type=cache,target=/root/.m2,sharing=locked"
+assert_file_contains "$backend_dockerfile" "for delay in 0 30 60 120 240"
+assert_file_contains "$backend_dockerfile" "mvn -B -ntp dependency:go-offline"
+if grep -Fq 'mvn -B -U' "$backend_dockerfile"; then
+  fail "build da imagem backend não deve forçar atualização remota com Maven -U"
+fi
 
 assert_file_contains "$pipeline" "name: Security / OWASP ZAP baseline"
 assert_file_contains "$pipeline" "needs.deploy-production.result == 'success'"

@@ -11,6 +11,7 @@ services:
 
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      APP_VERSION: ${IMAGE_TAG:-dev}
 
   frontend:
     image: ghcr.io/ifpebj-ti/gestao-refeitorio-frontend:${IMAGE_TAG:-dev}

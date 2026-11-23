@@ -158,6 +158,11 @@ começou. A partir desse ponto, o servidor testa o Actuator e a página inicial 
 Falha de saúde restaura automaticamente a última tag bem-sucedida registrada no host, **exceto**
 quando a versão nova já migrou o banco.
 
+O overlay `docker-compose.prod.yml` repassa `IMAGE_TAG` ao backend como `APP_VERSION`. Assim, o
+endpoint de versão e o menu lateral exibem exatamente a tag implantada. O mesmo ocorre no rollback,
+porque `deploy-remote.sh` redefine e exporta `IMAGE_TAG` antes de recriar os containers. Nenhuma
+variável adicional precisa ser cadastrada no `.env` da VM.
+
 Rollback e migrations (#322): o Flyway não desfaz migrations, e uma migration destrutiva (como o
 `DROP COLUMN` da V23) impede a imagem anterior de subir. Por isso o script lê a versão do Flyway
 antes e depois do deploy: se ela avançou, o rollback de imagem é cancelado, a versão nova continua
@@ -180,7 +185,11 @@ observabilidade (agente OpenTelemetry, desligado por padrão) está descrita em
 
 A aplicação é disponibilizada por Nginx em `https://gestao-refeitorio-ifpe.duckdns.org`, com `/`
 encaminhado ao frontend e `/api/` ao backend. O TLS é fornecido pelo Let's Encrypt e sua renovação
-foi validada com `certbot renew --dry-run`.
+foi validada com `certbot renew --dry-run`. O Compose, o vhost, os limites, timeouts, rate limiting e
+as exclusões pontuais do ModSecurity estão versionados em `infra/nginx`. A pipeline executa
+`nginx -t` com a mesma imagem fixada por digest; certificados e chaves permanecem exclusivamente na
+VM. O procedimento de comparação, instalação, reload e rollback está em
+[NGINX_PROXY.md](NGINX_PROXY.md).
 
 ## Configuração necessária no GitHub
 
