@@ -97,7 +97,7 @@ fi
 assert_file_contains "$pipeline" "fail_action: true"
 assert_file_contains "$pipeline" "allow_issue_writing: false"
 assert_file_contains "$pipeline" "artifact_name: zap-baseline-report"
-assert_file_contains "$pipeline" "zaproxy/action-baseline@6c5a007541891231cd9e0ddec25d4f25c59c9874"
+assert_file_contains "$pipeline" "zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25"
 assert_file_contains "$pipeline" "ghcr.io/zaproxy/zaproxy:stable@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af"
 assert_file_contains "$zap_rules" $'10038\tFAIL'
 
