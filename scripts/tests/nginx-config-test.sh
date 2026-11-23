@@ -30,13 +30,8 @@ grep -Fq 'limit_req zone=' "$nginx_config" \
   || fail "rate limiting não foi encontrado"
 grep -Fq 'proxy_read_timeout' "$nginx_config" \
   || fail "timeouts do proxy não foram encontrados"
-grep -Eq '^[[:space:]]*default[[:space:]]+close;' "$nginx_config" \
-  || fail "upgrades HTTP desconhecidos devem ser bloqueados"
-grep -Eq '^[[:space:]]*websocket[[:space:]]+upgrade;' "$nginx_config" \
-  || fail "upgrade explícito para WebSocket não foi encontrado"
-
-if grep -Eq '^[[:space:]]*default[[:space:]]+upgrade;' "$nginx_config"; then
-  fail "upgrade HTTP genérico permite smuggling H2C"
+if grep -Eq 'proxy_set_header[[:space:]]+(Upgrade|Connection)[[:space:]]' "$nginx_config"; then
+  fail "cabeçalhos de upgrade HTTP não devem ser encaminhados ao frontend"
 fi
 
 if grep -REn --include='*.pem' --include='*.key' --include='*.p12' \
