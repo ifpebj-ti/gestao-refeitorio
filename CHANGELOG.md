@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.18.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.17.0...gestao-refeitorio-v0.18.0) (2026-11-23)
+
+
+### Features
+
+* **devsecops:** version nginx proxy configuration ([#433](https://github.com/ifpebj-ti/gestao-refeitorio/issues/433)) ([1c5e9f5](https://github.com/ifpebj-ti/gestao-refeitorio/commit/1c5e9f5e751ffd59913a484877d25aa75310845a))
+* **infra:** expose release version to backend ([5a186ab](https://github.com/ifpebj-ti/gestao-refeitorio/commit/5a186abcbbf461a174058b8cbee0056b75f3f786))
+* **infra:** expose release version to backend ([#372](https://github.com/ifpebj-ti/gestao-refeitorio/issues/372)) ([c5c5339](https://github.com/ifpebj-ti/gestao-refeitorio/commit/c5c5339a5d3ac22d09c3d8a185bb58e8f14048a0))
+
+
+### Bug Fixes
+
+* **ci:** allow nginx to read ephemeral TLS certificate ([c644335](https://github.com/ifpebj-ti/gestao-refeitorio/commit/c6443355531dfd378cbe51e8350c8b10133061fa))
+* **ci:** make nginx validation portable ([b4d1bbf](https://github.com/ifpebj-ti/gestao-refeitorio/commit/b4d1bbf651b53bb9dfc30462acfe160720f66ab2))
+* **ci:** pull nginx WAF image from GHCR ([4f6b574](https://github.com/ifpebj-ti/gestao-refeitorio/commit/4f6b574acf9eaa5fa8c969a065dddd4b097867a1))
+* **ci:** refresh runtime packages without dropping dependency cache ([76003d2](https://github.com/ifpebj-ti/gestao-refeitorio/commit/76003d2c76d0ffe0169a5e6862f111738d6a78e5))
+* **ci:** tolerate Maven Central rate limiting ([388b1e8](https://github.com/ifpebj-ti/gestao-refeitorio/commit/388b1e8a5643f67475345752bbd875eba7c4cf5f))
+* **security:** harden nginx upgrade handling ([ac247b5](https://github.com/ifpebj-ti/gestao-refeitorio/commit/ac247b5e8c4408e443a19672595b366745c89ac7))
+* **security:** stop forwarding HTTP upgrades ([dd54d53](https://github.com/ifpebj-ti/gestao-refeitorio/commit/dd54d5395f695b8c73debe29e539fbf24510cee4))
+
 ## [0.17.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.16.0...gestao-refeitorio-v0.17.0) (2026-11-21)
 
 
