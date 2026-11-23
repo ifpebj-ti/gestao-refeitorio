@@ -63,6 +63,12 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
   -keyout "$cert_dir/privkey.pem" \
   -out "$cert_dir/fullchain.pem" >/dev/null 2>&1
 
+# mktemp cria o diretório com modo 0700. O Nginx da imagem de validação roda
+# sem os privilégios do usuário do runner e precisa atravessar os diretórios
+# do bind mount para ler o certificado efêmero.
+chmod 0755 "$tmp_dir" "$tmp_dir/letsencrypt" "$tmp_dir/letsencrypt/live" "$cert_dir"
+chmod 0644 "$cert_dir/privkey.pem" "$cert_dir/fullchain.pem"
+
 # Arquivo vazio portável; evita depender de /dev/null como bind mount no host.
 : > "$tmp_dir/default.conf.template"
 
