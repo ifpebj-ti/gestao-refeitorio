@@ -1,9 +1,12 @@
 # Gestão de Refeitório — IFPE Campus Belo Jardim
 
-[![CI / Security / Release](https://github.com/ifpebj-ti/gestao-refeitorio/actions/workflows/pipeline.yml/badge.svg?branch=main)](https://github.com/ifpebj-ti/gestao-refeitorio/actions/workflows/pipeline.yml)
+[![CI](https://github.com/ifpebj-ti/gestao-refeitorio/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ifpebj-ti/gestao-refeitorio/actions/workflows/ci.yml)
+[![Security](https://github.com/ifpebj-ti/gestao-refeitorio/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/ifpebj-ti/gestao-refeitorio/actions/workflows/security.yml)
+[![CD / Release](https://github.com/ifpebj-ti/gestao-refeitorio/actions/workflows/cd.yml/badge.svg?branch=main)](https://github.com/ifpebj-ti/gestao-refeitorio/actions/workflows/cd.yml)
 [![Release](https://img.shields.io/github/v/release/ifpebj-ti/gestao-refeitorio)](https://github.com/ifpebj-ti/gestao-refeitorio/releases)
 [![Licença](https://img.shields.io/github/license/ifpebj-ti/gestao-refeitorio)](LICENSE)
-[![Cobertura do backend](https://img.shields.io/badge/cobertura%20backend-95%25-brightgreen)](docs/TESTES.md)
+[![Coverage lines](https://raw.githubusercontent.com/ifpebj-ti/gestao-refeitorio/coverage-badges/coverage-lines.svg)](docs/TESTES.md)
+[![Coverage branches](https://raw.githubusercontent.com/ifpebj-ti/gestao-refeitorio/coverage-badges/coverage-branches.svg)](docs/TESTES.md)
 ![Java 21](https://img.shields.io/badge/Java-21-orange)
 ![Spring Boot 4](https://img.shields.io/badge/Spring%20Boot-4-6DB33F)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black)

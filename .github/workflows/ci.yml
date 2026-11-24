@@ -1,0 +1,150 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  frontend:
+    name: CI / Frontend
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npx --yes eslint@9.39.5 . --config ../.github/eslint.config.mjs
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Test and coverage
+        run: npm run test:coverage
+
+      - name: Upload frontend coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v4.6.2
+        with:
+          name: frontend-coverage-report
+          path: frontend/coverage/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Dependency audit
+        run: npm audit --audit-level=critical
+
+      - name: Build
+        run: npm run build
+
+  backend:
+    name: CI / Backend
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Test, coverage and build
+        run: mvn -B --no-transfer-progress clean verify
+
+      - name: Upload backend test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v4.6.2
+        with:
+          name: backend-test-reports
+          path: backend/target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload backend coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v4.6.2
+        with:
+          name: backend-coverage-report
+          path: backend/target/site/jacoco/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  required:
+    name: CI / Required
+    if: always()
+    needs: [frontend, backend]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Enforce CI gates
+        env:
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          BACKEND_RESULT: ${{ needs.backend.result }}
+        run: |
+          [[ "$FRONTEND_RESULT" == success && "$BACKEND_RESULT" == success ]] || {
+            echo "Gates da CI falharam: frontend=$FRONTEND_RESULT backend=$BACKEND_RESULT" >&2
+            exit 1
+          }
+
+  coverage-badges:
+    name: CI / Publish coverage badges
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [frontend, backend]
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download frontend coverage
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: frontend-coverage-report
+          path: ${{ runner.temp }}/coverage/frontend
+
+      - name: Download backend coverage
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: backend-coverage-report
+          path: ${{ runner.temp }}/coverage/backend
+
+      - name: Generate consolidated line and branch badges
+        run: >-
+          node scripts/generate-coverage-badges.mjs
+          "${{ runner.temp }}/coverage/frontend/coverage-summary.json"
+          "${{ runner.temp }}/coverage/backend/jacoco.csv"
+          "${{ runner.temp }}/coverage/badges"
+
+      - name: Publish badges atomically
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BADGE_DIR: ${{ runner.temp }}/coverage/badges
+        run: bash scripts/publish-coverage-badges.sh "$BADGE_DIR"

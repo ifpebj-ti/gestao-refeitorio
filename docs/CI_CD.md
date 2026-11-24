@@ -27,10 +27,16 @@ Antes desta revisão, as automações tinham cinco problemas bloqueantes:
 feature/* | fix/* | chore/*
              |
              v
-pull request -> main -> lint + tipos + build + testes + SAST + Trivy
-                         |
-                         v
-                imagens sha-<commit> no GHCR
+pull request -> CI + Security -> checks obrigatórios -> main
+                                                    |
+                                                    v
+                              CI publica badges de cobertura
+                                                    |
+                                                    v
+                      Security publica imagens sha-<commit> assinadas
+                                                    |
+                                                    v
+                                      dispara CD / Release
                          |
                          v
                   Release Please
@@ -63,9 +69,22 @@ Ao mesclar o PR de release, a automação cria `vX.Y.Z`, a GitHub Release e as t
 `frontend/package.json` e `backend/pom.xml` permanecem sob controle das equipes das aplicações.
 A versão inicial registrada para releases é `0.1.0`.
 
-## Gates de qualidade e segurança
+## Workflows e gates
 
-O workflow consolidado `CI / Security / Release` é obrigatório antes de merge/deploy:
+As responsabilidades estão separadas em três workflows:
+
+- **CI** (`ci.yml`): roda em pull requests e pushes na `main`; executa lint, tipos, testes,
+  cobertura, auditoria de dependências e builds do frontend e backend. Os checks agregadores
+  `CI / Required` e `Security / Required` são os gates estáveis exigidos na proteção da branch;
+- **Security** (`security.yml`): roda em pull requests, pushes na `main` e semanalmente; executa
+  Semgrep, Dependency Review, testes de infraestrutura, Trivy, build único das imagens e Cosign.
+  Em pushes, aguarda a CI do mesmo SHA antes de publicar as imagens imutáveis e dispara o CD;
+- **CD / Release** (`cd.yml`): somente pode ser iniciado por `workflow_dispatch`. Valida novamente
+  que CI e Security aprovaram o HEAD atual da `main`, promove as imagens já assinadas, executa
+  Release Please, gera SBOM/attestation e solicita aprovação do environment `production` antes do
+  deploy. Não recompila as imagens.
+
+Os gates preservados são:
 
 1. frontend: instalação reproduzível, ESLint, verificação de tipos, testes Vitest com
    cobertura mínima de 70%, auditoria de dependências e build de produção;
@@ -84,12 +103,13 @@ O workflow consolidado `CI / Security / Release` é obrigatório antes de merge/
    armazena os relatórios no artefato `zap-baseline-report` e bloqueia o job para as regras marcadas
    como `FAIL` em `.zap/rules.tsv`. Alertas não bloqueantes permanecem visíveis no relatório.
 
-Os builds usados pelo Trivy e pela publicação compartilham o mesmo `SECURITY_REFRESH`, derivado do
-identificador da execução. Esse valor invalida somente a camada que executa `apk upgrade` nas imagens
-finais, mantendo em cache as dependências npm/Maven. O download inicial das dependências Maven possui
+Cada imagem é construída uma única vez no workflow Security. O mesmo artefato local é analisado pelo
+Trivy e, somente no push da `main` aprovado pela CI do mesmo SHA, publicado como `sha-<commit>` e
+assinado. O `SECURITY_REFRESH` deriva do identificador da execução e invalida somente a camada que
+executa `apk upgrade`, mantendo em cache as dependências npm/Maven. O download inicial possui
 três tentativas com atualização forçada para tolerar indisponibilidades transitórias do Maven Central.
 
-O mesmo workflow também roda toda segunda-feira, capturando vulnerabilidades divulgadas depois
+O workflow Security também roda toda segunda-feira, capturando vulnerabilidades divulgadas depois
 do merge. O CodeQL permanece habilitado pelo Default Setup do GitHub, sem uma segunda configuração
 avançada conflitante. O Dependabot cobre npm, Maven, imagens Docker e GitHub Actions.
 
@@ -112,6 +132,20 @@ falha, facilitando o diagnóstico. O job usa Node 24, compatível com os requisi
 jsdom 31. O Dependabot mantém `vitest`, `@vitest/coverage-v8` e `jsdom` no grupo
 `frontend-test-tooling`, evitando PRs isolados com versões principais incompatíveis.
 
+## Badges automáticos de cobertura
+
+Depois que os jobs de frontend e backend terminam com sucesso em um push da `main`, a CI baixa
+`coverage-summary.json` do Vitest e `jacoco.csv` do JaCoCo. O script
+`scripts/generate-coverage-badges.mjs` soma os contadores cobertos e totais das duas aplicações,
+produzindo percentuais consolidados e ponderados para linhas e branches. Resultados ausentes,
+malformados, vazios ou inconsistentes interrompem o job antes de qualquer publicação.
+
+Os arquivos `coverage-lines.svg`, `coverage-branches.svg` e `coverage.json` são publicados de forma
+atômica no branch dedicado `coverage-badges` pela Git Data API. O README referencia esses SVGs
+diretamente. Como CI e Security observam apenas `main`, o commit automático nesse branch não cria
+loops, e nenhum PAT adicional é necessário: a publicação usa o `GITHUB_TOKEN` efêmero com permissão
+`contents: write` limitada ao job de badges.
+
 Os scans podem bloquear a primeira execução por vulnerabilidades já existentes nas dependências
 das aplicações. Esse comportamento é intencional: a esteira não altera nem cria exceções para o
 frontend/backend. A correção ou uma dispensa temporária documentada deve ser decidida pelas
@@ -125,7 +159,7 @@ sem validade ou data de expiração pendente.
 
 ## Smoke tests de segurança de produção
 
-O job `Release / deploy production` executa, depois da validação de saúde e antes de concluir:
+O job `CD / Deploy production` executa, depois da validação de saúde e antes de concluir:
 
 ```bash
 bash scripts/tests/production-security-smoke-test.sh "$PRODUCTION_URL" "$REPORT_FILE"
@@ -140,8 +174,8 @@ quando o teste falha e fica retido por 30 dias.
 
 ## DAST com OWASP ZAP
 
-O job `Security / OWASP ZAP baseline` roda depois de um deploy de produção concluído com sucesso.
-Também pode ser iniciado manualmente em **Actions → CI / Security / Release → Run workflow**, com
+O job `Security / OWASP ZAP baseline` é disparado pelo CD depois de um deploy de produção concluído.
+Também pode ser iniciado manualmente em **Actions → Security → Run workflow**, com
 `run_dast` habilitado, para analisar a versão que já está implantada. O job não acessa o environment
 protegido `production`, pois analisa somente uma URL pública e não utiliza secrets de deploy. A URL é
 lida exclusivamente da repository variable `PRODUCTION_URL`; assim, a aprovação humana ocorre apenas
@@ -158,7 +192,8 @@ de regras com justificativa documentada e revisão de segurança.
 
 ## Deploy e rollback
 
-Em produção, a imagem `sha-<commit>` já analisada é promovida, sem rebuild, para as tags `X.Y.Z`,
+Em produção, a imagem `sha-<commit>` já analisada e assinada pelo workflow Security é verificada pelo
+CD e promovida, sem rebuild, para as tags `X.Y.Z`,
 `vX.Y.Z` e `latest`. O job usa o GitHub Environment
 `production`, que pode exigir aprovação manual por meio de suas regras de proteção. O deploy é
 executado somente quando o Release Please cria uma versão e o job `publish-release` promove e assina
@@ -229,14 +264,13 @@ novos workflows para o PR criado por esse token. Para que o PR automático receb
 obrigatórios, prefira um GitHub App token ou PAT de uma conta técnica com acesso mínimo a
 contents e pull requests.
 
-Proteja `main` exigindo os jobs de frontend, backend, segurança e imagens do workflow
-`CI / Security / Release`; exija também o CodeQL padrão se o plano do GitHub oferecer Advanced
-Security. Desabilite push direto e exija ao menos uma revisão.
+Proteja `main` exigindo os checks agregadores `CI / Required` e `Security / Required`; exija também
+o CodeQL padrão se o plano do GitHub oferecer Advanced Security. Desabilite push direto e exija ao
+menos uma revisão. Os agregadores mantêm nomes estáveis enquanto os jobs internos podem evoluir.
 
 O ruleset ativo `Proteção da main` foi revisado em 17/11/2026. Ele bloqueia exclusão e force-push,
 exige PR com uma aprovação, invalida aprovações após novos pushes, exige resolução das conversas e
-requer branch atualizada com os checks `Frontend / lint and build`, `Backend / tests and build`,
-`Security / SAST and dependencies`, `Images / build, analyze and publish` e `CodeQL`. A ownership
+requer branch atualizada com os checks `CI / Required`, `Security / Required` e `CodeQL`. A ownership
 versionada está em `.github/CODEOWNERS` e as convenções estão em `CONTRIBUTING.md`.
 
 ## Evolução recomendada
