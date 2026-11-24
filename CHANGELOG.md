@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.18.0...gestao-refeitorio-v0.19.0) (2026-11-24)
+
+
+### Features
+
+* **security:** harden production edge controls ([ba7f05e](https://github.com/ifpebj-ti/gestao-refeitorio/commit/ba7f05ed1ed675d840950493a0ddcb4e5f10a5d5))
+* **security:** harden production edge controls ([a1fdb0b](https://github.com/ifpebj-ti/gestao-refeitorio/commit/a1fdb0b833d2e4d0f8d793f3eaa8ef0d2b951945))
+
 ## [0.18.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.17.0...gestao-refeitorio-v0.18.0) (2026-11-23)
 
 
