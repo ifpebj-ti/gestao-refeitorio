@@ -1,0 +1,274 @@
+name: Security
+run-name: >-
+  ${{
+    github.event_name == 'workflow_dispatch' && inputs.run_dast && 'Security / Manual DAST' ||
+    'Security / Gates'
+  }}
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      run_dast:
+        description: Executar somente o OWASP ZAP contra a produção atual
+        required: false
+        type: boolean
+        default: false
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  application:
+    name: Security / Application
+    if: >-
+      !(github.event_name == 'workflow_dispatch' && inputs.run_dast)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Test deploy rollback safeguards
+        run: bash scripts/tests/deploy-remote-test.sh
+
+      - name: Test workflow configuration safeguards
+        run: bash scripts/tests/pipeline-config-test.sh
+
+      - name: Test coverage badge generation
+        run: bash scripts/tests/coverage-badges-test.sh
+
+      - name: Test cross-workflow approval
+        run: bash scripts/tests/workflow-wait-test.sh
+
+      - name: Validate Nginx and ModSecurity configuration
+        run: bash scripts/tests/nginx-config-test.sh
+
+      - name: Test Nginx and WAF security behavior
+        run: bash scripts/tests/nginx-security-test.sh
+
+      - name: Dependency review
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v4.9.0
+        with:
+          fail-on-severity: high
+          warn-on-openssf-scorecard-level: 1
+          comment-summary-in-pr: on-failure
+
+      - name: SAST / Semgrep
+        run: >-
+          docker run --rm
+          -v "$GITHUB_WORKSPACE:/src"
+          semgrep/semgrep:1.158.0
+          semgrep scan --config p/default --error
+          --exclude frontend/node_modules
+          --exclude backend/target
+          /src
+
+  images:
+    name: Security / Images
+    if: >-
+      !(github.event_name == 'workflow_dispatch' && inputs.run_dast)
+    needs: application
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve immutable image tag
+        id: revision
+        run: echo "short_sha=${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.0.0
+
+      - name: Build frontend image once
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.0.0
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: gestao-refeitorio-frontend:security
+          build-args: |
+            SECURITY_REFRESH=${{ github.run_id }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Build backend image once
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.0.0
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: gestao-refeitorio-backend:security
+          build-args: |
+            SECURITY_REFRESH=${{ github.run_id }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.2.6
+        with:
+          version: v0.74.0
+          cache: true
+
+      - name: Trivy / repository and images
+        run: |
+          set +e
+          scan_status=0
+
+          run_trivy() {
+            local label="$1"
+            shift
+            local output result findings details
+            output="$("$@" 2>&1)"
+            result=$?
+            printf '%s\n' "$output"
+            if [[ "$result" -ne 0 ]]; then
+              findings="$(printf '%s\n' "$output" | grep -oE '(CVE|AVD)-[A-Za-z0-9-]+' | sort -u | paste -sd ',' -)"
+              details="$(printf '%s\n' "$output" | tail -n 8 | tr '\r\n' ' ' | cut -c1-800)"
+              echo "::error title=Trivy / ${label}::${findings:-${details:-scan failed; see the job log}}"
+              scan_status=1
+            fi
+          }
+
+          run_trivy repository trivy fs --offline-scan --skip-dirs .git \
+            --scanners secret,misconfig --severity HIGH,CRITICAL --exit-code 1 .
+          run_trivy "frontend image" trivy image --ignorefile .trivyignore.yaml \
+            --show-suppressed --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+            gestao-refeitorio-frontend:security
+          run_trivy "backend image" trivy image --ignorefile .trivyignore.yaml \
+            --show-suppressed --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+            gestao-refeitorio-backend:security
+          exit "$scan_status"
+
+      - name: Wait for CI approval of this revision
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/wait-for-workflow.sh ci.yml "$GITHUB_SHA" push
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish approved images by immutable revision
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          SHORT_SHA: ${{ steps.revision.outputs.short_sha }}
+        run: |
+          for app in frontend backend; do
+            local_image="gestao-refeitorio-${app}:security"
+            remote_image="${REGISTRY}/${GITHUB_REPOSITORY}-${app}:sha-${SHORT_SHA}"
+            docker tag "$local_image" "$remote_image"
+            docker push "$remote_image"
+          done
+
+      - name: Install Cosign
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+
+      - name: Sign approved commit images
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          SHORT_SHA: ${{ steps.revision.outputs.short_sha }}
+        run: |
+          set -Eeuo pipefail
+          for app in frontend backend; do
+            image="${REGISTRY}/${GITHUB_REPOSITORY}-${app}"
+            digest="$(docker buildx imagetools inspect "$image:sha-$SHORT_SHA" |
+              awk '$1 == "Digest:" && !found { print $2; found=1 }')"
+            [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || {
+              echo "Digest inválido para $image:sha-$SHORT_SHA" >&2
+              exit 1
+            }
+            cosign sign --yes "$image@$digest"
+          done
+
+  required:
+    name: Security / Required
+    if: >-
+      always() &&
+      !(github.event_name == 'workflow_dispatch' && inputs.run_dast)
+    needs: [application, images]
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Enforce security gates
+        env:
+          APPLICATION_RESULT: ${{ needs.application.result }}
+          IMAGES_RESULT: ${{ needs.images.result }}
+        run: |
+          [[ "$APPLICATION_RESULT" == success && "$IMAGES_RESULT" == success ]] || {
+            echo "Gates de segurança falharam: application=$APPLICATION_RESULT images=$IMAGES_RESULT" >&2
+            exit 1
+          }
+
+      - name: Trigger CD for the approved revision
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run cd.yml --ref main -f source_sha="$GITHUB_SHA"
+
+  dast:
+    name: Security / OWASP ZAP baseline
+    if: github.event_name == 'workflow_dispatch' && inputs.run_dast
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate DAST target
+        env:
+          ZAP_TARGET: ${{ vars.PRODUCTION_URL }}
+        run: |
+          [[ "$ZAP_TARGET" =~ ^https:// ]] || {
+            echo "PRODUCTION_URL deve conter uma URL HTTPS válida para o scan DAST." >&2
+            exit 1
+          }
+
+      - name: OWASP ZAP baseline scan
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
+        with:
+          target: ${{ vars.PRODUCTION_URL }}
+          rules_file_name: .zap/rules.tsv
+          docker_name: ghcr.io/zaproxy/zaproxy:stable@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af
+          cmd_options: -I -m 3
+          fail_action: true
+          allow_issue_writing: false
+          artifact_name: zap-baseline-report

@@ -73,7 +73,7 @@ whitelabel e a inclusão de exceção, mensagem técnica, binding errors e stack
 
 ## Validação automatizada
 
-O job `Security / SAST and dependencies` executa:
+O job `Security / Application` executa:
 
 ```bash
 bash scripts/tests/nginx-config-test.sh

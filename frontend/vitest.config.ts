@@ -17,7 +17,7 @@ export default defineConfig({
     exclude: ["node_modules", ".next", "coverage"],
     coverage: {
       provider: "v8",
-      reporter: ["text", "lcov", "html"],
+      reporter: ["text", "lcov", "html", "json-summary"],
       reportsDirectory: "./coverage",
       include: [
         "middleware.ts",
