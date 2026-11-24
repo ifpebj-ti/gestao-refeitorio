@@ -35,4 +35,48 @@ fi
 [[ ! -e "$test_dir/invalid-output/coverage-lines.svg" ]] ||
   { echo "FALHA: valor incorreto foi publicado" >&2; exit 1; }
 
+mkdir -p "$test_dir/bin"
+cat > "$test_dir/bin/gh" <<'BASH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+printf '%s\n' "$*" >> "$GH_CALL_LOG"
+case "$*" in
+  *"git/ref/heads/coverage-badges"*)
+    printf '%s\n' '{"message":"Not Found","documentation_url":"https://docs.github.com/rest/git/refs#get-a-reference","status":"404"}'
+    exit 1
+    ;;
+  *"git/blobs"*) printf '%s\n' "blob-sha" ;;
+  *"git/trees"*) printf '%s\n' "tree-sha" ;;
+  *"git/commits"*) printf '%s\n' "commit-sha" ;;
+  *"git/refs"*) ;;
+  *)
+    echo "Chamada gh inesperada: $*" >&2
+    exit 1
+    ;;
+esac
+BASH
+chmod +x "$test_dir/bin/gh"
+cat > "$test_dir/bin/jq" <<'BASH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# O publisher já é validado no runner com jq real. Neste teste de regressão,
+# basta produzir JSON válido para exercitar o tratamento do 404 e as chamadas gh.
+printf '%s\n' '{}'
+BASH
+chmod +x "$test_dir/bin/jq"
+
+GH_CALL_LOG="$test_dir/gh-calls.log" \
+GITHUB_REPOSITORY="ifpebj-ti/gestao-refeitorio" \
+PATH="$test_dir/bin:$PATH" \
+  bash "$project_dir/scripts/publish-coverage-badges.sh" "$test_dir/output"
+
+grep -Fq "git/ref/heads/coverage-badges" "$test_dir/gh-calls.log"
+grep -Fq -- "--method POST repos/ifpebj-ti/gestao-refeitorio/git/refs" "$test_dir/gh-calls.log"
+if grep -Fq "git/commits/{" "$test_dir/gh-calls.log"; then
+  echo "FALHA: corpo do erro 404 foi reutilizado como SHA" >&2
+  exit 1
+fi
+
 echo "Geração segura dos badges de cobertura validada."
