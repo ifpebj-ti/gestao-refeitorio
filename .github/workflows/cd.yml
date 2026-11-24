@@ -290,4 +290,6 @@ jobs:
       - name: Trigger post-deploy DAST in Security
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run security.yml --ref main -f run_dast=true
+        run: >-
+          gh workflow run security.yml --ref main -f run_dast=true
+          --repo "$GITHUB_REPOSITORY"
