@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.20.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.19.0...gestao-refeitorio-v0.20.0) (2026-11-24)
+
+
+### Features
+
+* **ci:** split workflows and automate coverage badges ([bc9cff9](https://github.com/ifpebj-ti/gestao-refeitorio/commit/bc9cff90bfeb280c2528c0fc8790c2cb9bbdd91c))
+* **ci:** split workflows and automate coverage badges ([59e8545](https://github.com/ifpebj-ti/gestao-refeitorio/commit/59e85454be248d7d70a9940ec75b9811cb4e23e2))
+* **front:** exibe versao da aplicacao no rodape do menu lateral ([#373](https://github.com/ifpebj-ti/gestao-refeitorio/issues/373)) ([556b1a3](https://github.com/ifpebj-ti/gestao-refeitorio/commit/556b1a35b4d661c7309ff42687297f71bda06ffa))
+* **front:** exibe versao da aplicacao no rodape do menu lateral ([#373](https://github.com/ifpebj-ti/gestao-refeitorio/issues/373)) ([32c62bf](https://github.com/ifpebj-ti/gestao-refeitorio/commit/32c62bfe0215b63723d18142013c1f3586485546))
+
+
+### Bug Fixes
+
+* **ci:** handle missing coverage badge branch ([fe414b0](https://github.com/ifpebj-ti/gestao-refeitorio/commit/fe414b0817bc26b1e7a6633751ad796495f3eb0a))
+* **ci:** handle missing coverage badge branch ([955ead4](https://github.com/ifpebj-ti/gestao-refeitorio/commit/955ead4936cea6fe109b5cdf971e83fad7ce1648))
+* **ci:** target repository in workflow dispatches ([c411fef](https://github.com/ifpebj-ti/gestao-refeitorio/commit/c411fefc1b65c69ef443da95b0de4821a45a41c3))
+* **ci:** target repository in workflow dispatches ([e8f4e47](https://github.com/ifpebj-ti/gestao-refeitorio/commit/e8f4e4777316db2ac7584326c0976a5d497889de))
+* **ci:** wait for edge headers to converge ([8db266b](https://github.com/ifpebj-ti/gestao-refeitorio/commit/8db266bcaec9c62899153136b93ee3f222151f4e))
+
 ## [0.19.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.18.0...gestao-refeitorio-v0.19.0) (2026-11-24)
 
 
