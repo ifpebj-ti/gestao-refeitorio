@@ -78,7 +78,9 @@ O workflow consolidado `CI / Security / Release` é obrigatório antes de merge/
    secrets/misconfigurações e CVEs corrigíveis de severidade HIGH/CRITICAL;
 6. registry e supply chain: somente imagens aprovadas são publicadas no GHCR, fixadas por digest,
    assinadas de forma keyless com Cosign/OIDC e acompanhadas de SBOM SPDX e attestation.
-7. DAST: depois de um deploy bem-sucedido, o OWASP ZAP Baseline verifica a URL HTTPS de produção,
+7. smoke de segurança: após o health check, verifica HTTPS, redirect, headers, cookies, Host/SNI,
+   portas internas, endpoints administrativos, WAF e respostas de erro; falha crítica reprova o deploy;
+8. DAST: depois de um deploy bem-sucedido, o OWASP ZAP Baseline verifica a URL HTTPS de produção,
    armazena os relatórios no artefato `zap-baseline-report` e bloqueia o job para as regras marcadas
    como `FAIL` em `.zap/rules.tsv`. Alertas não bloqueantes permanecem visíveis no relatório.
 
@@ -120,6 +122,21 @@ foram removidas após as imagens da última execução bem-sucedida da `main` ap
 achados HIGH/CRITICAL corrigíveis sem o arquivo de exceções. A revisão da issue #344, em 17/11/2026,
 confirmou que o arquivo continua com `vulnerabilities: []`: não existe exceção ativa, justificativa
 sem validade ou data de expiração pendente.
+
+## Smoke tests de segurança de produção
+
+O job `Release / deploy production` executa, depois da validação de saúde e antes de concluir:
+
+```bash
+bash scripts/tests/production-security-smoke-test.sh "$PRODUCTION_URL" "$REPORT_FILE"
+```
+
+O teste é somente leitura, exceto pelo logout idempotente usado para validar os atributos do cookie.
+Ele não cria massa, não usa credenciais e não consulta dados autenticados. São gates críticos:
+HTTPS, redirect seguro, política única de headers, cookie `Secure`/`HttpOnly`/`SameSite=Lax`, recusa
+de Host/SNI/IP arbitrário, portas 3000/8080 fechadas, Swagger/Actuator não públicos, bloqueios do WAF
+e ausência de banners/stack traces. O artifact `production-security-smoke-report` é publicado mesmo
+quando o teste falha e fica retido por 30 dias.
 
 ## DAST com OWASP ZAP
 

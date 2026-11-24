@@ -143,6 +143,9 @@ jobs:
       - name: Validate Nginx and ModSecurity configuration
         run: bash scripts/tests/nginx-config-test.sh
 
+      - name: Test Nginx and WAF security behavior
+        run: bash scripts/tests/nginx-security-test.sh
+
       - name: Dependency review
         if: github.event_name == 'pull_request'
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294
@@ -651,6 +654,21 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key "$USER@$HOST" \
             "bash /opt/gestao-refeitorio/deploy-remote.sh '$IMAGE_TAG' docker-compose.prod.yml"
+
+      - name: Run production security smoke tests
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+          REPORT_FILE: ${{ runner.temp }}/production-security-smoke-report.txt
+        run: bash scripts/tests/production-security-smoke-test.sh "$PRODUCTION_URL" "$REPORT_FILE"
+
+      - name: Upload production security smoke report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: production-security-smoke-report
+          path: ${{ runner.temp }}/production-security-smoke-report.txt
+          if-no-files-found: error
+          retention-days: 30
 
   # =========================================================
   # DAST / OWASP ZAP

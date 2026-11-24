@@ -48,10 +48,10 @@ O frontend utiliza **Vitest**, **React Testing Library**, **`@testing-library/je
 
 ## Segurança da Aplicação (AppSec / Hardening)
 
-### 1. Security Headers (`next.config.js` e Nginx)
-O servidor Next.js aplica os cabeçalhos defensivos que não dependem de conteúdo dinâmico em todas as rotas (`/(.*)`) e oculta o cabeçalho `X-Powered-By` (`poweredByHeader: false`). A Content Security Policy possui uma única fonte de verdade no Nginx:
+### 1. Security Headers (Nginx)
+O Nginx é a fonte única de todos os cabeçalhos defensivos em produção. O Next.js mantém `poweredByHeader: false`, mas não emite HSTS, CSP, framing, MIME sniffing, Referrer Policy ou Permissions Policy; isso evita políticas duplicadas entre frontend, API e páginas de erro:
 
-- **`Content-Security-Policy` (CSP):** é emitida exclusivamente pelo Nginx. O Next.js não envia um segundo header CSP, pois a interseção de políticas estáticas conflitantes bloqueia os scripts inline de hidratação do App Router. A política temporária da borda mantém somente as origens necessárias e permite a hidratação; a evolução definitiva é uma CSP dinâmica baseada em nonce por requisição.
+- **`Content-Security-Policy` (CSP):** é emitida exclusivamente pelo Nginx. A política temporária da borda mantém somente as origens necessárias e `unsafe-inline` para a hidratação/estilos do App Router; a evolução definitiva é uma CSP dinâmica baseada em nonce por requisição.
 - **`Strict-Transport-Security: max-age=31536000; includeSubDomains` (HSTS):** instrui o navegador a comunicar-se exclusivamente via HTTPS (`#381`).
 - **`X-Frame-Options: SAMEORIGIN`:** protege contra ataques de *Clickjacking* impedindo que a aplicação seja embutida em iframes de terceiros.
 - **`X-Content-Type-Options: nosniff`:** bloqueia *MIME-sniffing* no navegador.
