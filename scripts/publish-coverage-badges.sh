@@ -10,7 +10,12 @@ for file in coverage-lines.svg coverage-branches.svg coverage.json; do
 done
 
 api="repos/${repository}"
-parent_sha="$(gh api "${api}/git/ref/heads/${branch}" --jq .object.sha 2>/dev/null || true)"
+parent_sha=""
+if ! parent_sha="$(gh api "${api}/git/ref/heads/${branch}" --jq .object.sha 2>/dev/null)"; then
+  # gh preserva o corpo JSON de erros HTTP no stdout. Limpe-o para que um 404
+  # represente corretamente a ausência da branch, em vez de virar um SHA.
+  parent_sha=""
+fi
 base_tree=""
 if [[ -n "$parent_sha" ]]; then
   base_tree="$(gh api "${api}/git/commits/${parent_sha}" --jq .tree.sha)"
