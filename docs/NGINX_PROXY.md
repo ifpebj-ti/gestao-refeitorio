@@ -18,6 +18,11 @@ O container `proxy` publica as portas `80` e `443` da VM e participa da rede Doc
 | `https://gestao-refeitorio-ifpe.duckdns.org/api/auth/local` | `backend:8080` | 5 req/min, burst 4 |
 | `https://gestao-refeitorio-ifpe.duckdns.org/healthz` | resposta do próprio Nginx | sem access log |
 
+Há dois vhosts adicionais de negação. O `default_server` HTTP encerra com `444` qualquer Host que
+não seja o domínio oficial; o `default_server` HTTPS usa `ssl_reject_handshake`, portanto IP direto,
+conexão sem SNI e SNI arbitrário não recebem certificado nem conteúdo da aplicação. O redirect HTTP
+usa o domínio literal — nunca o valor enviado pelo cliente em `Host`.
+
 O limite do corpo da requisição é `6 MiB`. Os timeouts de cliente, conexão, envio e leitura estão
 declarados em `nginx.waf.conf`. O proxy também repassa `Host`, IP de origem e protocolo original,
 além de suportar upgrade de conexão usado pelo frontend.
@@ -32,17 +37,39 @@ Certificados, chaves privadas e arquivos `.env` **não pertencem ao repositório
 protege caminhos TLS dentro de `infra/nginx`; os caminhos em `nginx.waf.conf` são apenas referências
 aos arquivos existentes na VM.
 
-## WAF e headers
+## WAF, headers e respostas de erro
 
 A imagem oficial `ghcr.io/coreruleset/modsecurity-crs:nginx-alpine` executa o ModSecurity com OWASP CRS, `PARANOIA=1` e
 limite de corpo coerente com o Nginx. `modsec-exclusions.conf` remove somente campos específicos de
 credenciais da inspeção do CRS; ele não desativa o WAF para rotas completas.
+
+`custom-rules.conf` reserva os IDs `11000-11999` e complementa o CRS com bloqueios explícitos para:
+
+- traversal codificado ou duplamente codificado em path;
+- traversal em query string;
+- SQLi, XSS e quebra de linha nos headers `Authorization` e `X-XSRF-TOKEN`;
+- quebra de linha codificada nos demais headers.
+
+O audit log usa somente as partes `AHZ`: headers e corpos não são persistidos. Regras que examinam
+tokens apenas marcam a transação com `nolog`; uma segunda regra bloqueia usando o marcador booleano.
+Isso evita que o conector copie o valor casado para o error log. Paths e queries geram evidência com
+regra, severidade e rota, sem copiar credenciais. Exceções devem continuar restritas a um campo, ter
+justificativa no arquivo e ser cobertas por teste positivo e negativo antes do merge.
 
 O digest da imagem é acompanhado semanalmente pelo Dependabot no diretório `/infra/nginx`; qualquer
 atualização deve passar pelo mesmo `nginx -t`, revisão e procedimento de implantação deste guia.
 
 O Nginx é a fonte única dos headers de segurança de borda, incluindo HSTS, CSP, proteção contra
 MIME sniffing e framing, Referrer Policy e Permissions Policy.
+
+Headers equivalentes vindos do Next.js ou Spring são removidos com `proxy_hide_header`, evitando
+duplicidade em frontend, API, redirects e erros. A CSP ainda contém `unsafe-inline` somente para os
+scripts de bootstrap/hidratação e estilos gerados pelo Next.js; as demais fontes são explicitamente
+limitadas. A remoção dessa exceção depende da adoção de nonce por requisição no frontend.
+
+Erros produzidos pelo Nginx usam `errors/generic.json`. O arquivo não contém nome ou versão de
+Nginx, Tomcat, classes Java ou stack trace. No backend, o profile `prod` também desabilita a página
+whitelabel e a inclusão de exceção, mensagem técnica, binding errors e stack trace.
 
 ## Validação automatizada
 
@@ -55,6 +82,31 @@ bash scripts/tests/nginx-config-test.sh
 O teste verifica os controles obrigatórios, procura material de chave privada e executa `nginx -t`
 na mesma imagem fixada no Compose. Um certificado efêmero é criado apenas no diretório temporário do
 runner e removido ao final.
+
+O teste comportamental também sobe o proxy isoladamente e comprova:
+
+```bash
+bash scripts/tests/nginx-security-test.sh
+```
+
+- recusa de Host, IP e SNI arbitrários;
+- presença única dos headers de segurança;
+- bloqueio de payloads em path, query e headers customizados;
+- passagem de requisições legítimas equivalentes;
+- ausência de tokens no log e de banners em erros 5xx.
+
+Após cada deploy, `production-security-smoke-test.sh` repete verificações não destrutivas contra a
+URL pública. Falha crítica encerra o job e o relatório `production-security-smoke-report` é guardado
+por 30 dias. Para execução manual:
+
+```bash
+bash scripts/tests/production-security-smoke-test.sh \
+  https://gestao-refeitorio-ifpe.duckdns.org \
+  production-security-smoke-report.txt
+```
+
+Linhas `[OK]` representam controles confirmados; a primeira linha `[FALHA]` identifica o gate que
+impediu a conclusão. O teste não autentica, não cria registros e não altera dados de produção.
 
 ## Comparação com a configuração ativa
 

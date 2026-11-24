@@ -14,12 +14,16 @@ services:
       ALLOWED_METHODS: "GET HEAD POST OPTIONS PUT PATCH DELETE"
       MODSEC_REQ_BODY_LIMIT: "6291456"
       MODSEC_AUDIT_LOG_FORMAT: JSON
-      MODSEC_AUDIT_LOG_PARTS: "ABHZ"
+      # Não grava headers/corpos: Authorization, cookies e tokens CSRF nunca
+      # devem aparecer no audit log. A seção H mantém regra, severidade e URI.
+      MODSEC_AUDIT_LOG_PARTS: "AHZ"
       RESOLVER_CONFIG: "valid=10s ipv6=off"
     volumes:
       - ./nginx.waf.conf:/etc/nginx/conf.d/gestao.conf:ro
       - /dev/null:/etc/nginx/templates/conf.d/default.conf.template:ro
       - ./modsec-exclusions.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:ro
+      - ./custom-rules.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-910-GESTAO-CUSTOM-RULES.conf:ro
+      - ./errors:/etc/nginx/error-pages:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/www/certbot:/var/www/certbot:ro
     networks:

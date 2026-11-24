@@ -11,6 +11,18 @@ app:
   # Produção só responde por HTTPS (Nginx + Let's Encrypt): cookies nunca trafegam em texto puro (#342).
   cookie-seguro: true
 
+server:
+  # A borda oculta este header, e o backend também não anuncia Tomcat quando
+  # acessado pela rede interna durante diagnóstico.
+  server-header: ""
+  error:
+    whitelabel:
+      enabled: false
+    include-exception: false
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+
 springdoc:
   api-docs:
     enabled: false

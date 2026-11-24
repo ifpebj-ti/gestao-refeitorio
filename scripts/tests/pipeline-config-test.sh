@@ -11,6 +11,9 @@ readonly backend_dockerfile="${project_dir}/backend/Dockerfile"
 readonly frontend_package="${project_dir}/frontend/package.json"
 readonly frontend_dockerfile="${project_dir}/frontend/Dockerfile"
 readonly frontend_vitest="${project_dir}/frontend/vitest.config.ts"
+readonly frontend_next_config="${project_dir}/frontend/next.config.js"
+readonly backend_prod_config="${project_dir}/backend/src/main/resources/application-prod.yml"
+readonly production_security_smoke="${project_dir}/scripts/tests/production-security-smoke-test.sh"
 readonly zap_rules="${project_dir}/.zap/rules.tsv"
 readonly codeowners="${project_dir}/.github/CODEOWNERS"
 readonly contributing="${project_dir}/CONTRIBUTING.md"
@@ -37,6 +40,7 @@ if grep -Fq 'tag=sha-' <<<"$deploy_block"; then
 fi
 assert_file_contains "$pipeline" "scripts/deploy-remote.sh"
 assert_file_contains "$pipeline" "scripts/tests/nginx-config-test.sh"
+assert_file_contains "$pipeline" "scripts/tests/nginx-security-test.sh"
 assert_file_contains "$pipeline" "infra/nginx"
 assert_file_contains "$pipeline" 'bash /opt/gestao-refeitorio/deploy-remote.sh'
 if grep -Fq '< scripts/deploy-remote.sh' <<<"$deploy_block"; then
@@ -55,6 +59,13 @@ assert_file_contains "$dependabot" "directory: /backend"
 
 assert_file_contains "$compose_prod" 'APP_VERSION: ${IMAGE_TAG}'
 assert_file_contains "$compose_dev" 'APP_VERSION: ${IMAGE_TAG:-dev}'
+
+assert_file_contains "$backend_prod_config" 'server-header: ""'
+assert_file_contains "$backend_prod_config" "include-stacktrace: never"
+assert_file_contains "$backend_prod_config" "include-exception: false"
+if grep -Eq 'Strict-Transport-Security|Content-Security-Policy|X-Frame-Options' "$frontend_next_config"; then
+  fail "Next.js ainda emite headers cuja fonte de verdade deve ser a borda"
+fi
 
 assert_file_contains "$backend_pom" "<artifactId>jacoco-maven-plugin</artifactId>"
 assert_file_contains "$backend_pom" "<minimum>0.70</minimum>"
@@ -100,6 +111,14 @@ assert_file_contains "$pipeline" "artifact_name: zap-baseline-report"
 assert_file_contains "$pipeline" "zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25"
 assert_file_contains "$pipeline" "ghcr.io/zaproxy/zaproxy:stable@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af"
 assert_file_contains "$zap_rules" $'10038\tFAIL'
+
+assert_file_contains "$pipeline" "Run production security smoke tests"
+assert_file_contains "$pipeline" "production-security-smoke-report"
+assert_file_contains "$pipeline" 'PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}'
+assert_file_contains "$pipeline" 'if: always()'
+assert_file_contains "$production_security_smoke" "Swagger e Actuator não estão públicos"
+assert_file_contains "$production_security_smoke" "Host, SNI e acesso direto por IP são negados"
+assert_file_contains "$production_security_smoke" "portas internas 3000 e 8080 não estão expostas"
 
 if compgen -G "${project_dir}/.github/workflows/*codeql*.yml" >/dev/null; then
   fail "workflow CodeQL avançado concorreria com o Default Setup habilitado"
