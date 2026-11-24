@@ -130,6 +130,8 @@ assert_file_contains "$cd" "production-security-smoke-report"
 assert_file_contains "$production_security_smoke" "Swagger e Actuator não estão públicos"
 assert_file_contains "$production_security_smoke" "Host, SNI e acesso direto por IP são negados"
 assert_file_contains "$production_security_smoke" "portas internas 3000 e 8080 não estão expostas"
+assert_file_contains "$production_security_smoke" "wait_for_edge_headers"
+assert_file_contains "$production_security_smoke" "headers da borda não convergiram após o deploy"
 
 if awk '
   /package-ecosystem:/ { ecosystem=$3 }

@@ -68,6 +68,35 @@ assert_no_fingerprint() {
   fi
 }
 
+edge_headers_ready() {
+  local status
+  status="$(request "$base/")" || return 1
+  [[ "$status" =~ ^(200|204|30[1278])$ ]] || return 1
+
+  local name
+  for name in \
+    Strict-Transport-Security \
+    X-Content-Type-Options \
+    X-Frame-Options \
+    Referrer-Policy \
+    Permissions-Policy \
+    Content-Security-Policy; do
+    [[ "$(grep -Eic "^${name}:" "$headers" || true)" -eq 1 ]] || return 1
+  done
+}
+
+wait_for_edge_headers() {
+  local attempt
+  for attempt in {1..12}; do
+    if edge_headers_ready; then
+      return 0
+    fi
+    echo "Aguardando convergência dos headers da borda (${attempt}/12)."
+    sleep 5
+  done
+  fail "headers da borda não convergiram após o deploy"
+}
+
 assert_edge_headers() {
   assert_single_header Strict-Transport-Security 'max-age=31536000'
   assert_single_header X-Content-Type-Options 'nosniff'
@@ -79,6 +108,11 @@ assert_edge_headers() {
 }
 
 echo "Smoke test de segurança: $base"
+
+# Durante a troca do container do proxy, uma conexão pode alcançar por poucos
+# segundos a configuração anterior. Aguarda a borda convergir, mas mantém as
+# asserções estritas abaixo para que duplicações persistentes continuem falhando.
+wait_for_edge_headers
 
 assert_status '^(200|204|30[1278])$' "$base/"
 assert_edge_headers
