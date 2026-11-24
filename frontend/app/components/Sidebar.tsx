@@ -25,6 +25,7 @@ export default function Sidebar() {
     menuMobileAberto,
     setMenuMobileAberto,
     totalAlertasPendentes,
+    versaoApp,
   } = useAuth();
 
   // Links do Admin (gestão restrita de usuários)
@@ -154,6 +155,12 @@ export default function Sidebar() {
             <LogOut className="w-3.5 h-3.5" />
             <span>Encerrar Sessão</span>
           </button>
+
+          {versaoApp && (
+            <p className="text-[11px] text-slate-400 text-center font-medium pt-0.5">
+              Versão {versaoApp}
+            </p>
+          )}
         </div>
       </aside>
     </>

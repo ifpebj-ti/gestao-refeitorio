@@ -13,6 +13,7 @@ let mockAuthValues = {
   menuMobileAberto: false,
   setMenuMobileAberto: mockSetMenuMobileAberto,
   totalAlertasPendentes: 0,
+  versaoApp: null as string | null,
 };
 
 vi.mock("next/navigation", () => ({
@@ -36,6 +37,7 @@ describe("Componente Sidebar e controle de acesso por perfil (RBAC)", () => {
       menuMobileAberto: false,
       setMenuMobileAberto: mockSetMenuMobileAberto,
       totalAlertasPendentes: 0,
+      versaoApp: null,
     };
   });
 
@@ -79,6 +81,17 @@ describe("Componente Sidebar e controle de acesso por perfil (RBAC)", () => {
 
     fireEvent.click(screen.getByText("Encerrar Sessão"));
     expect(mockLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it("exibe a versão da aplicação no rodapé quando disponível e oculta quando indisponível (#373)", () => {
+    mockAuthValues.versaoApp = "0.19.0";
+    const { rerender } = render(<Sidebar />);
+    expect(screen.getByText("Versão 0.19.0")).toBeInTheDocument();
+
+    mockAuthValues.versaoApp = null;
+    rerender(<Sidebar />);
+    expect(screen.queryByText(/Versão/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Encerrar Sessão")).toBeInTheDocument();
   });
 });
 
