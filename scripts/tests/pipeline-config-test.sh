@@ -44,8 +44,10 @@ assert_file_contains "$security" "name: Security"
 assert_file_contains "$cd" "name: CD / Release"
 assert_file_contains "$ci" "name: CI / Required"
 assert_file_contains "$security" "name: Security / Required"
-assert_file_contains "$security" 'run: gh workflow run cd.yml --ref main -f source_sha="$GITHUB_SHA"'
-assert_file_contains "$cd" 'run: gh workflow run security.yml --ref main -f run_dast=true'
+assert_file_contains "$security" 'gh workflow run cd.yml --ref main -f source_sha="$GITHUB_SHA"'
+assert_file_contains "$security" '--repo "$GITHUB_REPOSITORY"'
+assert_file_contains "$cd" 'gh workflow run security.yml --ref main -f run_dast=true'
+assert_file_contains "$cd" '--repo "$GITHUB_REPOSITORY"'
 assert_file_contains "$cd" 'bash scripts/wait-for-workflow.sh ci.yml'
 assert_file_contains "$cd" 'bash scripts/wait-for-workflow.sh security.yml'
 
