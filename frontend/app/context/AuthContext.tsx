@@ -23,6 +23,7 @@ interface AuthContextType {
   totalAlertasPendentes: number;
   setTotalAlertasPendentes: (total: number) => void;
   bannerAlertasVisivel: boolean;
+  versaoApp: string | null;
   loginComGoogle: (idToken: string) => Promise<void>;
   loginComCredenciais: (email: string, senha: string) => Promise<void>;
   logout: () => void;
@@ -38,6 +39,7 @@ import {
   EVENTO_SESSAO_EXPIRADA,
   isTokenExpirado,
   limparSessaoLocal,
+  obterHeadersAutenticados,
 } from "@/lib/authSession";
 import { produtoService } from "@/lib/produtos";
 import { listarHistoricoApi } from "@/lib/movimentacoes";
@@ -55,6 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [carregando, setCarregando] = useState(true);
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const [bannerAlertasVisivel, setBannerAlertasVisivel] = useState(true);
+  const [versaoApp, setVersaoApp] = useState<string | null>(null);
 
   // Inicializa com 0 para evitar hydration mismatch no SSR, carregando do localStorage após montagem
   const [totalAlertasPendentes, setTotalAlertasPendentesState] = useState<number>(0);
@@ -98,6 +101,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     return () => {
       montado = false;
+    };
+  }, [autenticado]);
+
+  // Busca a versão da aplicação uma vez após o login (#373)
+  useEffect(() => {
+    let ativo = true;
+    async function carregarVersaoApp() {
+      try {
+        const baseUrl =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+        const res = await fetch(`${baseUrl}/versao`, {
+          headers: obterHeadersAutenticados(),
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => null)) as {
+          versao?: string;
+        } | null;
+        if (ativo && typeof data?.versao === "string" && data.versao.trim()) {
+          setVersaoApp(data.versao.trim());
+        }
+      } catch {
+        // Se falhar, o menu continua funcionando normalmente sem exibir a versão
+      }
+    }
+    if (autenticado) {
+      carregarVersaoApp();
+    } else {
+      setVersaoApp(null);
+    }
+    return () => {
+      ativo = false;
     };
   }, [autenticado]);
 
@@ -154,6 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setPerfil("COZINHA");
       setAutenticado(false);
       setMenuMobileAberto(false);
+      setVersaoApp(null);
 
       // Nunca redireciona rotas públicas como a tela da TV (/tv) para o login
       if (!isRotaPublica()) {
@@ -330,6 +367,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         totalAlertasPendentes,
         setTotalAlertasPendentes,
         bannerAlertasVisivel,
+        versaoApp,
         loginComGoogle,
         loginComCredenciais,
         logout,
