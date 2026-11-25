@@ -67,10 +67,13 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
     }
 
     @Override
+    @Transactional
     public MovimentacaoResponseDTO registrarSaida(MovimentacaoSaidaRequestDTO request, Usuario responsavel) {
-        ProdutoELocal produtoELocal = buscarProdutoELocal(request.produtoId(), request.localId());
-        Produto produto = produtoELocal.produto();
-        LocalArmazenamento local = produtoELocal.local();
+        // A trava fica no produto, e não no par produto/local: serializa um pouco mais do que o necessário,
+        // mas reaproveita uma linha que já existe. Ela vale até o commit, que grava a saída nova.
+        Produto produto = produtoRepository.buscarParaAtualizar(request.produtoId())
+                .orElseThrow(() -> new ProdutoNaoEncontradoException(request.produtoId()));
+        LocalArmazenamento local = buscarLocal(request.localId());
 
         // Saldo validado por produto e por local (CLAUDE.md seção 5) — nunca o saldo total do produto.
         BigDecimal saldoDisponivel = movimentacaoRepository.calcularSaldo(produto.getId(), local.getId());
@@ -109,9 +112,12 @@ public class MovimentacaoServiceImpl implements MovimentacaoService {
     private ProdutoELocal buscarProdutoELocal(UUID produtoId, UUID localId) {
         Produto produto = produtoRepository.findById(produtoId)
                 .orElseThrow(() -> new ProdutoNaoEncontradoException(produtoId));
-        LocalArmazenamento local = localArmazenamentoRepository.findById(localId)
+        return new ProdutoELocal(produto, buscarLocal(localId));
+    }
+
+    private LocalArmazenamento buscarLocal(UUID localId) {
+        return localArmazenamentoRepository.findById(localId)
                 .orElseThrow(() -> new LocalArmazenamentoNaoEncontradoException(localId));
-        return new ProdutoELocal(produto, local);
     }
 
     private record ProdutoELocal(Produto produto, LocalArmazenamento local) {
