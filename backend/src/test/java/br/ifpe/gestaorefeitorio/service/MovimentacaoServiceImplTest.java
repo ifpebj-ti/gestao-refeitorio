@@ -184,7 +184,7 @@ class MovimentacaoServiceImplTest {
         MovimentacaoSaidaRequestDTO request = new MovimentacaoSaidaRequestDTO(
                 produtoId, localId, new BigDecimal("4"), LocalDate.now(), TipoSaida.CONSUMO);
 
-        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
+        when(produtoRepository.buscarParaAtualizar(produtoId)).thenReturn(Optional.of(produto));
         when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.of(local));
         when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(chamada -> {
             Movimentacao salva = chamada.getArgument(0);
@@ -213,7 +213,7 @@ class MovimentacaoServiceImplTest {
         MovimentacaoSaidaRequestDTO request = new MovimentacaoSaidaRequestDTO(
                 produtoId, localId, new BigDecimal("4"), LocalDate.now(), TipoSaida.CONSUMO);
 
-        when(produtoRepository.findById(produtoId)).thenReturn(Optional.empty());
+        when(produtoRepository.buscarParaAtualizar(produtoId)).thenReturn(Optional.empty());
 
         assertThrows(ProdutoNaoEncontradoException.class,
                 () -> movimentacaoService.registrarSaida(request, responsavel()));
@@ -229,7 +229,7 @@ class MovimentacaoServiceImplTest {
         MovimentacaoSaidaRequestDTO request = new MovimentacaoSaidaRequestDTO(
                 produtoId, localId, new BigDecimal("4"), LocalDate.now(), TipoSaida.PERDA);
 
-        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
+        when(produtoRepository.buscarParaAtualizar(produtoId)).thenReturn(Optional.of(produto));
         when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.empty());
 
         assertThrows(LocalArmazenamentoNaoEncontradoException.class,
@@ -247,7 +247,7 @@ class MovimentacaoServiceImplTest {
         MovimentacaoSaidaRequestDTO request = new MovimentacaoSaidaRequestDTO(
                 produtoId, localId, new BigDecimal("5"), LocalDate.now(), TipoSaida.CONSUMO);
 
-        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
+        when(produtoRepository.buscarParaAtualizar(produtoId)).thenReturn(Optional.of(produto));
         when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.of(local));
         when(movimentacaoRepository.calcularSaldo(produtoId, localId)).thenReturn(new BigDecimal("2"));
 
@@ -266,7 +266,7 @@ class MovimentacaoServiceImplTest {
         MovimentacaoSaidaRequestDTO request = new MovimentacaoSaidaRequestDTO(
                 produtoId, localId, new BigDecimal("2"), LocalDate.now(), TipoSaida.CONSUMO);
 
-        when(produtoRepository.findById(produtoId)).thenReturn(Optional.of(produto));
+        when(produtoRepository.buscarParaAtualizar(produtoId)).thenReturn(Optional.of(produto));
         when(localArmazenamentoRepository.findById(localId)).thenReturn(Optional.of(local));
         when(movimentacaoRepository.calcularSaldo(produtoId, localId)).thenReturn(new BigDecimal("2"));
         when(movimentacaoRepository.save(any(Movimentacao.class))).thenAnswer(chamada -> {
