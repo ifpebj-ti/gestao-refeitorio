@@ -236,7 +236,7 @@ Representa os locais físicos onde os produtos são mantidos.
 | `nome` | `VARCHAR(100)` | `NOT NULL`, `UNIQUE` | Nome do local de armazenamento. |
 | `criado_em` | `TIMESTAMPTZ` | `NOT NULL`, padrão `now()` | Data e hora de criação. |
 
-Os dados iniciais criados pelas migrations são `Despensa` e `Congelados/Refrigerados`.
+Os dados iniciais criados pelas migrations são `Despensa` e `Congelados/Refrigerados`, com UUIDs fixos que o frontend referencia. A V4 cria os dois locais. A V29 os recria, com os mesmos UUIDs, onde a tabela tiver sido esvaziada, e não altera nada onde eles já existem. A lista fica disponível em `GET /api/locais-armazenamento` para qualquer perfil autenticado.
 
 ### 4.4. `movimentacoes`
 
@@ -481,7 +481,7 @@ Validações adicionais, como saldo suficiente, valores positivos, autorização
 
 ## 8. Evolução do banco de dados
 
-O Flyway executa as migrations em ordem crescente. As migrations existentes vão de `V1` a `V28`.
+O Flyway executa as migrations em ordem crescente. As migrations existentes vão de `V1` a `V29`.
 
 Migrations que alteraram a estrutura do banco:
 
@@ -497,7 +497,7 @@ Migrations que alteraram a estrutura do banco:
 | `V27` | `notas.justificativa_recusa` vira `justificativa_cancelamento`; nova coluna `notas.versao` (lock otimista). |
 | `V28` | `notas.tipo` e `notas.responsavel_entrega`; índice único parcial `uk_notas_numero_local`; tabela `nota_local_sequencias`. |
 
-As demais migrations só mexem em dados: carga e revisão do catálogo de produtos (`V8`, `V13` a `V17` e `V20`), usuários iniciais de homologação (`V18`) e remoção dos que ficaram sem vínculo (`V24`).
+As demais migrations só mexem em dados: carga e revisão do catálogo de produtos (`V8`, `V13` a `V17` e `V20`), usuários iniciais de homologação (`V18`), remoção dos que ficaram sem vínculo (`V24`) e restauração dos locais de armazenamento padrão (`V29`).
 
 Para evoluir o modelo:
 
@@ -511,7 +511,7 @@ Para evoluir o modelo:
 Exemplo:
 
 ```text
-V29__adicionar_indice_movimentacao_local.sql
+V30__adicionar_indice_movimentacao_local.sql
 ```
 
 ## 9. Considerações de segurança e privacidade
