@@ -63,10 +63,11 @@ public class MovimentacaoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(movimentacaoFotoService.anexar(id, arquivo, responsavel));
     }
 
-    // Qualquer perfil autenticado pode consultar (mesma regra de GET /api/produtos).
+    // ADMIN não opera estoque (#474); a regra de posse para a COZINHA fica no service.
     @GetMapping("/{id}/foto")
-    public ResponseEntity<byte[]> buscarFoto(@PathVariable UUID id) {
-        MovimentacaoFoto foto = movimentacaoFotoService.buscarPorMovimentacao(id);
+    @PreAuthorize("hasAnyRole('COZINHA', 'NUTRICIONISTA')")
+    public ResponseEntity<byte[]> buscarFoto(@PathVariable UUID id, @AuthenticationPrincipal Usuario usuario) {
+        MovimentacaoFoto foto = movimentacaoFotoService.buscarPorMovimentacao(id, usuario);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(foto.getContentType()))
                 .body(foto.getConteudo());
@@ -74,8 +75,10 @@ public class MovimentacaoController {
 
 
 
-    // Rota NOVA para alimentar a aba de Auditoria do Front
+    // Histórico completo também para a COZINHA (#474): a tela de consumo calcula a validade dos lotes (FEFO)
+    // a partir das entradas, que são registradas pela NUTRICIONISTA. O ADMIN não opera estoque.
     @GetMapping
+    @PreAuthorize("hasAnyRole('COZINHA', 'NUTRICIONISTA')")
     public ResponseEntity<List<MovimentacaoResponseDTO>> listarHistorico() {
         return ResponseEntity.ok(movimentacaoService.listarHistorico());
     }

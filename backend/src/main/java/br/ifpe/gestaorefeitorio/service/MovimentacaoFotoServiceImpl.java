@@ -7,6 +7,7 @@ import br.ifpe.gestaorefeitorio.exception.MovimentacaoNaoEncontradaException;
 import br.ifpe.gestaorefeitorio.model.Movimentacao;
 import br.ifpe.gestaorefeitorio.model.MovimentacaoFoto;
 import br.ifpe.gestaorefeitorio.model.Usuario;
+import br.ifpe.gestaorefeitorio.model.enums.Perfil;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoFotoRepository;
 import br.ifpe.gestaorefeitorio.repository.MovimentacaoRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,11 @@ public class MovimentacaoFotoServiceImpl implements MovimentacaoFotoService {
     public MovimentacaoFotoResponseDTO anexar(UUID movimentacaoId, MultipartFile arquivo, Usuario responsavel) {
         Movimentacao movimentacao = movimentacaoRepository.findById(movimentacaoId)
                 .orElseThrow(() -> new MovimentacaoNaoEncontradaException(movimentacaoId));
+        if (!podeAcessar(movimentacao, responsavel)) {
+            log.info("Anexo de foto negado: movimentação {} de outro usuário, por {}",
+                    movimentacaoId, responsavel.getEmail());
+            throw new MovimentacaoNaoEncontradaException(movimentacaoId);
+        }
 
         validar(arquivo);
 
@@ -67,12 +73,25 @@ public class MovimentacaoFotoServiceImpl implements MovimentacaoFotoService {
     }
 
     @Override
-    public MovimentacaoFoto buscarPorMovimentacao(UUID movimentacaoId) {
-        if (!movimentacaoRepository.existsById(movimentacaoId)) {
-            throw new MovimentacaoNaoEncontradaException(movimentacaoId);
+    public MovimentacaoFoto buscarPorMovimentacao(UUID movimentacaoId, Usuario usuario) {
+        Movimentacao movimentacao = movimentacaoRepository.findById(movimentacaoId)
+                .orElseThrow(() -> new MovimentacaoNaoEncontradaException(movimentacaoId));
+        if (!podeAcessar(movimentacao, usuario)) {
+            log.info("Acesso à foto negado: movimentação {} de outro usuário, por {}", movimentacaoId, usuario.getEmail());
+            throw new MovimentacaoFotoNaoEncontradaException(movimentacaoId);
         }
         return movimentacaoFotoRepository.findByMovimentacaoId(movimentacaoId)
                 .orElseThrow(() -> new MovimentacaoFotoNaoEncontradaException(movimentacaoId));
+    }
+
+    // A NUTRICIONISTA confere todo o estoque; a COZINHA só mexe nas evidências do que ela registrou (IDOR).
+    // A resposta negada é 404, igual à de quem não tem foto, para não confirmar o que existe.
+    private boolean podeAcessar(Movimentacao movimentacao, Usuario usuario) {
+        if (usuario.getPerfil() == Perfil.NUTRICIONISTA) {
+            return true;
+        }
+        Usuario dono = movimentacao.getResponsavel();
+        return dono != null && dono.getId() != null && dono.getId().equals(usuario.getId());
     }
 
     private void validar(MultipartFile arquivo) {
