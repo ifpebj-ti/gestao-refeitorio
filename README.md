@@ -108,6 +108,7 @@ A autorização é validada sempre no backend, com `@PreAuthorize` em cada endpo
 | `/api/remetentes/**` | `NUTRICIONISTA` |
 | `/api/relatorios/**` (mensal, PDF, Excel e consumo) | `NUTRICIONISTA` |
 | `PUT /api/usuarios/{id}/senha`, `DELETE /api/usuarios/{id}/senha` (definir e remover a senha local) | `ADMIN` |
+| `PATCH /api/usuarios/{id}/desativar`, `PATCH /api/usuarios/{id}/reativar` | `ADMIN` (o ADMIN não pode desativar a própria conta) |
 | `/api/usuarios/**` | `ADMIN` |
 
 ---
@@ -123,7 +124,7 @@ A autorização é validada sempre no backend, com `@PreAuthorize` em cada endpo
 - Cardápio com projeção de consumo (quantidade por pessoa × pessoas estimadas) e tela para TV.
 - Notas de recebimento vinculadas às entradas, com cadastro de remetentes.
 - Relatório mensal consolidado, exportação em PDF e Excel e gráfico de consumo por período.
-- Gestão de usuários pelo ADMIN, com convite por e-mail e controle do primeiro acesso.
+- Gestão de usuários pelo ADMIN, com convite por e-mail, controle do primeiro acesso, desativação e reativação. O ADMIN não consegue desativar a própria conta nem tirar de si o perfil de administrador, para o sistema não ficar sem ADMIN.
 
 ## Perfis de acesso
 

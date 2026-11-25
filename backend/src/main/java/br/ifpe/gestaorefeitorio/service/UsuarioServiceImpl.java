@@ -5,11 +5,13 @@ import br.ifpe.gestaorefeitorio.dto.UsuarioEdicaoDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioResponseDTO;
 import br.ifpe.gestaorefeitorio.exception.AutoDesativacaoNaoPermitidaException;
+import br.ifpe.gestaorefeitorio.exception.AutoRebaixamentoNaoPermitidoException;
 import br.ifpe.gestaorefeitorio.exception.ConviteNaoPermitidoException;
 import br.ifpe.gestaorefeitorio.exception.EmailJaCadastradoException;
 import br.ifpe.gestaorefeitorio.exception.EnvioEmailException;
 import br.ifpe.gestaorefeitorio.exception.UsuarioNaoEncontradoPorIdException;
 import br.ifpe.gestaorefeitorio.model.Usuario;
+import br.ifpe.gestaorefeitorio.model.enums.Perfil;
 import br.ifpe.gestaorefeitorio.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -113,13 +115,22 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     @Override
-    public UsuarioResponseDTO editar(UUID id, UsuarioEdicaoDTO request) {
+    public UsuarioResponseDTO editar(UUID id, UsuarioEdicaoDTO request, Usuario adminAutenticado) {
         Usuario usuario = buscarEntidade(id);
+
+        // Mesmo motivo da autodesativação: o ADMIN que se rebaixa perde o acesso e o sistema pode ficar sem ADMIN.
+        if (usuario.getId().equals(adminAutenticado.getId()) && request.perfil() != Perfil.ADMIN) {
+            log.info("Auto-rebaixamento bloqueado para {} (perfil pedido: {})",
+                    adminAutenticado.getEmail(), request.perfil());
+            throw new AutoRebaixamentoNaoPermitidoException();
+        }
+
         usuario.setNome(request.nome());
         usuario.setPerfil(request.perfil());
         usuario = usuarioRepository.save(usuario);
 
-        log.info("Usuário editado: {}", usuario.getEmail());
+        log.info("Usuário editado: {} (perfil {}, por {})",
+                usuario.getEmail(), usuario.getPerfil(), adminAutenticado.getEmail());
         return paraDTO(usuario);
     }
 
@@ -136,6 +147,21 @@ public class UsuarioServiceImpl implements UsuarioService {
         usuario = usuarioRepository.save(usuario);
 
         log.info("Usuário desativado: {} (por {})", usuario.getEmail(), adminAutenticado.getEmail());
+        return paraDTO(usuario);
+    }
+
+    @Override
+    public UsuarioResponseDTO reativar(UUID id, Usuario adminAutenticado) {
+        Usuario usuario = buscarEntidade(id);
+        if (usuario.isAtivo()) {
+            log.debug("Reativação sem efeito: {} já está ativo", usuario.getEmail());
+            return paraDTO(usuario);
+        }
+
+        usuario.setAtivo(true);
+        usuario = usuarioRepository.save(usuario);
+
+        log.info("Usuário reativado: {} (por {})", usuario.getEmail(), adminAutenticado.getEmail());
         return paraDTO(usuario);
     }
 

@@ -41,13 +41,19 @@ public class UsuarioController {
     }
 
     @PatchMapping("/{id}")
-    public UsuarioResponseDTO editar(@PathVariable UUID id, @Valid @RequestBody UsuarioEdicaoDTO request) {
-        return usuarioService.editar(id, request);
+    public UsuarioResponseDTO editar(@PathVariable UUID id, @Valid @RequestBody UsuarioEdicaoDTO request,
+                                     @AuthenticationPrincipal Usuario adminAutenticado) {
+        return usuarioService.editar(id, request, adminAutenticado);
     }
 
     @PatchMapping("/{id}/desativar")
     public UsuarioResponseDTO desativar(@PathVariable UUID id, @AuthenticationPrincipal Usuario adminAutenticado) {
         return usuarioService.desativar(id, adminAutenticado);
+    }
+
+    @PatchMapping("/{id}/reativar")
+    public UsuarioResponseDTO reativar(@PathVariable UUID id, @AuthenticationPrincipal Usuario adminAutenticado) {
+        return usuarioService.reativar(id, adminAutenticado);
     }
 
     @PutMapping("/{id}/senha")

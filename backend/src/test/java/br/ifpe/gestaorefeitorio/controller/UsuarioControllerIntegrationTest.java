@@ -21,6 +21,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -213,6 +214,116 @@ class UsuarioControllerIntegrationTest {
         mockMvc.perform(patch("/api/usuarios/" + UUID.randomUUID() + "/desativar")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar409AoAdminTentarRemoverOProprioPerfilDeAdmin() throws Exception {
+        Usuario admin = criarUsuario("auto.rebaixamento@ifpe.edu.br", Perfil.ADMIN, true);
+        String token = tokenPara(admin);
+
+        mockMvc.perform(patch("/api/usuarios/" + admin.getId())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"nome":"Admin","perfil":"NUTRICIONISTA"}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.mensagem")
+                        .value("Um administrador não pode remover o próprio perfil de administrador"));
+
+        assertThat(usuarioRepository.findById(admin.getId())).get()
+                .extracting(Usuario::getPerfil).isEqualTo(Perfil.ADMIN);
+    }
+
+    @Test
+    void devePermitirAoAdminEditarOProprioNome() throws Exception {
+        Usuario admin = criarUsuario("admin.nome@ifpe.edu.br", Perfil.ADMIN, true);
+
+        mockMvc.perform(patch("/api/usuarios/" + admin.getId())
+                        .header("Authorization", "Bearer " + tokenPara(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"nome":"Nome Novo do Admin","perfil":"ADMIN"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Nome Novo do Admin"))
+                .andExpect(jsonPath("$.perfil").value("ADMIN"));
+    }
+
+    @Test
+    void devePermitirAoAdminRebaixarOutroAdmin() throws Exception {
+        Usuario outroAdmin = criarUsuario("outro.admin@ifpe.edu.br", Perfil.ADMIN, true);
+
+        mockMvc.perform(patch("/api/usuarios/" + outroAdmin.getId())
+                        .header("Authorization", "Bearer " + tokenAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"nome":"Outro Admin","perfil":"NUTRICIONISTA"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.perfil").value("NUTRICIONISTA"));
+    }
+
+    @Test
+    void deveReativarUsuarioEPermitirLoginDepois() throws Exception {
+        Usuario alvo = criarUsuario("reativar@ifpe.edu.br", Perfil.COZINHA, false);
+
+        mockMvc.perform(patch("/api/usuarios/" + alvo.getId() + "/reativar")
+                        .header("Authorization", "Bearer " + tokenAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(alvo.getId().toString()))
+                .andExpect(jsonPath("$.ativo").value(true));
+
+        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
+        payload.setEmail("reativar@ifpe.edu.br");
+        when(googleTokenValidator.validar("token-google-reativado")).thenReturn(payload);
+
+        mockMvc.perform(post("/api/auth/google")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"idToken":"token-google-reativado"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("reativar@ifpe.edu.br"));
+    }
+
+    @Test
+    void reativarUsuarioJaAtivoDeveRetornar200SemAlterarNada() throws Exception {
+        Usuario alvo = criarUsuario("ja.ativo@ifpe.edu.br", Perfil.NUTRICIONISTA, true);
+
+        mockMvc.perform(patch("/api/usuarios/" + alvo.getId() + "/reativar")
+                        .header("Authorization", "Bearer " + tokenAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ativo").value(true));
+    }
+
+    @Test
+    void deveRetornar404AoReativarIdInexistente() throws Exception {
+        mockMvc.perform(patch("/api/usuarios/" + UUID.randomUUID() + "/reativar")
+                        .header("Authorization", "Bearer " + tokenAdmin()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deveRetornar403AoReativarComPerfilNaoAdmin() throws Exception {
+        Usuario alvo = criarUsuario("reativar.negado@ifpe.edu.br", Perfil.COZINHA, false);
+
+        for (Perfil perfil : new Perfil[] { Perfil.NUTRICIONISTA, Perfil.COZINHA }) {
+            Usuario usuario = criarUsuario(perfil.name().toLowerCase() + UUID.randomUUID() + "@ifpe.edu.br",
+                    perfil, true);
+            mockMvc.perform(patch("/api/usuarios/" + alvo.getId() + "/reativar")
+                            .header("Authorization", "Bearer " + tokenPara(usuario)))
+                    .andExpect(status().isForbidden());
+        }
+
+        assertThat(usuarioRepository.findById(alvo.getId())).get()
+                .extracting(Usuario::isAtivo).isEqualTo(false);
+    }
+
+    @Test
+    void deveRetornar401AoReativarSemToken() throws Exception {
+        mockMvc.perform(patch("/api/usuarios/" + UUID.randomUUID() + "/reativar"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

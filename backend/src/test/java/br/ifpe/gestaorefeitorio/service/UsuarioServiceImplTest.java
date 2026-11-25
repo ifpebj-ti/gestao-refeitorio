@@ -5,6 +5,7 @@ import br.ifpe.gestaorefeitorio.dto.UsuarioEdicaoDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioRequestDTO;
 import br.ifpe.gestaorefeitorio.dto.UsuarioResponseDTO;
 import br.ifpe.gestaorefeitorio.exception.AutoDesativacaoNaoPermitidaException;
+import br.ifpe.gestaorefeitorio.exception.AutoRebaixamentoNaoPermitidoException;
 import br.ifpe.gestaorefeitorio.exception.EmailJaCadastradoException;
 import br.ifpe.gestaorefeitorio.exception.UsuarioNaoEncontradoPorIdException;
 import br.ifpe.gestaorefeitorio.model.Usuario;
@@ -48,6 +49,8 @@ class UsuarioServiceImplTest {
 
     @InjectMocks
     private UsuarioServiceImpl usuarioService;
+
+    private final Usuario admin = usuarioComId(UUID.randomUUID(), "admin@ifpe.edu.br", Perfil.ADMIN, true);
 
     private Usuario usuarioComId(UUID id, String email, Perfil perfil, boolean ativo) {
         Usuario usuario = new Usuario();
@@ -132,7 +135,7 @@ class UsuarioServiceImplTest {
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(chamada -> chamada.getArgument(0));
 
         UsuarioEdicaoDTO request = new UsuarioEdicaoDTO("Novo Nome", Perfil.NUTRICIONISTA);
-        UsuarioResponseDTO resposta = usuarioService.editar(id, request);
+        UsuarioResponseDTO resposta = usuarioService.editar(id, request, admin);
 
         assertThat(resposta.nome()).isEqualTo("Novo Nome");
         assertThat(resposta.perfil()).isEqualTo(Perfil.NUTRICIONISTA);
@@ -145,7 +148,7 @@ class UsuarioServiceImplTest {
 
         UsuarioEdicaoDTO request = new UsuarioEdicaoDTO("Nome", Perfil.ADMIN);
 
-        assertThrows(UsuarioNaoEncontradoPorIdException.class, () -> usuarioService.editar(id, request));
+        assertThrows(UsuarioNaoEncontradoPorIdException.class, () -> usuarioService.editar(id, request, admin));
 
         verify(usuarioRepository, never()).save(any());
     }
@@ -185,6 +188,78 @@ class UsuarioServiceImplTest {
         assertThrows(AutoDesativacaoNaoPermitidaException.class, () -> usuarioService.desativar(id, admin));
 
         verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void deveBloquearAutoRebaixamentoDoProprioAdminParaQualquerOutroPerfil() {
+        when(usuarioRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+
+        for (Perfil perfil : List.of(Perfil.NUTRICIONISTA, Perfil.COZINHA)) {
+            UsuarioEdicaoDTO request = new UsuarioEdicaoDTO("Admin", perfil);
+            assertThrows(AutoRebaixamentoNaoPermitidoException.class,
+                    () -> usuarioService.editar(admin.getId(), request, admin));
+        }
+
+        assertThat(admin.getPerfil()).isEqualTo(Perfil.ADMIN);
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void devePermitirAoAdminEditarOProprioNomeMantendoPerfilAdmin() {
+        when(usuarioRepository.findById(admin.getId())).thenReturn(Optional.of(admin));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(chamada -> chamada.getArgument(0));
+
+        UsuarioResponseDTO resposta = usuarioService.editar(admin.getId(),
+                new UsuarioEdicaoDTO("Nome Novo do Admin", Perfil.ADMIN), admin);
+
+        assertThat(resposta.nome()).isEqualTo("Nome Novo do Admin");
+        assertThat(resposta.perfil()).isEqualTo(Perfil.ADMIN);
+    }
+
+    @Test
+    void devePermitirAoAdminRebaixarOutroAdmin() {
+        UUID idOutro = UUID.randomUUID();
+        Usuario outroAdmin = usuarioComId(idOutro, "outro.admin@ifpe.edu.br", Perfil.ADMIN, true);
+        when(usuarioRepository.findById(idOutro)).thenReturn(Optional.of(outroAdmin));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(chamada -> chamada.getArgument(0));
+
+        UsuarioResponseDTO resposta = usuarioService.editar(idOutro,
+                new UsuarioEdicaoDTO("Outro Admin", Perfil.NUTRICIONISTA), admin);
+
+        assertThat(resposta.perfil()).isEqualTo(Perfil.NUTRICIONISTA);
+    }
+
+    @Test
+    void deveReativarUsuarioDesativado() {
+        UUID id = UUID.randomUUID();
+        Usuario alvo = usuarioComId(id, "cozinha@ifpe.edu.br", Perfil.COZINHA, false);
+        when(usuarioRepository.findById(id)).thenReturn(Optional.of(alvo));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(chamada -> chamada.getArgument(0));
+
+        UsuarioResponseDTO resposta = usuarioService.reativar(id, admin);
+
+        assertThat(resposta.ativo()).isTrue();
+        verify(usuarioRepository).save(alvo);
+    }
+
+    @Test
+    void reativarUsuarioJaAtivoNaoDeveGravarNada() {
+        UUID id = UUID.randomUUID();
+        Usuario alvo = usuarioComId(id, "cozinha@ifpe.edu.br", Perfil.COZINHA, true);
+        when(usuarioRepository.findById(id)).thenReturn(Optional.of(alvo));
+
+        UsuarioResponseDTO resposta = usuarioService.reativar(id, admin);
+
+        assertThat(resposta.ativo()).isTrue();
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void deveLancarNaoEncontradoQuandoReativarIdInexistente() {
+        UUID id = UUID.randomUUID();
+        when(usuarioRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(UsuarioNaoEncontradoPorIdException.class, () -> usuarioService.reativar(id, admin));
     }
 
     @Test

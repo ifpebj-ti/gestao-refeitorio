@@ -79,6 +79,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({ EmailJaCadastradoException.class, AutoDesativacaoNaoPermitidaException.class,
+            AutoRebaixamentoNaoPermitidoException.class,
             SaldoInsuficienteException.class, ProdutoComMovimentacoesException.class,
             ConviteNaoPermitidoException.class, RemetenteJaCadastradoException.class,
             RemetenteInativoException.class, NotaJaCadastradaException.class,
