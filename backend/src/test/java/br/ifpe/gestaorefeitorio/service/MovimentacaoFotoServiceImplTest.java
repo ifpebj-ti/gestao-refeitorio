@@ -42,19 +42,28 @@ class MovimentacaoFotoServiceImplTest {
     @InjectMocks
     private MovimentacaoFotoServiceImpl movimentacaoFotoService;
 
+    private final Usuario cozinha = usuario("cozinha@ifpe.edu.br", Perfil.COZINHA);
+
+    private static Usuario usuario(String email, Perfil perfil) {
+        Usuario usuario = new Usuario();
+        usuario.setId(UUID.randomUUID());
+        usuario.setNome("Usuário " + perfil);
+        usuario.setEmail(email);
+        usuario.setPerfil(perfil);
+        usuario.setAtivo(true);
+        return usuario;
+    }
+
+    // Por padrão, a movimentação foi registrada pelo mesmo usuário COZINHA que anexa ou consulta a foto.
     private Movimentacao movimentacaoComId(UUID id) {
         Movimentacao movimentacao = new Movimentacao();
         movimentacao.setId(id);
+        movimentacao.setResponsavel(cozinha);
         return movimentacao;
     }
 
     private Usuario responsavel() {
-        Usuario usuario = new Usuario();
-        usuario.setNome("Cozinha");
-        usuario.setEmail("cozinha@ifpe.edu.br");
-        usuario.setPerfil(Perfil.COZINHA);
-        usuario.setAtivo(true);
-        return usuario;
+        return cozinha;
     }
 
     private static final byte[] BYTES_JPEG = { (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0x00, 0x10 };
@@ -180,10 +189,10 @@ class MovimentacaoFotoServiceImplTest {
         foto.setConteudo(new byte[] { 1, 2, 3 });
         foto.setContentType("image/jpeg");
 
-        when(movimentacaoRepository.existsById(movimentacaoId)).thenReturn(true);
+        when(movimentacaoRepository.findById(movimentacaoId)).thenReturn(Optional.of(movimentacaoComId(movimentacaoId)));
         when(movimentacaoFotoRepository.findByMovimentacaoId(movimentacaoId)).thenReturn(Optional.of(foto));
 
-        MovimentacaoFoto resultado = movimentacaoFotoService.buscarPorMovimentacao(movimentacaoId);
+        MovimentacaoFoto resultado = movimentacaoFotoService.buscarPorMovimentacao(movimentacaoId, cozinha);
 
         assertThat(resultado.getContentType()).isEqualTo("image/jpeg");
     }
@@ -191,20 +200,60 @@ class MovimentacaoFotoServiceImplTest {
     @Test
     void deveLancarFotoNaoEncontradaQuandoMovimentacaoExisteSemFoto() {
         UUID movimentacaoId = UUID.randomUUID();
-        when(movimentacaoRepository.existsById(movimentacaoId)).thenReturn(true);
+        when(movimentacaoRepository.findById(movimentacaoId)).thenReturn(Optional.of(movimentacaoComId(movimentacaoId)));
         when(movimentacaoFotoRepository.findByMovimentacaoId(movimentacaoId)).thenReturn(Optional.empty());
 
         assertThrows(MovimentacaoFotoNaoEncontradaException.class,
-                () -> movimentacaoFotoService.buscarPorMovimentacao(movimentacaoId));
+                () -> movimentacaoFotoService.buscarPorMovimentacao(movimentacaoId, cozinha));
     }
 
     @Test
     void deveLancarMovimentacaoNaoEncontradaAoBuscarEmIdInexistente() {
         UUID movimentacaoId = UUID.randomUUID();
-        when(movimentacaoRepository.existsById(movimentacaoId)).thenReturn(false);
+        when(movimentacaoRepository.findById(movimentacaoId)).thenReturn(Optional.empty());
 
         assertThrows(MovimentacaoNaoEncontradaException.class,
-                () -> movimentacaoFotoService.buscarPorMovimentacao(movimentacaoId));
+                () -> movimentacaoFotoService.buscarPorMovimentacao(movimentacaoId, cozinha));
+
+        verifyNoInteractions(movimentacaoFotoRepository);
+    }
+
+    @Test
+    void cozinhaNaoDeveVerFotoDeMovimentacaoDeOutroUsuario() {
+        UUID movimentacaoId = UUID.randomUUID();
+        Movimentacao deOutro = movimentacaoComId(movimentacaoId);
+        deOutro.setResponsavel(usuario("nutri@ifpe.edu.br", Perfil.NUTRICIONISTA));
+        when(movimentacaoRepository.findById(movimentacaoId)).thenReturn(Optional.of(deOutro));
+
+        assertThrows(MovimentacaoFotoNaoEncontradaException.class,
+                () -> movimentacaoFotoService.buscarPorMovimentacao(movimentacaoId, cozinha));
+
+        verifyNoInteractions(movimentacaoFotoRepository);
+    }
+
+    @Test
+    void nutricionistaDeveVerFotoDeMovimentacaoDeOutroUsuario() {
+        UUID movimentacaoId = UUID.randomUUID();
+        MovimentacaoFoto foto = new MovimentacaoFoto();
+        foto.setContentType("image/png");
+        when(movimentacaoRepository.findById(movimentacaoId)).thenReturn(Optional.of(movimentacaoComId(movimentacaoId)));
+        when(movimentacaoFotoRepository.findByMovimentacaoId(movimentacaoId)).thenReturn(Optional.of(foto));
+
+        MovimentacaoFoto resultado = movimentacaoFotoService.buscarPorMovimentacao(movimentacaoId,
+                usuario("nutri@ifpe.edu.br", Perfil.NUTRICIONISTA));
+
+        assertThat(resultado.getContentType()).isEqualTo("image/png");
+    }
+
+    @Test
+    void cozinhaNaoDeveAnexarFotoEmMovimentacaoDeOutroUsuario() {
+        UUID movimentacaoId = UUID.randomUUID();
+        Movimentacao deOutro = movimentacaoComId(movimentacaoId);
+        deOutro.setResponsavel(usuario("outra.cozinha@ifpe.edu.br", Perfil.COZINHA));
+        when(movimentacaoRepository.findById(movimentacaoId)).thenReturn(Optional.of(deOutro));
+
+        assertThrows(MovimentacaoNaoEncontradaException.class,
+                () -> movimentacaoFotoService.anexar(movimentacaoId, arquivoValido(), cozinha));
 
         verifyNoInteractions(movimentacaoFotoRepository);
     }

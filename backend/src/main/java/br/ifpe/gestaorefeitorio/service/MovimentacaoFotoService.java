@@ -8,7 +8,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.UUID;
 
 public interface MovimentacaoFotoService {
+    /** A COZINHA só anexa foto às movimentações que ela mesma registrou; nas demais, 404 (#474). */
     MovimentacaoFotoResponseDTO anexar(UUID movimentacaoId, MultipartFile arquivo, Usuario responsavel);
 
-    MovimentacaoFoto buscarPorMovimentacao(UUID movimentacaoId);
+    /** A COZINHA só vê a foto das movimentações que ela mesma registrou; nas demais, 404 como "sem foto" (#474). */
+    MovimentacaoFoto buscarPorMovimentacao(UUID movimentacaoId, Usuario usuario);
 }
