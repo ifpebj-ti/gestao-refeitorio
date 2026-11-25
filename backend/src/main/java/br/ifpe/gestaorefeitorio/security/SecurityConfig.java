@@ -27,9 +27,15 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import tools.jackson.databind.json.JsonMapper;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Configuration
@@ -38,6 +44,9 @@ import java.util.Set;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final JsonMapper jsonMapper;
+
+    private static final String CONTENT_TYPE_JSON_UTF8 = MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8";
 
     private static final Set<String> METODOS_SEGUROS = Set.of("GET", "HEAD", "OPTIONS", "TRACE");
 
@@ -122,12 +131,8 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationEntryPoint authenticationEntryPoint() {
-        return (request, response, authException) -> {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.getWriter().write(
-                    "{\"timestamp\":\"" + Instant.now() + "\",\"mensagem\":\"Autenticação necessária\"}");
-        };
+        return (request, response, authException) ->
+                escreverErro(response, HttpServletResponse.SC_UNAUTHORIZED, "Autenticação necessária");
     }
 
     // Só negações em nível de filtro (hoje, só o CSRF); o 403 do @PreAuthorize sai pelo GlobalExceptionHandler.
@@ -137,11 +142,22 @@ public class SecurityConfig {
             String mensagem = accessDeniedException instanceof CsrfException
                     ? "Requisição bloqueada pela proteção CSRF"
                     : "Acesso negado";
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.getWriter().write(
-                    "{\"timestamp\":\"" + Instant.now() + "\",\"mensagem\":\"" + mensagem + "\"}");
+            escreverErro(response, HttpServletResponse.SC_FORBIDDEN, mensagem);
         };
+    }
+
+    // Estas respostas saem da cadeia de filtros, antes do Spring MVC, então não passam pelo GlobalExceptionHandler:
+    // o formato (timestamp + mensagem) é repetido aqui, e a codificação é declarada à mão em vez de depender
+    // do padrão do servlet (#491).
+    private void escreverErro(HttpServletResponse response, int status, String mensagem) throws IOException {
+        Map<String, Object> corpo = new LinkedHashMap<>();
+        corpo.put("timestamp", Instant.now().toString());
+        corpo.put("mensagem", mensagem);
+
+        response.setStatus(status);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.setContentType(CONTENT_TYPE_JSON_UTF8);
+        response.getWriter().write(jsonMapper.writeValueAsString(corpo));
     }
 
     // Origem vem do ambiente (APP_URL_FRONTEND) porque o front publicado chama a API direto,
