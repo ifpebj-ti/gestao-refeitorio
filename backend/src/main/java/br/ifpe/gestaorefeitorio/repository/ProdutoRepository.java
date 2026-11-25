@@ -1,14 +1,25 @@
 package br.ifpe.gestaorefeitorio.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import br.ifpe.gestaorefeitorio.model.Produto;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ProdutoRepository extends JpaRepository<Produto, UUID> {
+
+    // SELECT ... FOR UPDATE (#475): uma segunda saída do mesmo produto espera a primeira comitar antes de
+    // calcular o saldo, então as duas nunca enxergam o mesmo saldo e o estoque não fica negativo.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Produto p where p.id = :id")
+    Optional<Produto> buscarParaAtualizar(@Param("id") UUID id);
 
     List<Produto> findByCategoriaIgnoreCase(String categoria);
 
