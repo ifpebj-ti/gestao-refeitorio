@@ -198,7 +198,7 @@ Armazena as identidades autorizadas a utilizar o sistema.
 |---|---|---|---|
 | `id` | `UUID` | PK, `DEFAULT gen_random_uuid()` | Identificador do usuário. |
 | `nome` | `VARCHAR(255)` | `NOT NULL` | Nome completo. |
-| `email` | `VARCHAR(255)` | `NOT NULL`, `UNIQUE` | E-mail utilizado como identidade de acesso. |
+| `email` | `VARCHAR(255)` | `NOT NULL`, `UNIQUE`, único também sem diferenciar maiúsculas (V30) | E-mail utilizado como identidade de acesso, sempre gravado em minúsculas e sem espaços nas pontas. |
 | `perfil` | `VARCHAR(30)` | `NOT NULL` | Perfil de autorização. |
 | `ativo` | `BOOLEAN` | `NOT NULL`, padrão `TRUE` | Indica se o acesso está habilitado. |
 | `criado_em` | `TIMESTAMPTZ` | `NOT NULL`, padrão `now()` | Data e hora de criação. |
@@ -206,6 +206,8 @@ Armazena as identidades autorizadas a utilizar o sistema.
 | `senha_hash` | `VARCHAR(100)` | Opcional | Hash BCrypt da senha local. Nulo quando o usuário só entra pelo Google (V25). |
 
 Valores válidos na aplicação para `perfil`: `ADMIN`, `NUTRICIONISTA` e `COZINHA`.
+
+A V30 normalizou os e-mails já gravados. Onde dois cadastros tinham o mesmo e-mail em combinações diferentes de maiúsculas, ficou com o e-mail a conta ativa que já tinha acessado (ou a mais antiga). As demais foram desativadas e receberam o e-mail marcado com `#duplicado-` seguido do início do `id`, sem apagar o histórico ligado a elas.
 
 A senha local nunca é armazenada em texto: só o hash BCrypt, definido ou removido pelo ADMIN (`PUT`/`DELETE /api/usuarios/{id}/senha`) ou pelo ADMIN local criado a partir das variáveis de ambiente.
 
@@ -450,7 +452,7 @@ Além dos índices criados automaticamente para chaves primárias e restrições
 
 Possuem unicidade explícita:
 
-- `usuarios.email`;
+- `usuarios.email`, sem diferenciar maiúsculas e minúsculas (índice único `uk_usuarios_email_lower` sobre `LOWER(email)`, V30);
 - `locais_armazenamento.nome`;
 - `setores_produtivos.nome`;
 - `remetentes.nome`, sem diferenciar maiúsculas e minúsculas (índice único `uk_remetentes_nome_lower` sobre `LOWER(nome)`);
@@ -483,7 +485,7 @@ O saldo não é uma coluna: é sempre a soma das entradas menos as saídas do pr
 
 ## 8. Evolução do banco de dados
 
-O Flyway executa as migrations em ordem crescente. As migrations existentes vão de `V1` a `V29`.
+O Flyway executa as migrations em ordem crescente. As migrations existentes vão de `V1` a `V30`.
 
 Migrations que alteraram a estrutura do banco:
 
@@ -498,6 +500,7 @@ Migrations que alteraram a estrutura do banco:
 | `V26` | Tabela `nota_documentos`; sai a coluna `notas.documento_url`. |
 | `V27` | `notas.justificativa_recusa` vira `justificativa_cancelamento`; nova coluna `notas.versao` (lock otimista). |
 | `V28` | `notas.tipo` e `notas.responsavel_entrega`; índice único parcial `uk_notas_numero_local`; tabela `nota_local_sequencias`. |
+| `V30` | E-mails de `usuarios` normalizados (minúsculas, sem espaços nas pontas), duplicados desativados e índice único `uk_usuarios_email_lower`. |
 
 As demais migrations só mexem em dados: carga e revisão do catálogo de produtos (`V8`, `V13` a `V17` e `V20`), usuários iniciais de homologação (`V18`), remoção dos que ficaram sem vínculo (`V24`) e restauração dos locais de armazenamento padrão (`V29`).
 
@@ -513,7 +516,7 @@ Para evoluir o modelo:
 Exemplo:
 
 ```text
-V30__adicionar_indice_movimentacao_local.sql
+V31__adicionar_indice_movimentacao_local.sql
 ```
 
 ## 9. Considerações de segurança e privacidade
