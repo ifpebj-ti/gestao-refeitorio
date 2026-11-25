@@ -97,6 +97,7 @@ A autorização é validada sempre no backend, com `@PreAuthorize` em cada endpo
 | `GET /api/versao` (versão da aplicação em execução) | qualquer perfil autenticado |
 | `GET /api/produtos`, `GET /api/produtos/{id}`, `GET /api/produtos/{id}/saldo-por-local`, `GET /api/produtos/{id}/movimentacoes` | qualquer perfil autenticado |
 | `POST /api/produtos`, `PATCH /api/produtos/{id}/unidade-medida`, `.../quantidade-minima`, `.../valor-referencia`, `.../controle-validade`, `DELETE /api/produtos/{id}` | `NUTRICIONISTA` |
+| `GET /api/locais-armazenamento` | qualquer perfil autenticado |
 | `POST /api/movimentacoes/entrada` | `NUTRICIONISTA` |
 | `POST /api/movimentacoes/saida`, `POST /api/movimentacoes/{id}/foto` | `NUTRICIONISTA`, `COZINHA` |
 | `GET /api/movimentacoes`, `GET /api/movimentacoes/{id}/foto` | qualquer perfil autenticado |
