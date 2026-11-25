@@ -28,7 +28,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponseDTO autenticarComGoogle(String idToken) {
         GoogleIdToken.Payload payload = googleTokenValidator.validar(idToken);
-        String email = payload.getEmail();
+        String email = EmailNormalizado.de(payload.getEmail());
 
         log.debug("Validando login para e-mail extraído do id_token do Google: {}", email);
 
