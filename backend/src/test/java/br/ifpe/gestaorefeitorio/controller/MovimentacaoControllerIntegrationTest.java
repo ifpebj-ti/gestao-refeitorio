@@ -35,6 +35,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.hamcrest.Matchers.hasItem;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.hamcrest.Matchers.containsString;
@@ -84,14 +85,20 @@ class MovimentacaoControllerIntegrationTest {
     }
 
     private String tokenPara(Perfil perfil) {
-        Usuario usuario = criarUsuario(perfil);
+        return tokenDe(criarUsuario(perfil));
+    }
+
+    private String tokenDe(Usuario usuario) {
         return jwtService.gerarToken(usuario.getEmail(), usuario.getPerfil().name());
     }
 
     private Movimentacao criarMovimentacao() {
+        return criarMovimentacao(criarUsuario(Perfil.COZINHA));
+    }
+
+    private Movimentacao criarMovimentacao(Usuario responsavel) {
         Produto produto = criarProduto();
         LocalArmazenamento local = criarLocal();
-        Usuario responsavel = criarUsuario(Perfil.COZINHA);
 
         Movimentacao movimentacao = new Movimentacao();
         movimentacao.setProduto(produto);
@@ -506,8 +513,9 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveAnexarFotoValidaEDepoisRecuperarOsMesmosBytes() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
-        Movimentacao movimentacao = criarMovimentacao();
+        Usuario cozinha = criarUsuario(Perfil.COZINHA);
+        String token = tokenDe(cozinha);
+        Movimentacao movimentacao = criarMovimentacao(cozinha);
         byte[] bytesOriginais = bytesJpeg();
         MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", bytesOriginais);
 
@@ -526,8 +534,9 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveRetornar400AoAnexarTipoDeArquivoNaoPermitido() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
-        Movimentacao movimentacao = criarMovimentacao();
+        Usuario cozinha = criarUsuario(Perfil.COZINHA);
+        String token = tokenDe(cozinha);
+        Movimentacao movimentacao = criarMovimentacao(cozinha);
         MockMultipartFile arquivo = new MockMultipartFile("arquivo", "documento.pdf", "application/pdf", "conteudo".getBytes());
 
         mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
@@ -538,8 +547,9 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveRetornar400AoAnexarScriptDisfarcadoDeJpg() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
-        Movimentacao movimentacao = criarMovimentacao();
+        Usuario cozinha = criarUsuario(Perfil.COZINHA);
+        String token = tokenDe(cozinha);
+        Movimentacao movimentacao = criarMovimentacao(cozinha);
         MockMultipartFile arquivo = new MockMultipartFile(
                 "arquivo", "foto.jpg", "image/jpeg", "#!/bin/sh\necho invadido\n".getBytes());
 
@@ -555,8 +565,9 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveRetornar400AoAnexarExecutavelDisfarcadoDePng() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
-        Movimentacao movimentacao = criarMovimentacao();
+        Usuario cozinha = criarUsuario(Perfil.COZINHA);
+        String token = tokenDe(cozinha);
+        Movimentacao movimentacao = criarMovimentacao(cozinha);
         byte[] executavel = { 0x4D, 0x5A, (byte) 0x90, 0x00, 0x03, 0x00, 0x00, 0x00 };
         MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.png", "image/png", executavel);
 
@@ -568,8 +579,9 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveAnexarPngValidoERecuperarComContentTypePng() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
-        Movimentacao movimentacao = criarMovimentacao();
+        Usuario cozinha = criarUsuario(Perfil.COZINHA);
+        String token = tokenDe(cozinha);
+        Movimentacao movimentacao = criarMovimentacao(cozinha);
         byte[] bytesOriginais = bytesPng();
         MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.png", "image/png", bytesOriginais);
 
@@ -588,8 +600,9 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveRetornar400AoAnexarArquivoAcimaDoLimite() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
-        Movimentacao movimentacao = criarMovimentacao();
+        Usuario cozinha = criarUsuario(Perfil.COZINHA);
+        String token = tokenDe(cozinha);
+        Movimentacao movimentacao = criarMovimentacao(cozinha);
         MockMultipartFile arquivo = new MockMultipartFile(
                 "arquivo", "foto.jpg", "image/jpeg", new byte[6 * 1024 * 1024]);
 
@@ -612,8 +625,9 @@ class MovimentacaoControllerIntegrationTest {
 
     @Test
     void deveRetornar404AoBuscarFotoDeMovimentacaoSemFotoAnexada() throws Exception {
-        String token = tokenPara(Perfil.COZINHA);
-        Movimentacao movimentacao = criarMovimentacao();
+        Usuario cozinha = criarUsuario(Perfil.COZINHA);
+        String token = tokenDe(cozinha);
+        Movimentacao movimentacao = criarMovimentacao(cozinha);
 
         mockMvc.perform(get("/api/movimentacoes/" + movimentacao.getId() + "/foto")
                         .header("Authorization", "Bearer " + token))
@@ -632,21 +646,86 @@ class MovimentacaoControllerIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    // Restrições por perfil e posse da foto e do histórico (#474).
+    private Movimentacao movimentacaoComFotoDe(Usuario dono) throws Exception {
+        Movimentacao movimentacao = criarMovimentacao(dono);
+        mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .file(new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", bytesJpeg()))
+                        .header("Authorization", "Bearer " + tokenDe(dono)))
+                .andExpect(status().isCreated());
+        return movimentacao;
+    }
+
     @Test
-    void deveAutorizarConsultaDeFotoParaQualquerPerfilAutenticado() throws Exception {
-        String tokenCozinha = tokenPara(Perfil.COZINHA);
-        Movimentacao movimentacao = criarMovimentacao();
-        MockMultipartFile arquivo = new MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", bytesJpeg());
+    void nutricionistaDeveVerFotoDeMovimentacaoRegistradaPorOutroUsuario() throws Exception {
+        Movimentacao movimentacao = movimentacaoComFotoDe(criarUsuario(Perfil.COZINHA));
+
+        mockMvc.perform(get("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .header("Authorization", "Bearer " + tokenPara(Perfil.NUTRICIONISTA)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/jpeg"));
+    }
+
+    @Test
+    void cozinhaDeveReceber404AoBuscarFotoDeMovimentacaoDeOutroUsuario() throws Exception {
+        Movimentacao movimentacao = movimentacaoComFotoDe(criarUsuario(Perfil.NUTRICIONISTA));
+
+        mockMvc.perform(get("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .header("Authorization", "Bearer " + tokenPara(Perfil.COZINHA)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.mensagem").value("Movimentação sem foto anexada: " + movimentacao.getId()));
+    }
+
+    @Test
+    void cozinhaNaoDeveSubstituirFotoDeMovimentacaoDeOutroUsuario() throws Exception {
+        Usuario nutricionista = criarUsuario(Perfil.NUTRICIONISTA);
+        Movimentacao movimentacao = movimentacaoComFotoDe(nutricionista);
+        byte[] fotoOriginal = bytesJpeg();
 
         mockMvc.perform(multipart("/api/movimentacoes/" + movimentacao.getId() + "/foto")
-                        .file(arquivo)
-                        .header("Authorization", "Bearer " + tokenCozinha))
-                .andExpect(status().isCreated());
+                        .file(new MockMultipartFile("arquivo", "foto.png", "image/png", bytesPng()))
+                        .header("Authorization", "Bearer " + tokenPara(Perfil.COZINHA)))
+                .andExpect(status().isNotFound());
 
-        String tokenAdmin = tokenPara(Perfil.ADMIN);
         mockMvc.perform(get("/api/movimentacoes/" + movimentacao.getId() + "/foto")
-                        .header("Authorization", "Bearer " + tokenAdmin))
-                .andExpect(status().isOk());
+                        .header("Authorization", "Bearer " + tokenDe(nutricionista)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/jpeg"))
+                .andExpect(content -> assertArrayEquals(fotoOriginal, content.getResponse().getContentAsByteArray()));
+    }
+
+    @Test
+    void deveRetornar403AoBuscarFotoComPerfilAdmin() throws Exception {
+        Movimentacao movimentacao = movimentacaoComFotoDe(criarUsuario(Perfil.COZINHA));
+
+        mockMvc.perform(get("/api/movimentacoes/" + movimentacao.getId() + "/foto")
+                        .header("Authorization", "Bearer " + tokenPara(Perfil.ADMIN)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveRetornar403AoListarHistoricoComPerfilAdmin() throws Exception {
+        mockMvc.perform(get("/api/movimentacoes")
+                        .header("Authorization", "Bearer " + tokenPara(Perfil.ADMIN)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void cozinhaENutricionistaDevemListarOHistoricoCompletoIncluindoMovimentacoesDeOutros() throws Exception {
+        Movimentacao deOutro = criarMovimentacao(criarUsuario(Perfil.NUTRICIONISTA));
+
+        for (Perfil perfil : new Perfil[] { Perfil.COZINHA, Perfil.NUTRICIONISTA }) {
+            mockMvc.perform(get("/api/movimentacoes")
+                            .header("Authorization", "Bearer " + tokenPara(perfil)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$[*].id", hasItem(deOutro.getId().toString())));
+        }
+    }
+
+    @Test
+    void deveRetornar401AoListarHistoricoSemToken() throws Exception {
+        mockMvc.perform(get("/api/movimentacoes"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
