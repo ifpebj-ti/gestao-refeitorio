@@ -108,6 +108,7 @@ A autorização é validada sempre no backend, com `@PreAuthorize` em cada endpo
 | `/api/remetentes/**` | `NUTRICIONISTA` |
 | `/api/relatorios/**` (mensal, PDF, Excel e consumo) | `NUTRICIONISTA` |
 | `PUT /api/usuarios/{id}/senha`, `DELETE /api/usuarios/{id}/senha` (definir e remover a senha local) | `ADMIN` |
+| `PATCH /api/usuarios/{id}/desativar`, `PATCH /api/usuarios/{id}/reativar` | `ADMIN` (o ADMIN não pode desativar a própria conta) |
 | `/api/usuarios/**` | `ADMIN` |
 
 ---
@@ -123,7 +124,7 @@ A autorização é validada sempre no backend, com `@PreAuthorize` em cada endpo
 - Cardápio com projeção de consumo (quantidade por pessoa × pessoas estimadas) e tela para TV.
 - Notas de recebimento vinculadas às entradas, com cadastro de remetentes.
 - Relatório mensal consolidado, exportação em PDF e Excel e gráfico de consumo por período.
-- Gestão de usuários pelo ADMIN, com convite por e-mail e controle do primeiro acesso.
+- Gestão de usuários pelo ADMIN, com convite por e-mail, controle do primeiro acesso, desativação e reativação. O ADMIN não consegue desativar a própria conta nem tirar de si o perfil de administrador, para o sistema não ficar sem ADMIN.
 
 ## Perfis de acesso
 
@@ -245,7 +246,11 @@ Os valores ficam no `.env`, que não é versionado. O modelo é o [.env.example]
 - Login via Google (o backend valida o `id_token` junto ao Google) ou com e-mail e senha, guardada só como hash BCrypt, com bloqueio de 15 minutos após 5 tentativas erradas. Nos dois casos o backend emite o próprio JWT. A senha local é definida e revogada apenas pelo ADMIN. A decisão de aceitar os dois formatos de login está registrada no [ADR 0001](docs/adr/0001-autenticacao-hibrida-google-oidc-e-jwt-local.md).
 - Respostas diferentes para requisição não autenticada (401) e para perfil sem permissão (403). E-mail não cadastrado e usuário inativo recebem a mesma resposta genérica, para não revelar quais contas existem.
 - Entrada validada por Bean Validation nos DTOs. Consultas sempre parametrizadas (JPA). Fotos aceitas só em JPEG ou PNG, com o tipo conferido pela assinatura do arquivo (e não pelo nome ou pelo `Content-Type` declarado), e guardadas no banco, nunca em caminho de disco escolhido pelo cliente.
-- Proteção CSRF: requisições que alteram dados e se autenticam só pelo cookie de sessão precisam de token CSRF (senão, 403). Chamadas com `Authorization: Bearer`, como as do frontend, não são afetadas. Em produção, os cookies são `HttpOnly`, `SameSite=Lax` e `Secure`.
+- Sessão por cookie e proteção CSRF:
+  - Os dois logins (Google e local) gravam o JWT no cookie `token` (`HttpOnly`) e emitem o cookie `XSRF-TOKEN`. O `GET /api/auth/me` autenticado também emite o `XSRF-TOKEN`, para restaurar a sessão numa aba nova.
+  - Uma requisição que altera dados e se autentica só pelo cookie precisa enviar o cabeçalho `X-XSRF-TOKEN` com o valor do cookie `XSRF-TOKEN`. Sem ele, ou com outro valor, a resposta é 403. Chamadas com `Authorization: Bearer` não são afetadas.
+  - O `XSRF-TOKEN` é o único cookie sem `HttpOnly`, porque o frontend precisa lê-lo. Ele não autentica ninguém sozinho, é trocado a cada login e só é emitido para quem está autenticado ou acabou de fazer login.
+  - Em produção, os cookies são `SameSite=Lax` e `Secure`.
 - Segredos só por variáveis de ambiente. Tokens, senhas e `id_token` nunca vão para os logs.
 - Em produção, o Swagger fica desligado e as portas do backend e do frontend ficam restritas à própria VM, atrás do Nginx com TLS.
 - A política de segurança e o canal de reporte de vulnerabilidades estão em [SECURITY.md](SECURITY.md). A modelagem de ameaças está na [Wiki](https://github.com/ifpebj-ti/gestao-refeitorio/wiki).

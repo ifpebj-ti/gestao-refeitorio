@@ -16,9 +16,13 @@ public interface UsuarioService {
 
     UsuarioResponseDTO buscarPorId(UUID id);
 
-    UsuarioResponseDTO editar(UUID id, UsuarioEdicaoDTO request);
+    /** Recusa (409) a edição que tire do próprio ADMIN autenticado o perfil de administrador (#471). */
+    UsuarioResponseDTO editar(UUID id, UsuarioEdicaoDTO request, Usuario adminAutenticado);
 
     UsuarioResponseDTO desativar(UUID id, Usuario adminAutenticado);
+
+    /** Volta a liberar o acesso de um usuário desativado. Idempotente (#471). */
+    UsuarioResponseDTO reativar(UUID id, Usuario adminAutenticado);
 
     void reenviarConvite(UUID id);
 
