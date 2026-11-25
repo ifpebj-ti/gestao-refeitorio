@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Locale;
 import java.util.Optional;
 
 @Slf4j
@@ -43,7 +42,7 @@ public class LoginLocalServiceImpl implements LoginLocalService {
     @Override
     @Transactional
     public AuthResponseDTO autenticar(LoginLocalRequestDTO request) {
-        String email = request.email().trim().toLowerCase(Locale.ROOT);
+        String email = EmailNormalizado.de(request.email());
         log.debug("Tentativa de login local: {}", email);
         tentativasLoginService.verificarBloqueio(email);
 

@@ -135,7 +135,7 @@ A autorização é validada sempre no backend, com `@PreAuthorize` em cada endpo
 | `NUTRICIONISTA` | Nutricionista do campus | Gerencia o catálogo, confere entradas, cardápios, notas e relatórios. |
 | `COZINHA` | Equipe da cozinha | Registra saídas, produção interna e fotos; consulta o estoque. |
 
-Não existe auto-cadastro: um usuário só entra se o ADMIN já tiver cadastrado o e-mail dele. Pelo Google, um e-mail não cadastrado recebe 403. Pelo login com e-mail e senha, só entra quem tem uma senha local definida pelo ADMIN (ou o ADMIN local criado pelas variáveis de ambiente).
+Não existe auto-cadastro: um usuário só entra se o ADMIN já tiver cadastrado o e-mail dele. Pelo Google, um e-mail não cadastrado recebe 403. Pelo login com e-mail e senha, só entra quem tem uma senha local definida pelo ADMIN (ou o ADMIN local criado pelas variáveis de ambiente). O e-mail é sempre comparado sem diferenciar maiúsculas e minúsculas: `Fulano@IFPE.edu.br` e `fulano@ifpe.edu.br` são a mesma conta.
 
 ## Arquitetura e stack
 

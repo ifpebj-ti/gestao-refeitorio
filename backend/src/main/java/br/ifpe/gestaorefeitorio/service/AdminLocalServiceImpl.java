@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -37,7 +36,7 @@ public class AdminLocalServiceImpl implements AdminLocalService {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         // O login local normaliza o e-mail do mesmo jeito; sem isso o ADMIN criado nunca conseguiria entrar.
-        this.email = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+        this.email = email == null ? "" : EmailNormalizado.de(email);
         this.nome = nome == null || nome.isBlank() ? "Administrador local" : nome.trim();
         this.senha = senha == null ? "" : senha;
     }

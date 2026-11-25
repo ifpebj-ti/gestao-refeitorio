@@ -19,7 +19,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 @Slf4j
@@ -53,19 +52,22 @@ public class UsuarioServiceImpl implements UsuarioService {
 
     // Mesma normalização do login local, que é a chave do bloqueio de tentativas.
     private static String chaveDeLogin(Usuario usuario) {
-        return usuario.getEmail().trim().toLowerCase(Locale.ROOT);
+        return EmailNormalizado.de(usuario.getEmail());
     }
 
     @Override
     public UsuarioResponseDTO cadastrar(UsuarioRequestDTO request) {
-        if (usuarioRepository.existsByEmail(request.email())) {
-            log.info("Cadastro negado: e-mail {} já cadastrado", request.email());
+        // Sem normalizar, "Fulano@IFPE.edu.br" viraria uma segunda conta e não entraria pelo login local,
+        // que procura sempre em minúsculas.
+        String email = EmailNormalizado.de(request.email());
+        if (usuarioRepository.existsByEmail(email)) {
+            log.info("Cadastro negado: e-mail {} já cadastrado", email);
             throw new EmailJaCadastradoException();
         }
 
         Usuario usuario = new Usuario();
         usuario.setNome(request.nome());
-        usuario.setEmail(request.email());
+        usuario.setEmail(email);
         usuario.setPerfil(request.perfil());
         usuario.setAtivo(true);
         usuario = usuarioRepository.save(usuario);

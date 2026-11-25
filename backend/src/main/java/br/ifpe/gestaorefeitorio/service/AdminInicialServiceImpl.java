@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Locale;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -30,7 +29,7 @@ public class AdminInicialServiceImpl implements AdminInicialService {
         this.usuarioRepository = usuarioRepository;
         this.conviteService = conviteService;
         // O e-mail do Google chega em minúsculas no login; normalizar evita um ADMIN que nunca consegue entrar.
-        this.email = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+        this.email = email == null ? "" : EmailNormalizado.de(email);
         this.nome = nome == null || nome.isBlank() ? "Administrador" : nome.trim();
     }
 
