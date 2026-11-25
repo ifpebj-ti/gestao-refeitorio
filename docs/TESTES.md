@@ -32,19 +32,19 @@ DTOs, entidades, exceptions e controllers **continuam medidos**.
 
 ## Cobertura atual
 
-Medição de **25/11/2026**, após a #474 (526 testes, 0 falhas):
+Medição de **25/11/2026**, após a #491 (529 testes, 0 falhas):
 
 | Pacote | Linhas cobertas | Cobertura |
 |---|---|---|
 | controller | 79 / 83 | 95,2% |
 | service | 1010 / 1049 | 96,3% |
-| security | 150 / 162 | 92,6% |
+| security | 151 / 163 | 92,6% |
 | exception | 97 / 106 | 91,5% |
 | job | 31 / 35 | 88,6% |
 | dto | 45 / 46 | 97,8% |
 | repository | 56 / 56 | 100% |
 | model e model.enums | 28 / 28 | 100% |
-| **Total** | **1496 / 1565** | **95,6%** |
+| **Total** | **1497 / 1566** | **95,6%** |
 
 Evolução:
 
@@ -61,6 +61,7 @@ Evolução:
 | Após o bloqueio do auto-rebaixamento de ADMIN e a reativação de usuário (#471) | 95,4% |
 | Após a trava de saldo nas saídas simultâneas (#475), com o teste de concorrência | 95,4% |
 | Após a restrição do histórico e das fotos por perfil e posse (#474) | 95,6% |
+| Após a padronização das respostas 401 e 403 em JSON UTF-8 (#491) | 95,6% |
 
 Na #361, o fluxo de alertas de estoque baixo e de validade (`AlertaEstoqueBaixoJob`, `AlertaValidadeJob` e `NotificacaoEmailServiceImpl`), que não tinha teste nenhum, passou a ter 100% de cobertura de linhas.
 
