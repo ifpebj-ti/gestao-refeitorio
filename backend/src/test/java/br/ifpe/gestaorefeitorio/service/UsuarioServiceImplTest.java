@@ -85,6 +85,18 @@ class UsuarioServiceImplTest {
     }
 
     @Test
+    void deveNormalizarEmailAntesDeVerificarDuplicidadeESalvar() {
+        UsuarioRequestDTO request = new UsuarioRequestDTO("Ana", "Ana.Cozinha@IFPE.edu.br", Perfil.COZINHA);
+        when(usuarioRepository.existsByEmail("ana.cozinha@ifpe.edu.br")).thenReturn(false);
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(chamada -> chamada.getArgument(0));
+
+        UsuarioResponseDTO resposta = usuarioService.cadastrar(request);
+
+        assertThat(resposta.email()).isEqualTo("ana.cozinha@ifpe.edu.br");
+        verify(usuarioRepository).existsByEmail("ana.cozinha@ifpe.edu.br");
+    }
+
+    @Test
     void deveLancarEmailJaCadastradoQuandoEmailDuplicado() {
         UsuarioRequestDTO request = new UsuarioRequestDTO("Outro", "duplicado@ifpe.edu.br", Perfil.NUTRICIONISTA);
         when(usuarioRepository.existsByEmail("duplicado@ifpe.edu.br")).thenReturn(true);

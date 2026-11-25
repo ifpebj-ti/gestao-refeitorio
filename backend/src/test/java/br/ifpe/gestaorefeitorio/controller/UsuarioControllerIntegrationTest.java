@@ -26,6 +26,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -101,6 +102,76 @@ class UsuarioControllerIntegrationTest {
                                 {"nome":"Outro","email":"duplicado@ifpe.edu.br","perfil":"NUTRICIONISTA"}
                                 """))
                 .andExpect(status().isConflict());
+    }
+
+    // E-mail normalizado no cadastro e nos logins (#468).
+    @Test
+    void deveGravarEmailEmMinusculasAoCadastrar() throws Exception {
+        mockMvc.perform(post("/api/usuarios")
+                        .header("Authorization", "Bearer " + tokenAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"nome":"Bia Maiúscula","email":"Bia.Maiuscula@IFPE.edu.br","perfil":"COZINHA"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value("bia.maiuscula@ifpe.edu.br"));
+
+        assertThat(usuarioRepository.findByEmail("bia.maiuscula@ifpe.edu.br")).isPresent();
+    }
+
+    @Test
+    void deveRetornar409AoCadastrarMesmoEmailEmOutraCombinacaoDeMaiusculas() throws Exception {
+        criarUsuario("repetido@ifpe.edu.br", Perfil.COZINHA, true);
+
+        mockMvc.perform(post("/api/usuarios")
+                        .header("Authorization", "Bearer " + tokenAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"nome":"Outro","email":"REPETIDO@IFPE.edu.br","perfil":"NUTRICIONISTA"}
+                                """))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void usuarioCadastradoComMaiusculasDeveEntrarPeloLoginLocalEPeloGoogle() throws Exception {
+        String tokenAdmin = tokenAdmin();
+        String resposta = mockMvc.perform(post("/api/usuarios")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"nome":"Carla","email":"Carla.Local@IFPE.edu.br","perfil":"COZINHA"}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String id = com.jayway.jsonpath.JsonPath.read(resposta, "$.id");
+
+        mockMvc.perform(put("/api/usuarios/" + id + "/senha")
+                        .header("Authorization", "Bearer " + tokenAdmin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"senha":"senha-da-carla-123"}
+                                """))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/auth/local")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"CARLA.local@ifpe.edu.br","senha":"senha-da-carla-123"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("carla.local@ifpe.edu.br"));
+
+        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
+        payload.setEmail("Carla.Local@IFPE.edu.br");
+        when(googleTokenValidator.validar("token-google-carla")).thenReturn(payload);
+
+        mockMvc.perform(post("/api/auth/google")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"idToken":"token-google-carla"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("carla.local@ifpe.edu.br"));
     }
 
     @Test
