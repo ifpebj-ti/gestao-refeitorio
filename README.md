@@ -99,8 +99,9 @@ A autorização é validada sempre no backend, com `@PreAuthorize` em cada endpo
 | `POST /api/produtos`, `PATCH /api/produtos/{id}/unidade-medida`, `.../quantidade-minima`, `.../valor-referencia`, `.../controle-validade`, `DELETE /api/produtos/{id}` | `NUTRICIONISTA` |
 | `GET /api/locais-armazenamento` | qualquer perfil autenticado |
 | `POST /api/movimentacoes/entrada` | `NUTRICIONISTA` |
-| `POST /api/movimentacoes/saida`, `POST /api/movimentacoes/{id}/foto` | `NUTRICIONISTA`, `COZINHA` |
-| `GET /api/movimentacoes`, `GET /api/movimentacoes/{id}/foto` | qualquer perfil autenticado |
+| `POST /api/movimentacoes/saida` | `NUTRICIONISTA`, `COZINHA` |
+| `GET /api/movimentacoes` (histórico completo) | `NUTRICIONISTA`, `COZINHA` |
+| `POST /api/movimentacoes/{id}/foto`, `GET /api/movimentacoes/{id}/foto` | `NUTRICIONISTA` (qualquer movimentação), `COZINHA` (só as que ela registrou; nas demais, 404) |
 | `POST /api/producoes-internas` | `NUTRICIONISTA`, `COZINHA` |
 | `POST /api/cardapios` | `NUTRICIONISTA` |
 | `GET /api/cardapios`, `GET /api/cardapios/{id}`, `GET /api/cardapios/projecao-consumo` | qualquer perfil autenticado |
