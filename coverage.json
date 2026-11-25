@@ -1,12 +1,12 @@
 {
   "lines": {
-    "covered": 2744,
-    "total": 2995,
-    "percentage": 91.6
+    "covered": 2760,
+    "total": 3011,
+    "percentage": 91.7
   },
   "branches": {
-    "covered": 1315,
-    "total": 1684,
-    "percentage": 78.1
+    "covered": 1321,
+    "total": 1690,
+    "percentage": 78.2
   }
 }
