@@ -479,6 +479,8 @@ As principais regras de integridade são:
 
 Validações adicionais, como saldo suficiente, valores positivos, autorização por perfil, coerência da data de validade, vínculo de notas só a entradas e bloqueio de notas para remetentes inativos, são realizadas pela camada de serviço da aplicação.
 
+O saldo não é uma coluna: é sempre a soma das entradas menos as saídas do produto naquele local. Para que duas saídas simultâneas não enxerguem o mesmo saldo e o deixem negativo, o registro de saída trava a linha do produto em `produtos` (`SELECT ... FOR UPDATE`) antes de calcular o saldo. A trava vale até o fim da transação, então a segunda saída só calcula o saldo depois que a primeira foi gravada.
+
 ## 8. Evolução do banco de dados
 
 O Flyway executa as migrations em ordem crescente. As migrations existentes vão de `V1` a `V29`.

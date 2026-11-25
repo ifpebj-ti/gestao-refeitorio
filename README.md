@@ -117,7 +117,7 @@ A autorização é validada sempre no backend, com `@PreAuthorize` em cada endpo
 - Cadastro de produtos com categoria, unidade de medida, valor de referência, quantidade mínima e controle de validade.
 - Entradas, conferidas pela nutricionista, com origem (externa, agroindústria ou interna), lote, validade e foto opcional.
 - Saídas por consumo, perda, descarte ou outro motivo.
-- Saldo calculado por produto **e** por local de armazenamento, sem permitir saldo negativo.
+- Saldo calculado por produto **e** por local de armazenamento, sem permitir saldo negativo, nem com duas saídas registradas ao mesmo tempo.
 - Produção interna, com setor de origem e responsável.
 - Alertas de estoque baixo e de validade próxima, por job diário e, opcionalmente, por e-mail.
 - Cardápio com projeção de consumo (quantidade por pessoa × pessoas estimadas) e tela para TV.
