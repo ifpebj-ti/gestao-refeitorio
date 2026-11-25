@@ -20,10 +20,9 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -112,8 +111,9 @@ class AuthControllerIntegrationTest {
                                 {"idToken":"token-valido"}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Set-Cookie", containsString("HttpOnly")))
-                .andExpect(header().string("Set-Cookie", not(containsString("Secure"))));
+                .andExpect(cookie().httpOnly("token", true))
+                .andExpect(cookie().secure("token", false))
+                .andExpect(cookie().secure("XSRF-TOKEN", false));
     }
 
     @Test
