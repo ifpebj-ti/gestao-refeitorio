@@ -17,9 +17,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -46,11 +49,16 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        CookieCsrfTokenRepository repositorioCsrf = repositorioCsrf();
         http
                 // O JWT também chega pelo cookie "token" (#226), então requisições autenticadas só por ele
                 // precisam de token CSRF (#342). Login e logout não dependem de sessão já autenticada.
                 .csrf(csrf -> csrf
-                        .csrfTokenRepository(repositorioCsrf())
+                        .csrfTokenRepository(repositorioCsrf)
+                        .csrfTokenRequestHandler(handlerCsrfSpa())
+                        // Sem sessão, o Spring trata cada requisição com JWT como um login novo e apagaria o
+                        // XSRF-TOKEN a cada chamada. A troca do token acontece só no login, no CsrfCookieFilter.
+                        .sessionAuthenticationStrategy(new NullAuthenticatedSessionStrategy())
                         .requireCsrfProtectionMatcher(SecurityConfig::exigeProtecaoCsrf)
                         .ignoringRequestMatchers("/api/auth/google", "/api/auth/local", "/api/auth/logout"))
                 .cors(Customizer.withDefaults()) // usa o bean corsConfigurationSource abaixo
@@ -71,7 +79,9 @@ public class SecurityConfig {
                     }
                     matcherRegistry.anyRequest().authenticated();
                 })
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                // Depois do JwtAuthFilter, para o /me só emitir o XSRF-TOKEN a quem já está autenticado.
+                .addFilterBefore(new CsrfCookieFilter(repositorioCsrf), AuthorizationFilter.class);
 
         return http.build();
     }
@@ -96,11 +106,18 @@ public class SecurityConfig {
                 && JwtAuthFilter.possuiCookieDeAutenticacao(request);
     }
 
-    // Token CSRF em cookie, e não em sessão: a API é stateless.
+    // Token CSRF em cookie, e não em sessão: a API é stateless. Sem HttpOnly (#488) porque o front precisa
+    // ler o XSRF-TOKEN para devolvê-lo no cabeçalho X-XSRF-TOKEN; o JWT continua só no cookie HttpOnly "token".
     private CookieCsrfTokenRepository repositorioCsrf() {
-        CookieCsrfTokenRepository repositorio = new CookieCsrfTokenRepository();
-        repositorio.setCookieCustomizer(cookie -> cookie.secure(cookieSeguro).sameSite("Lax"));
+        CookieCsrfTokenRepository repositorio = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repositorio.setCookieCustomizer(cookie -> cookie.secure(cookieSeguro).sameSite("Lax").path("/"));
         return repositorio;
+    }
+
+    // Compara o cabeçalho com o valor cru do cookie, que é o que o front lê. O handler padrão (XOR) espera
+    // o token mascarado, que só existe quando o servidor o escreve numa página; aqui o front é outra aplicação.
+    private static CsrfTokenRequestAttributeHandler handlerCsrfSpa() {
+        return new CsrfTokenRequestAttributeHandler();
     }
 
     @Bean
