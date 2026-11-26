@@ -87,6 +87,7 @@ function ConsumidorAuthTeste() {
 
 describe("Tela de Login e Contexto de Autenticação (AuthContext + LoginPage)", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
     localStorage.clear();
     sessionStorage.clear();
@@ -262,9 +263,9 @@ describe("Tela de Login e Contexto de Autenticação (AuthContext + LoginPage)",
 
     await waitFor(() => {
       expect(screen.getByTestId("auth-status")).toHaveTextContent("LOGADO");
+      expect(screen.getByTestId("auth-perfil")).toHaveTextContent("NUTRICIONISTA");
+      expect(screen.getByTestId("auth-email")).toHaveTextContent("nutri@ifpe.edu.br");
     });
-    expect(screen.getByTestId("auth-perfil")).toHaveTextContent("NUTRICIONISTA");
-    expect(screen.getByTestId("auth-email")).toHaveTextContent("nutri@ifpe.edu.br");
 
     fireEvent.click(screen.getByText("ToggleMobile"));
     fireEvent.click(screen.getByText("FecharMobile"));
@@ -311,9 +312,9 @@ describe("Tela de Login e Contexto de Autenticação (AuthContext + LoginPage)",
 
     await waitFor(() => {
       expect(screen.getByTestId("auth-status")).toHaveTextContent("LOGADO");
+      expect(screen.getByTestId("auth-perfil")).toHaveTextContent("NUTRICIONISTA");
+      expect(screen.getByTestId("auth-email")).toHaveTextContent("nutri@ifpe.edu.br");
     });
-    expect(screen.getByTestId("auth-perfil")).toHaveTextContent("NUTRICIONISTA");
-    expect(screen.getByTestId("auth-email")).toHaveTextContent("nutri@ifpe.edu.br");
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/auth/me"),
       expect.objectContaining({ credentials: "include" })
