@@ -34,6 +34,8 @@ interface AuthContextType {
 import {
   getToken,
   salvarSessaoToken,
+  atualizarCookieIndicadorSessao,
+  AUTH_SESSION_COOKIE,
   STORAGE_USER_KEY,
   STORAGE_PERFIL_KEY,
   EVENTO_SESSAO_EXPIRADA,
@@ -137,43 +139,103 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [autenticado]);
 
-  // Carrega dados de sessão na inicialização garantindo que o token Bearer esteja presente em memória/janela
+  // Carrega dados de sessão na inicialização e restaura via GET /api/auth/me com cookie HttpOnly ao reabrir aba (#489)
   useEffect(() => {
-    try {
-      const tokenSalvo = getToken();
-      const userSalvo = localStorage.getItem(STORAGE_USER_KEY);
-      const perfilSalvo = localStorage.getItem(STORAGE_PERFIL_KEY) as PerfilUsuario | null;
+    let ativo = true;
 
-      if (tokenSalvo && userSalvo) {
-        if (isTokenExpirado(tokenSalvo)) {
-          limparSessaoLocal();
+    async function inicializarSessao() {
+      try {
+        const tokenSalvo = getToken();
+        const userSalvo = localStorage.getItem(STORAGE_USER_KEY);
+        const perfilSalvo = localStorage.getItem(STORAGE_PERFIL_KEY) as PerfilUsuario | null;
+
+        if (tokenSalvo && userSalvo) {
+          if (isTokenExpirado(tokenSalvo)) {
+            limparSessaoLocal();
+            if (ativo) {
+              setToken(null);
+              setUsuario(null);
+              setAutenticado(false);
+            }
+          } else {
+            const dadosUser: UsuarioAuth = JSON.parse(userSalvo);
+            if (ativo) {
+              setToken(tokenSalvo);
+              setUsuario(dadosUser);
+              setPerfil(perfilSalvo || dadosUser.perfil);
+              setAutenticado(true);
+            }
+          }
+          return;
+        }
+
+        const temCookieSessao =
+          typeof document !== "undefined" &&
+          document.cookie.includes(`${AUTH_SESSION_COOKIE}=1`);
+        const currentPath =
+          typeof window !== "undefined" ? window.location.pathname : pathname;
+        const emRotaProtegida =
+          currentPath !== "/" &&
+          currentPath !== "/login" &&
+          !currentPath.startsWith("/tv");
+
+        if (userSalvo || temCookieSessao || emRotaProtegida) {
+          const baseUrl =
+            process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+          const res = await fetch(`${baseUrl}/auth/me`, {
+            credentials: "include",
+            cache: "no-store",
+          });
+
+          if (res.ok) {
+            const dadosMe: UsuarioAuth = await res.json();
+            if (dadosMe?.email && dadosMe?.perfil) {
+              const dadosUsuario: UsuarioAuth = {
+                nome: dadosMe.nome,
+                email: dadosMe.email,
+                perfil: dadosMe.perfil,
+              };
+              localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(dadosUsuario));
+              localStorage.setItem(STORAGE_PERFIL_KEY, dadosMe.perfil);
+              atualizarCookieIndicadorSessao(true);
+
+              if (ativo) {
+                setToken(null);
+                setUsuario(dadosUsuario);
+                setPerfil(dadosMe.perfil);
+                setAutenticado(true);
+              }
+              return;
+            }
+          }
+        }
+
+        limparSessaoLocal();
+        if (ativo) {
           setToken(null);
           setUsuario(null);
           setAutenticado(false);
-        } else {
-          const dadosUser: UsuarioAuth = JSON.parse(userSalvo);
-          setToken(tokenSalvo);
-          setUsuario(dadosUser);
-          setPerfil(perfilSalvo || dadosUser.perfil);
-          setAutenticado(true);
         }
-      } else {
-        if (userSalvo && !tokenSalvo) {
-          limparSessaoLocal();
+      } catch (e) {
+        console.error("Erro ao ler/restaurar sessão:", e);
+        limparSessaoLocal();
+        if (ativo) {
+          setToken(null);
+          setUsuario(null);
+          setAutenticado(false);
         }
-        setToken(null);
-        setUsuario(null);
-        setAutenticado(false);
+      } finally {
+        if (ativo) {
+          setCarregando(false);
+        }
       }
-    } catch (e) {
-      console.error("Erro ao ler sessão local:", e);
-      limparSessaoLocal();
-      setToken(null);
-      setUsuario(null);
-      setAutenticado(false);
-    } finally {
-      setCarregando(false);
     }
+
+    inicializarSessao();
+    return () => {
+      ativo = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Monitora expiração de sessão em tempo real (mudança de aba, foco, eventos e intervalo)
