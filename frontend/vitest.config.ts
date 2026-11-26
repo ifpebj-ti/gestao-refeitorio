@@ -12,6 +12,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    testTimeout: 15000,
     setupFiles: ["./vitest.setup.ts"],
     include: ["__tests__/**/*.test.{ts,tsx}", "**/*.test.{ts,tsx}"],
     exclude: ["node_modules", ".next", "coverage"],
@@ -22,12 +23,7 @@ export default defineConfig({
       include: [
         "middleware.ts",
         "lib/**/*.ts",
-        "app/utils/**/*.ts",
-        "app/components/**/*.tsx",
-        "app/context/**/*.tsx",
-        "app/page.tsx",
-        "app/**/usuarios/page.tsx",
-        "app/**/notas/page.tsx",
+        "app/**/*.{ts,tsx}",
       ],
       exclude: [
         "**/*.d.ts",
