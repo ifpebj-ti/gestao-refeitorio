@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.21.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.20.0...gestao-refeitorio-v0.21.0) (2026-11-26)
+
+
+### Features
+
+* **auth:** restaura sessao via /api/auth/me, remove window.name e adiciona POST no login ([#489](https://github.com/ifpebj-ti/gestao-refeitorio/issues/489), [#503](https://github.com/ifpebj-ti/gestao-refeitorio/issues/503)) ([0c3b817](https://github.com/ifpebj-ti/gestao-refeitorio/commit/0c3b8179a1a804c71da956a8ce9b40fe8c4fb1a0))
+* **auth:** restaura sessao via /api/auth/me, remove window.name e adiciona POST no login ([#489](https://github.com/ifpebj-ti/gestao-refeitorio/issues/489), [#503](https://github.com/ifpebj-ti/gestao-refeitorio/issues/503)) ([5492fb8](https://github.com/ifpebj-ti/gestao-refeitorio/commit/5492fb867b55c3d40d40392f312112ee0934a07e))
+* bloqueia auto-rebaixamento de ADMIN e adiciona reativação de usuário [#471](https://github.com/ifpebj-ti/gestao-refeitorio/issues/471) ([a2a1f29](https://github.com/ifpebj-ti/gestao-refeitorio/commit/a2a1f296752577a4e776e49274d0b7b529d2c4d2))
+* emite cookie XSRF-TOKEN legível pelo front e grava cookie de sessão no login local [#488](https://github.com/ifpebj-ti/gestao-refeitorio/issues/488) ([590cbf7](https://github.com/ifpebj-ti/gestao-refeitorio/commit/590cbf7569f3d422933d7bed57c7ef284b8785c2))
+* **front:** substitui UUIDs fixos de locais de armazenamento por consulta a API ([#421](https://github.com/ifpebj-ti/gestao-refeitorio/issues/421)) ([d97974b](https://github.com/ifpebj-ti/gestao-refeitorio/commit/d97974b8ed9ca6ac86d38ed1d3a28cbaa8ace0fa))
+* **front:** substitui UUIDs fixos de locais de armazenamento por consulta à API ([#421](https://github.com/ifpebj-ti/gestao-refeitorio/issues/421)) ([2e38518](https://github.com/ifpebj-ti/gestao-refeitorio/commit/2e38518d37ac960702f9c5fe76353a12ba8c0b5f))
+* restaura locais de armazenamento padrão e adiciona endpoint de listagem [#473](https://github.com/ifpebj-ti/gestao-refeitorio/issues/473) ([a7a28a9](https://github.com/ifpebj-ti/gestao-refeitorio/commit/a7a28a9919e6c0b735f04a38c06d689654f87650))
+
+
+### Bug Fixes
+
+* normaliza e-mails de usuários e garante unicidade sem diferenciar maiúsculas ([11b4155](https://github.com/ifpebj-ti/gestao-refeitorio/commit/11b41557e42e31a90756829dc0375b43a241418f))
+* normaliza e-mails de usuários e garante unicidade sem diferenciar maiúsculas [#468](https://github.com/ifpebj-ti/gestao-refeitorio/issues/468) ([3af554d](https://github.com/ifpebj-ti/gestao-refeitorio/commit/3af554d90aa33e37d03dac85b161100d8d7032b0))
+* padroniza respostas 401 e 403 em JSON com charset UTF-8 ([8157b68](https://github.com/ifpebj-ti/gestao-refeitorio/commit/8157b68d4dd535ba3b361210904f3978ba5a82dc))
+* padroniza respostas 401 e 403 em JSON com charset UTF-8 [#491](https://github.com/ifpebj-ti/gestao-refeitorio/issues/491) ([9d9cfd0](https://github.com/ifpebj-ti/gestao-refeitorio/commit/9d9cfd0e9a27f7e20c5140b1ef7f539f13b6197d))
+* restringe histórico e fotos de movimentações por perfil e posse do recurso ([8e16186](https://github.com/ifpebj-ti/gestao-refeitorio/commit/8e16186cd0cba858c1f413cb0764830aa46bca47))
+* restringe histórico e fotos de movimentações por perfil e posse do recurso [#474](https://github.com/ifpebj-ti/gestao-refeitorio/issues/474) ([0225f03](https://github.com/ifpebj-ti/gestao-refeitorio/commit/0225f03a7017e061c470d7cac5378a23a7042475))
+* trava o produto ao registrar saída para impedir saldo negativo com saídas simultâneas [#475](https://github.com/ifpebj-ti/gestao-refeitorio/issues/475) ([7157948](https://github.com/ifpebj-ti/gestao-refeitorio/commit/71579489de5842f829badcaf11c4e97f8d00bf73))
+
 ## [0.20.0](https://github.com/ifpebj-ti/gestao-refeitorio/compare/gestao-refeitorio-v0.19.0...gestao-refeitorio-v0.20.0) (2026-11-24)
 
 
