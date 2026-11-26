@@ -22,6 +22,11 @@ import {
 } from "lucide-react";
 import { produtoService, Produto } from "@/lib/produtos";
 import { registrarSaidaApi, listarHistoricoApi, MovimentacaoResponse } from "@/lib/movimentacoes";
+import {
+  listarLocaisArmazenamento,
+  resolverLocalIdPorCategoria,
+  LocalArmazenamentoDTO,
+} from "@/lib/locais";
 
 interface ItemFicha {
   id: string;
@@ -235,9 +240,6 @@ interface ConsumoRefeicaoVisualizacao {
   };
 }
 
-
-const LOCAL_CONGELADOS = "e10aa4e1-9b74-4791-8b01-1a8efd93af8c";
-const LOCAL_DESPENSA = "eddeb319-7af8-4d68-bd88-8a739c968c74";
 
 const obterHojeLocalIso = (): string => {
   const agora = new Date();
@@ -627,6 +629,7 @@ export default function ConsumoDiarioPage() {
   };
 
   const [catalogoBase, setCatalogoBase] = useState<Produto[]>([]);
+  const [locaisArmazenamento, setLocaisArmazenamento] = useState<LocalArmazenamentoDTO[]>([]);
   const [itens, setItens] = useState<ItemFicha[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -660,11 +663,15 @@ export default function ConsumoDiarioPage() {
         }
       } catch {}
 
-      const [catalogo, historico] = await Promise.all([
+      const [catalogo, historico, locais] = await Promise.all([
         produtoService.listar(),
         listarHistoricoApi().catch(() => [] as MovimentacaoResponse[]),
+        listarLocaisArmazenamento().catch(() => [] as LocalArmazenamentoDTO[]),
       ]);
       setCatalogoBase(catalogo);
+      if (locais.length > 0) {
+        setLocaisArmazenamento(locais);
+      }
 
       const mapaVal: Record<string, InfoValidadeFEFO> = {};
       catalogo.forEach((prod) => {
@@ -1075,16 +1082,16 @@ export default function ConsumoDiarioPage() {
     try {
       setSalvando(true);
 
-      for (const item of itensParaBaixa) {
-        const cat = item.categoria.toLowerCase();
-        const ehRefrigerado =
-          cat.includes("proteína") ||
-          cat.includes("proteina") ||
-          cat.includes("frio") ||
-          cat.includes("laticínio") ||
-          cat.includes("laticinio");
+      const locaisAtuais =
+        locaisArmazenamento.length > 0
+          ? locaisArmazenamento
+          : await listarLocaisArmazenamento();
+      if (locaisArmazenamento.length === 0) {
+        setLocaisArmazenamento(locaisAtuais);
+      }
 
-        const localId = ehRefrigerado ? LOCAL_CONGELADOS : LOCAL_DESPENSA;
+      for (const item of itensParaBaixa) {
+        const localId = resolverLocalIdPorCategoria(locaisAtuais, item.categoria);
 
         await registrarSaidaApi({
           produtoId: item.id,

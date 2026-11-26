@@ -30,6 +30,11 @@ import { verificarStatusEstoque, CategoriaAlimento } from "@/app/utils/estoqueRu
 import { produtoService, ProdutoResponse } from "@/lib/produtos";
 import { registrarEntradaApi, listarHistoricoApi } from "@/lib/movimentacoes";
 import {
+  listarLocaisArmazenamento,
+  resolverLocalIdPorCategoria,
+  LocalArmazenamentoDTO,
+} from "@/lib/locais";
+import {
   UNIDADES_MEDIDA_SUGERIDAS,
   normalizarUnidadeMedida,
   obterUnidadesDisponiveis,
@@ -86,6 +91,7 @@ export default function EstoqueGeralPage() {
 
   // Dados do backend
   const [listaEstoque, setListaEstoque] = useState<ProdutoResponse[]>([]);
+  const [locaisArmazenamento, setLocaisArmazenamento] = useState<LocalArmazenamentoDTO[]>([]);
   const [carregandoProdutos, setCarregandoProdutos] = useState<boolean>(true);
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
 
@@ -246,9 +252,14 @@ export default function EstoqueGeralPage() {
             novoInsumoUnidadeEntrada || unidadeFinal,
             unidadeFinal
           );
-          const LOCAL_CONGELADOS = "e10aa4e1-9b74-4791-8b01-1a8efd93af8c";
-          const LOCAL_DESPENSA = "eddeb319-7af8-4d68-bd88-8a739c968c74";
-          const localId = novoInsumoCategoria === "Proteínas & Frios" ? LOCAL_CONGELADOS : LOCAL_DESPENSA;
+          const locaisAtuais =
+            locaisArmazenamento.length > 0
+              ? locaisArmazenamento
+              : await listarLocaisArmazenamento();
+          if (locaisArmazenamento.length === 0) {
+            setLocaisArmazenamento(locaisAtuais);
+          }
+          const localId = resolverLocalIdPorCategoria(locaisAtuais, novoInsumoCategoria);
           const hojeIso = new Date().toISOString().split("T")[0];
           const valorUnitarioParaEntrada = valorNumerico && valorNumerico > 0 ? valorNumerico : 1.0;
           const valorTotalEntrada = Number((qtdConvertida * valorUnitarioParaEntrada).toFixed(2)) || 0.01;
@@ -453,6 +464,9 @@ export default function EstoqueGeralPage() {
   useEffect(() => {
     if (autenticado) {
       carregarProdutos();
+      listarLocaisArmazenamento()
+        .then(setLocaisArmazenamento)
+        .catch(() => {});
     }
   }, [autenticado, carregarProdutos]);
 
@@ -681,12 +695,17 @@ export default function EstoqueGeralPage() {
       return;
     }
 
-    const LOCAL_CONGELADOS = "e10aa4e1-9b74-4791-8b01-1a8efd93af8c";
-    const LOCAL_DESPENSA = "eddeb319-7af8-4d68-bd88-8a739c968c74";
-    const localId =
-      insumoEntradaSelecionado.categoria === "Proteínas & Frios"
-        ? LOCAL_CONGELADOS
-        : LOCAL_DESPENSA;
+    const locaisAtuais =
+      locaisArmazenamento.length > 0
+        ? locaisArmazenamento
+        : await listarLocaisArmazenamento();
+    if (locaisArmazenamento.length === 0) {
+      setLocaisArmazenamento(locaisAtuais);
+    }
+    const localId = resolverLocalIdPorCategoria(
+      locaisAtuais,
+      insumoEntradaSelecionado.categoria
+    );
 
     const fLower = fornecedorFinal.toLowerCase();
     let origemFinal: "EXTERNA" | "AGROINDUSTRIA" | "AGROPECUARIA" | "INTERNA" = "EXTERNA";
