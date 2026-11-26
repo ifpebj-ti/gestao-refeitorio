@@ -50,6 +50,10 @@ import {
   validarPeriodoRelatorio,
 } from "@/lib/relatorios";
 import { produtoService, validarDadosProduto } from "@/lib/produtos";
+import {
+  listarLocaisArmazenamento,
+  resolverLocalIdPorCategoria,
+} from "@/lib/locais";
 import { validarCardapioSemanal } from "@/app/cardapio/page";
 import { api } from "@/lib/api";
 import nextConfig from "../next.config.js";
@@ -560,5 +564,40 @@ describe("Serviços de API (usuarios, movimentacoes, relatorios, produtos, api)"
     gradeValida.Segunda.almoco.quantidadePessoas = "350";
     gradeValida.Segunda.almoco.texto = "Salada: Alface + Tomate\n- Arroz (25 kg)\n- Feijão (15 kg)";
     expect(validarCardapioSemanal(gradeValida)).toEqual({ valido: true });
+  });
+
+  it("consulta locais de armazenamento via API e resolve ID por categoria sem UUIDs fixos (#421)", async () => {
+    const locaisMock = [
+      { id: "loc-despensa", nome: "Despensa" },
+      { id: "loc-congelados", nome: "Congelados/Refrigerados" },
+    ];
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(locaisMock), { status: 200 })
+    );
+
+    const locais = await listarLocaisArmazenamento();
+    expect(locais).toEqual(locaisMock);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/locais-armazenamento"),
+      expect.objectContaining({ credentials: "include" })
+    );
+
+    expect(resolverLocalIdPorCategoria(locais, "Proteínas & Frios")).toBe(
+      "loc-congelados"
+    );
+    expect(resolverLocalIdPorCategoria(locais, "Laticínios")).toBe(
+      "loc-congelados"
+    );
+    expect(resolverLocalIdPorCategoria(locais, "Grãos & Cereais")).toBe(
+      "loc-despensa"
+    );
+    expect(() => resolverLocalIdPorCategoria([], "Grãos & Cereais")).toThrow(
+      "Nenhum local de armazenamento cadastrado no sistema"
+    );
+
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ mensagem: "Falha ao listar" }), { status: 500 })
+    );
+    await expect(listarLocaisArmazenamento()).rejects.toThrow("Falha ao listar");
   });
 });
