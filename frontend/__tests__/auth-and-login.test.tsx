@@ -105,6 +105,9 @@ describe("Tela de Login e Contexto de Autenticação (AuthContext + LoginPage)",
     fireEvent.click(screen.getByText("Entrar com usuário e senha"));
     expect(screen.getByText("Informe seu usuário e senha")).toBeInTheDocument();
 
+    const formLogin = screen.getByRole("button", { name: "Entrar" }).closest("form");
+    expect(formLogin).toHaveAttribute("method", "post");
+
     const inputUsuario = screen.getByLabelText("Usuário") as HTMLInputElement;
     const inputSenha = screen.getByLabelText("Senha") as HTMLInputElement;
 
@@ -271,6 +274,74 @@ describe("Tela de Login e Contexto de Autenticação (AuthContext + LoginPage)",
     await waitFor(() => {
       expect(screen.getByTestId("auth-status")).toHaveTextContent("DESLOGADO");
     });
+  });
+
+  it("restaura sessão via GET /api/auth/me ao reabrir aba sem JWT em memória (cookie HttpOnly — #489)", async () => {
+    localStorage.setItem(
+      STORAGE_USER_KEY,
+      JSON.stringify({
+        nome: "Nutri IFPE",
+        email: "nutri@ifpe.edu.br",
+        perfil: "NUTRICIONISTA",
+      })
+    );
+
+    const fetchMock = vi.spyOn(global, "fetch").mockImplementation((input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.includes("/auth/me")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              nome: "Nutri IFPE",
+              email: "nutri@ifpe.edu.br",
+              perfil: "NUTRICIONISTA",
+            }),
+            { status: 200 }
+          )
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    });
+
+    render(
+      <AuthProvider>
+        <ConsumidorAuthTeste />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-status")).toHaveTextContent("LOGADO");
+    });
+    expect(screen.getByTestId("auth-perfil")).toHaveTextContent("NUTRICIONISTA");
+    expect(screen.getByTestId("auth-email")).toHaveTextContent("nutri@ifpe.edu.br");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/auth/me"),
+      expect.objectContaining({ credentials: "include" })
+    );
+  });
+
+  it("limpa sessão local se GET /api/auth/me retornar 401 ao reabrir aba (#489)", async () => {
+    localStorage.setItem(
+      STORAGE_USER_KEY,
+      JSON.stringify({
+        nome: "Nutri IFPE",
+        email: "nutri@ifpe.edu.br",
+        perfil: "NUTRICIONISTA",
+      })
+    );
+
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(new Response(null, { status: 401 }));
+
+    render(
+      <AuthProvider>
+        <ConsumidorAuthTeste />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("auth-status")).toHaveTextContent("DESLOGADO");
+    });
+    expect(localStorage.getItem(STORAGE_USER_KEY)).toBeNull();
   });
 });
 

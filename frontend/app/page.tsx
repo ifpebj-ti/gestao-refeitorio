@@ -294,6 +294,7 @@ export default function LoginPage() {
               <div className="overflow-hidden">
                 <div className="space-y-5 pt-1">
                   <form
+                    method="post"
                     onSubmit={handleLoginCredenciais}
                     autoComplete="off"
                     className="space-y-4 px-0.5"

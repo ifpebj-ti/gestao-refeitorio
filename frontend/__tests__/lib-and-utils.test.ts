@@ -169,6 +169,7 @@ describe("Sessão e JWT (authSession)", () => {
 
     expect(localStorage.getItem(STORAGE_TOKEN_KEY)).toBeNull();
     expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBeNull();
+    expect(window.name).toBe("");
     expect(getToken()).toBe(tokenValido);
     expect(possuiSessaoAtiva()).toBe(true);
 
